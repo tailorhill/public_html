@@ -45,10 +45,12 @@ function drawEmoji(ctx, glyph, cx, cy, s, color) {
   ctx.save();
   ctx.font = `600 ${Math.round(s * 1.18)}px ${EMOJI_FONT}, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = color;
-  // Noto Emoji-glyferna ligger något högt i sin em-ruta
-  ctx.fillText(glyph, cx, cy + s * 0.06);
+  // centrera glyfen exakt via dess faktiska bounding box
+  const m = ctx.measureText(glyph);
+  const yOff = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  ctx.fillText(glyph, cx, cy + yOff);
   ctx.restore();
 }
 

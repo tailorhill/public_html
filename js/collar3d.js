@@ -593,6 +593,15 @@ export class CollarViewer {
       }
     };
 
+    // symbolen centreras mot textens visuella mitt (inte bandets mitt)
+    let symCy = cyMid;
+    if (texts.length && layout !== 'rader') {
+      sctx.font = fontStr(texts[0].font, sizes[0]);
+      sctx.textBaseline = 'middle';
+      const m = sctx.measureText(disp(texts[0]));
+      symCy = cyMid + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2;
+    }
+
     const drawAll = (colorOverride, targetOverride) => {
       let x = W / 2 - total / 2;
       for (const [k] of items) {
@@ -601,7 +610,7 @@ export class CollarViewer {
           x += bw + gap;
         } else {
           const symCol = colorOverride || cfg.symbolColor || (texts[0] ? texts[0].color : { hex: '#111' });
-          drawSymbol(targetOverride || ctx, cfg.symbol, x + symW / 2, cyMid, symSize, symCol.hex);
+          drawSymbol(targetOverride || ctx, cfg.symbol, x + symW / 2, symCy, symSize, symCol.hex);
           x += symW + gap;
         }
       }
