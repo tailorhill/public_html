@@ -1,7 +1,8 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS, DUBBEL_POSITIONS, allLinings,
+  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS, DUBBEL_POSITIONS, TEXT_SIZES,
+  allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
 
@@ -26,8 +27,8 @@ const state = {
   fullGlitter: false,
   glitterColor: 'guldglitter',
   texts: [
-    { text: 'LUNA', font: 'built', color: 'vit' },
-    { text: '', font: 'magnolia', color: 'guldglitter' },
+    { text: 'LUNA', font: 'built', color: 'vit', size: 'mellan' },
+    { text: '', font: 'magnolia', color: 'guldglitter', size: 'mellan' },
   ],
   text2: false,
   textLayout: 'rad',           // 'rad' | 'rader' | 'dubbel'
@@ -155,6 +156,7 @@ function rebuild3D() {
         text: t.text,
         font: byId(FONTS, t.font),
         color: byId(TEXT_COLORS, t.color),
+        sizeK: byId(TEXT_SIZES, t.size).k,
       })),
       textLayout: state.textLayout,
       dubbelPos: state.dubbelPos,
@@ -341,6 +343,8 @@ function refresh() {
   };
   buildFontGrid($('#fontGrid'), 0);
   $('#capsNote').style.display = byId(FONTS, state.texts[0].font).caps ? '' : 'none';
+  segmented($('#sizeSeg1'), TEXT_SIZES, () => state.texts[0].size,
+    id => { state.texts[0].size = id; });
   swatchGrid($('#textColorSwatches'), TEXT_COLORS, () => state.texts[0].color,
     id => { state.texts[0].color = id; },
     { isDisabled: c => !textColorAllowed(c) });
@@ -351,6 +355,8 @@ function refresh() {
   if (state.text2) {
     buildFontGrid($('#fontGrid2'), 1);
     $('#capsNote2').style.display = byId(FONTS, state.texts[1].font).caps ? '' : 'none';
+    segmented($('#sizeSeg2'), TEXT_SIZES, () => state.texts[1].size,
+      id => { state.texts[1].size = id; });
     swatchGrid($('#textColorSwatches2'), TEXT_COLORS, () => state.texts[1].color,
       id => { state.texts[1].color = id; },
       { isDisabled: c => !textColorAllowed(c) });
@@ -458,22 +464,24 @@ function orderText() {
     L.push(`Färg på biothane: ${byId(BIOTHANE_COLORS, state.biothane).name}`);
   }
   if (state.fullGlitter) L.push(`Glitterfärg (helglitter): ${byId(TEXT_COLORS, state.glitterColor).name}`);
+  const sname = t => byId(TEXT_SIZES, t.size).name.toLowerCase();
   if (!t1.text.trim() && !hasT2) {
     L.push('Text på halsbandet: (ingen text)');
   } else if (!hasT2) {
     L.push(`Text på halsbandet: ${t1.text.trim()}`);
     L.push(`Typsnitt: ${fname(t1)}`);
+    L.push(`Textstorlek: ${sname(t1)}`);
     L.push(`Textfärg: ${cname(t1)}`);
   } else if (state.textLayout === 'dubbel') {
     L.push(`Text på halsbandet: Dubbeltext – "${t1.text.trim()}" med "${t2.text.trim()}" ovanpå`);
-    L.push(`Dubbeltext: bakre texten i typsnitt ${fname(t1)} i färgen ${cname(t1)}, ` +
-      `främre texten i typsnitt ${fname(t2)} i färgen ${cname(t2)}`);
+    L.push(`Dubbeltext: bakre texten i typsnitt ${fname(t1)} i färgen ${cname(t1)} (${sname(t1)} storlek), ` +
+      `främre texten i typsnitt ${fname(t2)} i färgen ${cname(t2)} (${sname(t2)} storlek)`);
     L.push(`Främre textens position: ${byId(DUBBEL_POSITIONS, state.dubbelPos).name}`);
   } else {
     const layoutName = state.textLayout === 'rader' ? 'två rader' : 'efter varandra';
     L.push(`Text på halsbandet: "${t1.text.trim()}" och "${t2.text.trim()}" (${layoutName})`);
-    L.push(`Text 1: "${t1.text.trim()}" i typsnitt ${fname(t1)}, färg ${cname(t1)}`);
-    L.push(`Text 2: "${t2.text.trim()}" i typsnitt ${fname(t2)}, färg ${cname(t2)}`);
+    L.push(`Text 1: "${t1.text.trim()}" i typsnitt ${fname(t1)}, ${sname(t1)} storlek, färg ${cname(t1)}`);
+    L.push(`Text 2: "${t2.text.trim()}" i typsnitt ${fname(t2)}, ${sname(t2)} storlek, färg ${cname(t2)}`);
   }
   if (state.symbol !== 'ingen') {
     L.push(`Symbol: ${sym.name}`);

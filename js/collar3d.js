@@ -504,11 +504,12 @@ export class CollarViewer {
       return sctx.measureText(disp(t)).width;
     };
 
-    // grundstorlekar per layout
+    // grundstorlekar per layout, skalade med vald textstorlek (max = bandhöjden)
     let sizes;
     if (layout === 'rader' && texts.length > 1) sizes = [bandH * 0.4, bandH * 0.4];
     else if (layout === 'dubbel' && texts.length > 1) sizes = [bandH * 0.62, bandH * 0.46];
     else sizes = texts.map(() => bandH * 0.54);
+    sizes = sizes.map((s, i) => Math.min(s * (texts[i].sizeK || 1), bandH * 0.82));
 
     // blockbredd (utan symbol)
     const blockWidth = () => {

@@ -68,6 +68,13 @@ export const TEXT_LAYOUTS = [
   { id: 'dubbel', name: 'Dubbeltext (ovanpå)' },
 ];
 
+// Textstorlek (skalfaktor på grundstorleken).
+export const TEXT_SIZES = [
+  { id: 'liten',  name: 'Liten',  k: 0.72 },
+  { id: 'mellan', name: 'Mellan', k: 1.0 },
+  { id: 'stor',   name: 'Stor',   k: 1.25 },
+];
+
 // Var den främre texten hamnar vid dubbeltext.
 export const DUBBEL_POSITIONS = [
   { id: 'topp',   name: 'Topp' },
