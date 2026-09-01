@@ -5,6 +5,7 @@ import {
   allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
+import { EMOJI_GLYPHS } from './symbols.js';
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -569,8 +570,12 @@ function isBioColorDisabled(c) {
 }
 
 refresh();
-// rendera om när typsnitten laddats
+// rendera om när typsnitten laddats (Noto Emoji måste laddas explicit –
+// canvas-ritning triggar inte webbfontsladdning av sig själv)
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(() => rebuild3D());
+  const loads = [document.fonts.ready];
+  if (document.fonts.load) loads.push(document.fonts.load('600 32px "Noto Emoji"', EMOJI_GLYPHS));
+  Promise.all(loads).then(() => rebuild3D());
+  document.fonts.addEventListener('loadingdone', () => rebuild3D());
   setTimeout(() => rebuild3D(), 1500);
 }
