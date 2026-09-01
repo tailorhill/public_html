@@ -506,15 +506,22 @@ export class CollarViewer {
 
     // grundstorlekar per layout, skalade med vald textstorlek (max = bandhöjden)
     let sizes;
-    if (layout === 'rader' && texts.length > 1) sizes = [bandH * 0.4, bandH * 0.4];
-    else if (layout === 'dubbel' && texts.length > 1) sizes = [bandH * 0.62, bandH * 0.46];
-    else sizes = texts.map(() => bandH * 0.54);
+    if (layout === 'rader' && texts.length > 1) {
+      const base = texts.length === 3 ? 0.29 : 0.4;
+      sizes = texts.map(() => bandH * base);
+    } else if (layout === 'dubbel' && texts.length > 1) {
+      sizes = texts.map((t, i) => bandH * (i === 0 ? 0.62 : 0.46));
+    } else {
+      sizes = texts.map(() => bandH * (texts.length === 3 ? 0.46 : 0.54));
+    }
     sizes = sizes.map((s, i) => Math.min(s * (texts[i].sizeK || 1), bandH * 0.82));
 
     // blockbredd (utan symbol)
     const blockWidth = () => {
       const ws = texts.map((t, i) => measure(t, sizes[i]));
-      if (layout === 'rad' && texts.length > 1) return ws[0] + sizes[0] * 0.5 + ws[1];
+      if (layout === 'rad' && texts.length > 1) {
+        return ws.reduce((a, b) => a + b, 0) + sizes[0] * 0.5 * (texts.length - 1);
+      }
       return Math.max(...ws, 0);
     };
 
@@ -574,8 +581,9 @@ export class CollarViewer {
     const drawBlock = (cx, colorOverride, targetOverride) => {
       if (!texts.length) return;
       if (layout === 'rader' && texts.length > 1) {
-        drawUnit(texts[0], sizes[0], cx, bandTop + bandH * 0.28, colorOverride, targetOverride);
-        drawUnit(texts[1], sizes[1], cx, bandTop + bandH * 0.73, colorOverride, targetOverride);
+        const ys = texts.length === 3 ? [0.19, 0.5, 0.81] : [0.28, 0.73];
+        texts.forEach((t, i) =>
+          drawUnit(t, sizes[i], cx, bandTop + bandH * ys[i], colorOverride, targetOverride));
       } else if (layout === 'dubbel' && texts.length > 1) {
         drawUnit(texts[0], sizes[0], cx, cyMid, colorOverride, targetOverride);
         const pos = cfg.dubbelPos || 'mitten';
@@ -584,10 +592,14 @@ export class CollarViewer {
           : cyMid;
         drawUnit(texts[1], sizes[1], cx, frontY, colorOverride, targetOverride);
       } else if (texts.length > 1) {
-        const w0 = measure(texts[0], sizes[0]), w1 = measure(texts[1], sizes[1]);
+        const ws = texts.map((t, i) => measure(t, sizes[i]));
         const g2 = sizes[0] * 0.5;
-        drawUnit(texts[0], sizes[0], cx - (w0 + g2 + w1) / 2 + w0 / 2, cyMid, colorOverride, targetOverride);
-        drawUnit(texts[1], sizes[1], cx + (w0 + g2 + w1) / 2 - w1 / 2, cyMid, colorOverride, targetOverride);
+        const totW = ws.reduce((a, b) => a + b, 0) + g2 * (texts.length - 1);
+        let tx = cx - totW / 2;
+        texts.forEach((t, i) => {
+          drawUnit(t, sizes[i], tx + ws[i] / 2, cyMid, colorOverride, targetOverride);
+          tx += ws[i] + g2;
+        });
       } else {
         drawUnit(texts[0], sizes[0], cx, cyMid, colorOverride, targetOverride);
       }

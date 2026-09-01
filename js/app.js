@@ -29,9 +29,8 @@ const state = {
   glitterColor: 'guldglitter',
   texts: [
     { text: 'LUNA', font: 'built', color: 'vit', size: 'mellan' },
-    { text: '', font: 'magnolia', color: 'guldglitter', size: 'mellan' },
   ],
-  text2: false,
+  activeText: 0,               // vilken textflik som visas
   textLayout: 'rad',           // 'rad' | 'rader' | 'dubbel'
   dubbelPos: 'mitten',         // 'topp' | 'mitten' | 'botten'
   symbol: 'tass',
@@ -84,8 +83,15 @@ function shadowColorAllowed(c) {
   return !c.special; // special ej som skugga
 }
 
+const MAX_TEXTS = 3;
+const NEW_TEXT_DEFAULTS = [
+  null,
+  { text: 'Sparky', font: 'magnolia', color: 'guldglitter', size: 'mellan' },
+  { text: '070-123 45 67', font: 'avenir', color: 'vit', size: 'liten' },
+];
+
 function isDouble() {
-  return state.text2 && state.textLayout === 'dubbel';
+  return state.texts.length === 2 && state.textLayout === 'dubbel';
 }
 
 // Butikens regel för dubbeltext: glitter på glitter, eller slät under och
@@ -153,7 +159,7 @@ function rebuild3D() {
       lining: isCotton ? lin : null,
       fullGlitter: state.fullGlitter && glitterAvailable(),
       glitterColor: byId(TEXT_COLORS, state.glitterColor)?.hex,
-      texts: (state.text2 ? state.texts : state.texts.slice(0, 1)).map(t => ({
+      texts: state.texts.map(t => ({
         text: t.text,
         font: byId(FONTS, t.font),
         color: byId(TEXT_COLORS, t.color),
@@ -326,45 +332,70 @@ function refresh() {
       () => state.glitterColor, id => { state.glitterColor = id; });
   }
 
-  // typsnitt + textfärg för respektive text
-  const buildFontGrid = (container, idx) => {
-    container.innerHTML = '';
-    for (const f of FONTS) {
-      const b = el('button', 'fontopt' + (state.texts[idx].font === f.id ? ' sel' : ''));
-      b.type = 'button';
-      const prev = el('span', 'font-preview', f.caps ? f.name.toUpperCase() : f.name);
-      prev.style.fontFamily = f.css;
-      prev.style.fontWeight = f.weight;
-      if (f.italic) prev.style.fontStyle = 'italic';
-      b.appendChild(prev);
-      b.title = f.name + (f.caps ? ' (endast versaler)' : '');
-      b.addEventListener('click', () => { state.texts[idx].font = f.id; refresh(); });
-      container.appendChild(b);
-    }
-  };
-  buildFontGrid($('#fontGrid'), 0);
-  $('#capsNote').style.display = byId(FONTS, state.texts[0].font).caps ? '' : 'none';
-  segmented($('#sizeSeg1'), TEXT_SIZES, () => state.texts[0].size,
-    id => { state.texts[0].size = id; });
-  swatchGrid($('#textColorSwatches'), TEXT_COLORS, () => state.texts[0].color,
-    id => { state.texts[0].color = id; },
+  // -------- texter: flikar + panel för aktiv text --------
+  if (state.activeText >= state.texts.length) state.activeText = state.texts.length - 1;
+  const tabs = $('#textTabs');
+  tabs.innerHTML = '';
+  state.texts.forEach((t, i) => {
+    const b = el('button', 'seg' + (state.activeText === i ? ' sel' : ''),
+      `Text ${i + 1}`);
+    b.type = 'button';
+    b.title = t.text.trim() ? `"${t.text.trim()}"` : '(tom)';
+    b.addEventListener('click', () => { state.activeText = i; refresh(); });
+    tabs.appendChild(b);
+  });
+  if (state.texts.length < MAX_TEXTS) {
+    const add = el('button', 'seg add', '+');
+    add.type = 'button';
+    add.title = 'Lägg till en text till';
+    add.addEventListener('click', () => {
+      state.texts.push({ ...NEW_TEXT_DEFAULTS[state.texts.length] });
+      state.activeText = state.texts.length - 1;
+      if (state.texts.length === 3 && state.textLayout === 'dubbel') state.textLayout = 'rad';
+      refresh();
+    });
+    tabs.appendChild(add);
+  }
+
+  const at = state.texts[state.activeText];
+  const inpT = $('#textInputT');
+  if (inpT.value !== at.text) inpT.value = at.text;
+  inpT.placeholder = state.activeText === 0 ? 'T.ex. hundens namn' : 'T.ex. smeknamn eller telefonnummer';
+
+  const fontWrapT = $('#fontGridT');
+  fontWrapT.innerHTML = '';
+  for (const f of FONTS) {
+    const b = el('button', 'fontopt' + (at.font === f.id ? ' sel' : ''));
+    b.type = 'button';
+    const prev = el('span', 'font-preview', f.caps ? f.name.toUpperCase() : f.name);
+    prev.style.fontFamily = f.css;
+    prev.style.fontWeight = f.weight;
+    if (f.italic) prev.style.fontStyle = 'italic';
+    b.appendChild(prev);
+    b.title = f.name + (f.caps ? ' (endast versaler)' : '');
+    b.addEventListener('click', () => { at.font = f.id; refresh(); });
+    fontWrapT.appendChild(b);
+  }
+  $('#capsNoteT').style.display = byId(FONTS, at.font).caps ? '' : 'none';
+  segmented($('#sizeSegT'), TEXT_SIZES, () => at.size, id => { at.size = id; });
+  swatchGrid($('#colorSwT'), TEXT_COLORS, () => at.color,
+    id => { at.color = id; },
     { isDisabled: c => !textColorAllowed(c) });
 
-  // andra texten
-  $('#text2Toggle').checked = state.text2;
-  $('#text2Block').style.display = state.text2 ? '' : 'none';
-  if (state.text2) {
-    buildFontGrid($('#fontGrid2'), 1);
-    $('#capsNote2').style.display = byId(FONTS, state.texts[1].font).caps ? '' : 'none';
-    segmented($('#sizeSeg2'), TEXT_SIZES, () => state.texts[1].size,
-      id => { state.texts[1].size = id; });
-    swatchGrid($('#textColorSwatches2'), TEXT_COLORS, () => state.texts[1].color,
-      id => { state.texts[1].color = id; },
-      { isDisabled: c => !textColorAllowed(c) });
-    segmented($('#layoutSeg'), TEXT_LAYOUTS, () => state.textLayout,
+  const rmBtn = $('#removeTextBtn');
+  rmBtn.style.display = state.activeText > 0 ? '' : 'none';
+  rmBtn.textContent = `Ta bort text ${state.activeText + 1}`;
+
+  // placering av texterna
+  const many = state.texts.length > 1;
+  $('#layoutBlock').style.display = many ? '' : 'none';
+  if (many) {
+    const layouts = TEXT_LAYOUTS.filter(l => l.id !== 'dubbel' || state.texts.length === 2);
+    if (!layouts.some(l => l.id === state.textLayout)) state.textLayout = 'rad';
+    segmented($('#layoutSeg'), layouts, () => state.textLayout,
       id => { state.textLayout = id; });
-    $('#dubbelPosRow').style.display = state.textLayout === 'dubbel' ? '' : 'none';
-    if (state.textLayout === 'dubbel') {
+    $('#dubbelPosRow').style.display = isDouble() ? '' : 'none';
+    if (isDouble()) {
       segmented($('#dubbelPosSeg'), DUBBEL_POSITIONS, () => state.dubbelPos,
         id => { state.dubbelPos = id; });
     }
@@ -440,10 +471,10 @@ function orderText() {
   const place = byId(SYMBOL_PLACEMENTS, state.symbolPlacement);
   const hwf = byId(HARDWARE_FINISHES, state.hardware);
   const sc = state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null;
+  const activeTexts = state.texts.filter(t => t.text.trim());
   const t1 = state.texts[0], t2 = state.texts[1];
   const fname = t => byId(FONTS, t.font).name;
   const cname = t => byId(TEXT_COLORS, t.color).name;
-  const hasT2 = state.text2 && t2.text.trim();
 
   L.push('BESTÄLLNING – designad i 3D-verktyget');
   L.push('======================================');
@@ -466,23 +497,27 @@ function orderText() {
   }
   if (state.fullGlitter) L.push(`Glitterfärg (helglitter): ${byId(TEXT_COLORS, state.glitterColor).name}`);
   const sname = t => byId(TEXT_SIZES, t.size).name.toLowerCase();
-  if (!t1.text.trim() && !hasT2) {
+  if (!activeTexts.length) {
     L.push('Text på halsbandet: (ingen text)');
-  } else if (!hasT2) {
-    L.push(`Text på halsbandet: ${t1.text.trim()}`);
-    L.push(`Typsnitt: ${fname(t1)}`);
-    L.push(`Textstorlek: ${sname(t1)}`);
-    L.push(`Textfärg: ${cname(t1)}`);
-  } else if (state.textLayout === 'dubbel') {
+  } else if (activeTexts.length === 1) {
+    const t = activeTexts[0];
+    L.push(`Text på halsbandet: ${t.text.trim()}`);
+    L.push(`Typsnitt: ${fname(t)}`);
+    L.push(`Textstorlek: ${sname(t)}`);
+    L.push(`Textfärg: ${cname(t)}`);
+  } else if (isDouble()) {
     L.push(`Text på halsbandet: Dubbeltext – "${t1.text.trim()}" med "${t2.text.trim()}" ovanpå`);
     L.push(`Dubbeltext: bakre texten i typsnitt ${fname(t1)} i färgen ${cname(t1)} (${sname(t1)} storlek), ` +
       `främre texten i typsnitt ${fname(t2)} i färgen ${cname(t2)} (${sname(t2)} storlek)`);
     L.push(`Främre textens position: ${byId(DUBBEL_POSITIONS, state.dubbelPos).name}`);
   } else {
-    const layoutName = state.textLayout === 'rader' ? 'två rader' : 'efter varandra';
-    L.push(`Text på halsbandet: "${t1.text.trim()}" och "${t2.text.trim()}" (${layoutName})`);
-    L.push(`Text 1: "${t1.text.trim()}" i typsnitt ${fname(t1)}, ${sname(t1)} storlek, färg ${cname(t1)}`);
-    L.push(`Text 2: "${t2.text.trim()}" i typsnitt ${fname(t2)}, ${sname(t2)} storlek, färg ${cname(t2)}`);
+    const layoutName = state.textLayout === 'rader'
+      ? `${activeTexts.length === 3 ? 'tre' : 'två'} rader`
+      : 'efter varandra';
+    L.push(`Text på halsbandet: ${activeTexts.map(t => `"${t.text.trim()}"`).join(' och ')} (${layoutName})`);
+    activeTexts.forEach((t, i) => {
+      L.push(`Text ${i + 1}: "${t.text.trim()}" i typsnitt ${fname(t)}, ${sname(t)} storlek, färg ${cname(t)}`);
+    });
   }
   if (state.symbol !== 'ingen') {
     L.push(`Symbol: ${sym.name}`);
@@ -512,17 +547,25 @@ $('#circ').addEventListener('input', e => {
   renderSummary(); rebuild3D();
 });
 
-$('#textInput').addEventListener('input', e => {
-  state.texts[0].text = e.target.value.slice(0, 24);
+$('#textInputT').addEventListener('input', e => {
+  state.texts[state.activeText].text = e.target.value.slice(0, 24);
   renderSummary(); rebuild3D();
 });
-$('#textInput2').addEventListener('input', e => {
-  state.texts[1].text = e.target.value.slice(0, 24);
-  renderSummary(); rebuild3D();
+// macOS ersätter dubbelt mellanslag med punkt (insertReplacementText) –
+// stoppa det och infoga ett vanligt mellanslag i stället
+$('#textInputT').addEventListener('beforeinput', e => {
+  if (e.inputType !== 'insertReplacementText') return;
+  e.preventDefault();
+  const inp = e.target;
+  const start = inp.selectionStart, end = inp.selectionEnd;
+  inp.value = inp.value.slice(0, start) + ' ' + inp.value.slice(end);
+  inp.setSelectionRange(start + 1, start + 1);
+  inp.dispatchEvent(new Event('input'));
 });
-$('#text2Toggle').addEventListener('change', e => {
-  state.text2 = e.target.checked;
-  if (state.text2 && !state.texts[1].text) state.texts[1].text = 'Sparky';
+$('#removeTextBtn').addEventListener('click', () => {
+  if (state.activeText === 0) return;
+  state.texts.splice(state.activeText, 1);
+  state.activeText = Math.max(0, state.activeText - 1);
   refresh();
 });
 
@@ -558,8 +601,7 @@ $('#showOrderBtn').addEventListener('click', () => {
 $('#closeDialog').addEventListener('click', () => $('#orderDialog').close());
 
 // init
-$('#textInput').value = state.texts[0].text;
-$('#textInput2').value = state.texts[1].text;
+$('#textInputT').value = state.texts[0].text;
 $('#circ').value = state.circumference;
 $('#circVal').textContent = `${state.circumference} cm`;
 

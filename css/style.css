@@ -261,6 +261,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 .btn.primary:hover { filter: brightness(1.1); }
 .btn.ghost { background: transparent; }
+.btn.small { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 10px; }
+.seg.add { flex: 0 0 auto; font-weight: 700; }
 .top-actions .btn { width: auto; }
 
 /* ---------- dialog ---------- */

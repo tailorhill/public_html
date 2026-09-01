@@ -105,28 +105,21 @@
 
     <section class="card">
       <h2>6 · Text</h2>
-      <input type="text" id="textInput" maxlength="24" placeholder="T.ex. hundens namn">
-      <label>Typsnitt</label>
-      <div class="fontgrid" id="fontGrid"></div>
-      <p class="note" id="capsNote" style="display:none">Detta typsnitt finns endast med versaler.</p>
-      <label>Textstorlek</label>
-      <div class="seg-row" id="sizeSeg1"></div>
-      <label>Textfärg</label>
-      <div class="swatches" id="textColorSwatches"></div>
+      <div class="seg-row" id="textTabs"></div>
 
-      <label class="switch-row">
-        <input type="checkbox" id="text2Toggle">
-        <span>Lägg till en andra text</span>
-      </label>
-      <div id="text2Block" style="display:none">
-        <input type="text" id="textInput2" maxlength="24" placeholder="T.ex. telefonnummer eller smeknamn">
-        <label>Typsnitt (text 2)</label>
-        <div class="fontgrid" id="fontGrid2"></div>
-        <p class="note" id="capsNote2" style="display:none">Detta typsnitt finns endast med versaler.</p>
-        <label>Textstorlek (text 2)</label>
-        <div class="seg-row" id="sizeSeg2"></div>
-        <label>Textfärg (text 2)</label>
-        <div class="swatches" id="textColorSwatches2"></div>
+      <div id="textPane">
+        <input type="text" id="textInputT" maxlength="24" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="T.ex. hundens namn">
+        <label>Typsnitt</label>
+        <div class="fontgrid" id="fontGridT"></div>
+        <p class="note" id="capsNoteT" style="display:none">Detta typsnitt finns endast med versaler.</p>
+        <label>Textstorlek</label>
+        <div class="seg-row" id="sizeSegT"></div>
+        <label>Textfärg</label>
+        <div class="swatches" id="colorSwT"></div>
+        <button type="button" class="btn ghost small" id="removeTextBtn" style="display:none">Ta bort denna text</button>
+      </div>
+
+      <div id="layoutBlock" style="display:none">
         <label>Placering av texterna</label>
         <div class="seg-row" id="layoutSeg"></div>
         <div id="dubbelPosRow" style="display:none">
