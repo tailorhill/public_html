@@ -67,9 +67,10 @@ approximationer av foto-swatcharna på
 Datan hämtades från valleydogs.se 2026-08-27. Priserna visas som "beräknat
 pris" i verktyget och bekräftas alltid i Valley Dogs kassa.
 
-## Licenser för symboler
+## Symboler
 
-- Symboler renderas med [Noto Emoji](https://fonts.google.com/noto/specimen/Noto+Emoji) (OFL).
-- Apportbocken: Material Icons "fitness_center" (Apache License 2.0).
-- Vallhunden ("Sitting dog") och fåret ("Sheep") av Delapouite,
-  [game-icons.net](https://game-icons.net) (CC BY 3.0).
+Symbolerna är Valley Dogs egna (genererade ur leverantörens symbolark till
+`js/vd-symbols.js`) – samma former som sys på halsbanden. Undantag: tass och
+clown saknas i arket och renderas med
+[Noto Emoji](https://fonts.google.com/noto/specimen/Noto+Emoji) (OFL), och
+flaggorna ritas exakt efter respektive flaggas geometri.
