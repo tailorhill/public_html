@@ -1,7 +1,7 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS, allLinings,
+  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS, DUBBEL_POSITIONS, allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
 
@@ -31,6 +31,7 @@ const state = {
   ],
   text2: false,
   textLayout: 'rad',           // 'rad' | 'rader' | 'dubbel'
+  dubbelPos: 'mitten',         // 'topp' | 'mitten' | 'botten'
   symbol: 'tass',
   symbolPlacement: 'efter',
   symbolColor: '',             // '' = samma som texten
@@ -156,6 +157,7 @@ function rebuild3D() {
         color: byId(TEXT_COLORS, t.color),
       })),
       textLayout: state.textLayout,
+      dubbelPos: state.dubbelPos,
       symbol: state.symbol,
       symbolPlacement: state.symbolPlacement,
       symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
@@ -354,6 +356,11 @@ function refresh() {
       { isDisabled: c => !textColorAllowed(c) });
     segmented($('#layoutSeg'), TEXT_LAYOUTS, () => state.textLayout,
       id => { state.textLayout = id; });
+    $('#dubbelPosRow').style.display = state.textLayout === 'dubbel' ? '' : 'none';
+    if (state.textLayout === 'dubbel') {
+      segmented($('#dubbelPosSeg'), DUBBEL_POSITIONS, () => state.dubbelPos,
+        id => { state.dubbelPos = id; });
+    }
     const warn = doubleTextWarning();
     $('#dubbelWarn').style.display = warn ? '' : 'none';
     $('#dubbelWarn').textContent = warn;
@@ -461,6 +468,7 @@ function orderText() {
     L.push(`Text på halsbandet: Dubbeltext – "${t1.text.trim()}" med "${t2.text.trim()}" ovanpå`);
     L.push(`Dubbeltext: bakre texten i typsnitt ${fname(t1)} i färgen ${cname(t1)}, ` +
       `främre texten i typsnitt ${fname(t2)} i färgen ${cname(t2)}`);
+    L.push(`Främre textens position: ${byId(DUBBEL_POSITIONS, state.dubbelPos).name}`);
   } else {
     const layoutName = state.textLayout === 'rader' ? 'två rader' : 'efter varandra';
     L.push(`Text på halsbandet: "${t1.text.trim()}" och "${t2.text.trim()}" (${layoutName})`);

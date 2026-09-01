@@ -542,17 +542,18 @@ export class CollarViewer {
     total += gap * (items.length - 1);
 
     // en text med ev. glitter/reflex begränsat till tecknen
-    const drawUnit = (t, size, cx, cy, colorOverride) => {
+    const drawUnit = (t, size, cx, cy, colorOverride, targetOverride) => {
       const w = measure(t, size);
       const x = cx - w / 2;
-      const target = (!colorOverride && (t.color.glitter || t.color.special === 'reflex')) ? sctx : ctx;
-      if (target === sctx) sctx.clearRect(0, 0, W, H);
+      const wantsFx = !colorOverride && (t.color.glitter || t.color.special === 'reflex');
+      const target = targetOverride || (wantsFx ? sctx : ctx);
+      if (target === sctx && !targetOverride) sctx.clearRect(0, 0, W, H);
       target.font = fontStr(t.font, size);
       target.textBaseline = 'middle';
       const col = colorOverride || t.color;
       target.fillStyle = this.fillStyleFor(target, col, x, cy - size / 2, w, size);
       target.fillText(disp(t), x, cy);
-      if (target === sctx) {
+      if (target === sctx && !targetOverride) {
         sctx.save();
         sctx.globalCompositeOperation = 'source-atop';
         if (t.color.glitter) {
@@ -569,44 +570,56 @@ export class CollarViewer {
     };
 
     // ritar textblocket centrerat kring (cx, cyMid)
-    const drawBlock = (cx, dy, colorOverride) => {
+    const drawBlock = (cx, colorOverride, targetOverride) => {
       if (!texts.length) return;
       if (layout === 'rader' && texts.length > 1) {
-        drawUnit(texts[0], sizes[0], cx, bandTop + bandH * 0.28 + dy, colorOverride);
-        drawUnit(texts[1], sizes[1], cx, bandTop + bandH * 0.73 + dy, colorOverride);
+        drawUnit(texts[0], sizes[0], cx, bandTop + bandH * 0.28, colorOverride, targetOverride);
+        drawUnit(texts[1], sizes[1], cx, bandTop + bandH * 0.73, colorOverride, targetOverride);
       } else if (layout === 'dubbel' && texts.length > 1) {
-        drawUnit(texts[0], sizes[0], cx, cyMid - bandH * 0.04 + dy, colorOverride);
-        drawUnit(texts[1], sizes[1], cx, cyMid + bandH * 0.12 + dy, colorOverride);
+        drawUnit(texts[0], sizes[0], cx, cyMid, colorOverride, targetOverride);
+        const pos = cfg.dubbelPos || 'mitten';
+        const frontY = pos === 'topp' ? cyMid - bandH * 0.19
+          : pos === 'botten' ? cyMid + bandH * 0.19
+          : cyMid;
+        drawUnit(texts[1], sizes[1], cx, frontY, colorOverride, targetOverride);
       } else if (texts.length > 1) {
         const w0 = measure(texts[0], sizes[0]), w1 = measure(texts[1], sizes[1]);
         const g2 = sizes[0] * 0.5;
-        drawUnit(texts[0], sizes[0], cx - (w0 + g2 + w1) / 2 + w0 / 2, cyMid + dy, colorOverride);
-        drawUnit(texts[1], sizes[1], cx + (w0 + g2 + w1) / 2 - w1 / 2, cyMid + dy, colorOverride);
+        drawUnit(texts[0], sizes[0], cx - (w0 + g2 + w1) / 2 + w0 / 2, cyMid, colorOverride, targetOverride);
+        drawUnit(texts[1], sizes[1], cx + (w0 + g2 + w1) / 2 - w1 / 2, cyMid, colorOverride, targetOverride);
       } else {
-        drawUnit(texts[0], sizes[0], cx, cyMid + dy, colorOverride);
+        drawUnit(texts[0], sizes[0], cx, cyMid, colorOverride, targetOverride);
       }
     };
 
-    const drawAll = (dx, dy, colorOverride) => {
-      let x = W / 2 - total / 2 + dx;
+    const drawAll = (colorOverride, targetOverride) => {
+      let x = W / 2 - total / 2;
       for (const [k] of items) {
         if (k === 'blk') {
-          drawBlock(x + bw / 2, dy, colorOverride);
+          drawBlock(x + bw / 2, colorOverride, targetOverride);
           x += bw + gap;
         } else {
           const symCol = colorOverride || cfg.symbolColor || (texts[0] ? texts[0].color : { hex: '#111' });
-          drawSymbol(ctx, cfg.symbol, x + symW / 2, cyMid + dy, symSize, symCol.hex);
+          drawSymbol(targetOverride || ctx, cfg.symbol, x + symW / 2, cyMid, symSize, symCol.hex);
           x += symW + gap;
         }
       }
     };
 
-    // skugga (endast utan dubbeltext – regeln från butiken hanteras i UI:t)
+    // skugga: jämn kontur runt text och symbol (rendera i skuggfärg,
+    // stämpla sedan i en ring av riktningar)
     if (cfg.shadowColor) {
-      const so = bandH * 0.045;
-      drawAll(so, so, cfg.shadowColor);
+      const sc = document.createElement('canvas');
+      sc.width = W; sc.height = H;
+      const scx = sc.getContext('2d');
+      drawAll(cfg.shadowColor, scx);
+      const r = Math.max(2, bandH * 0.045);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        ctx.drawImage(sc, Math.cos(a) * r, Math.sin(a) * r);
+      }
     }
-    drawAll(0, 0, null);
+    drawAll(null, null);
   }
 
   // ------------------------------------------------------------- geometri

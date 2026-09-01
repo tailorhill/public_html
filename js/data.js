@@ -68,6 +68,13 @@ export const TEXT_LAYOUTS = [
   { id: 'dubbel', name: 'Dubbeltext (ovanpå)' },
 ];
 
+// Var den främre texten hamnar vid dubbeltext.
+export const DUBBEL_POSITIONS = [
+  { id: 'topp',   name: 'Topp' },
+  { id: 'mitten', name: 'Mitten' },
+  { id: 'botten', name: 'Botten' },
+];
+
 // Foder (visas som kant över/under bomullsbandet).
 export const LINING_GROUPS = [
   {
