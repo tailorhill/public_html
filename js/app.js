@@ -1,7 +1,7 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, EXPRESS_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
+  LEATHER_SURCHARGE, EXPRESS_SURCHARGE, SHIPPING, PRODUCT_URLS, TEXT_LAYOUTS,
   DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
@@ -41,6 +41,7 @@ const state = {
   hardware: 'stal',
   showHardware: true,
   express: false,
+  shipping: 'sverige',
   extraInfo: '',
 };
 
@@ -142,6 +143,9 @@ function computePrice() {
     rows.push(['Expresshantering', EXPRESS_SURCHARGE]);
     total += EXPRESS_SURCHARGE;
   }
+  const ship = byId(SHIPPING, state.shipping);
+  rows.push([ship.rowLabel, ship.price]);
+  total += ship.price;
   return { rows, total };
 }
 
@@ -459,6 +463,11 @@ function refresh() {
     ...h,
     name: h.name + (h.surcharge ? ` (+${state.family === 'cotton' ? h.surcharge.cotton : h.surcharge.biothane} kr)` : ''),
   })), () => state.hardware, id => { state.hardware = id; });
+  // frakt
+  segmented($('#shippingSeg'), SHIPPING, () => state.shipping,
+    id => { state.shipping = id; },
+    s => `${s.name} (+${s.price} kr)`);
+
   $('#buckleNote').textContent = state.family === 'cotton'
     ? 'Klickspänne: svart plast. D-ring i valt utförande.'
     : 'Metallspänne, D-ringar och nitar i valt utförande.';
@@ -552,6 +561,8 @@ function orderText() {
   if (state.shadow && !isDouble()) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
+  const ship = byId(SHIPPING, state.shipping);
+  L.push(`Frakt: ${ship.name}${ship.detail ? ` (${ship.detail})` : ''} – ${ship.price} kr`);
   L.push(`Expresshantering: ${state.express ? `Ja (+${EXPRESS_SURCHARGE} kr)` : 'Nej (ordinarie leveranstid ca 35 dagar)'}`);
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
   L.push('--------------------------------------');

@@ -321,6 +321,14 @@ export const LEATHER_SURCHARGE = { '2.5': 100, '3.5': 120, '4': 120, '5': 150 };
 // Expresshantering inom Sverige (från Villkor & info; ordinarie leverans ca 35 dagar).
 export const EXPRESS_SURCHARGE = 220;
 
+// Frakt (från Villkor & info): varubrev med PostNord inom Sverige, 170 kr utomlands.
+export const SHIPPING = [
+  { id: 'sverige', name: 'Inom Sverige', detail: 'PostNord varubrev', price: 49,
+    rowLabel: 'Frakt inom Sverige (varubrev)' },
+  { id: 'utland',  name: 'Utanför Sverige', detail: '', price: 170,
+    rowLabel: 'Frakt utanför Sverige' },
+];
+
 export const PRODUCT_URLS = {
   cotton: {
     '2.5': 'https://www.valleydogs.se/produkter/hundhalsband-25-cm/',
