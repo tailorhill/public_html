@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designa ditt halsband – 3D-verktyg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo+Black&family=Baloo+2:wght@800&family=Dancing+Script:wght@600&family=Great+Vibes&family=Josefin+Sans:wght@600&family=Libre+Baskerville&family=Mr+Dafoe&family=Nunito+Sans:wght@800&family=Oswald:wght@600&family=Pacifico&family=Permanent+Marker&family=Special+Elite&family=Titan+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🐕</span>
+    <div>
+      <h1>Designa ditt halsband</h1>
+      <p>3D-designverktyg för måttbeställda halsband från <a href="https://www.valleydogs.se" target="_blank" rel="noopener">Valley Dogs</a></p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="showOrderBtn" class="btn primary">Visa beställning</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- Vänster: konfiguration -->
+  <aside class="panel">
+
+    <section class="card">
+      <h2>1 · Material</h2>
+      <div class="seg-row">
+        <button type="button" class="seg big" data-family="cotton">Bomullshalsband<small>med foder</small></button>
+        <button type="button" class="seg big" data-family="biothane">BioThane Beta®<small>vattentåligt</small></button>
+      </div>
+    </section>
+
+    <!-- Bomull -->
+    <div id="cottonOpts">
+      <section class="card">
+        <h2>2 · Modell &amp; bredd</h2>
+        <label>Halsbandsmodell</label>
+        <div class="seg-row wrap" id="modelSeg"></div>
+        <label>Färdig bredd</label>
+        <div class="seg-row" id="widthSeg"></div>
+        <p class="note" id="bandWidthNote"></p>
+      </section>
+
+      <section class="card">
+        <h2>3 · Färg på bomullsband</h2>
+        <div class="swatches" id="webbingSwatches"></div>
+      </section>
+
+      <section class="card">
+        <h2>4 · Foder</h2>
+        <div class="row">
+          <span class="chip" id="liningChip"></span>
+          <div class="grow" id="liningSelect"></div>
+        </div>
+        <p class="note ok" id="leatherNote" style="display:none">Äkta läder: +120 kr</p>
+        <p class="note">Fodret syns som kanten över och under bomullsbandet samt på insidan.</p>
+      </section>
+    </div>
+
+    <!-- BioThane -->
+    <div id="bioOpts" style="display:none">
+      <section class="card">
+        <h2>2 · Modell &amp; bredd</h2>
+        <label>Halsbandsmodell</label>
+        <div class="seg-row wrap" id="bioModelSeg"></div>
+        <label>Bredd</label>
+        <div class="seg-row" id="bioWidthSeg"></div>
+      </section>
+
+      <section class="card">
+        <h2>3 · Färg på BioThane</h2>
+        <div class="swatches" id="bioSwatches"></div>
+        <p class="note">Neonorange och Mango är tillfälliga partier och finns endast i 25 mm.</p>
+      </section>
+    </div>
+
+    <section class="card" id="glitterRow">
+      <h2>Helglittrigt <span class="tag">tillval</span></h2>
+      <label class="switch-row">
+        <input type="checkbox" id="glitterToggle">
+        <span>Glitter över hela bandet</span>
+      </label>
+      <div id="glitterColorRow" style="display:none">
+        <label>Glitterfärg</label>
+        <div class="swatches" id="glitterSwatches"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5 · Storlek</h2>
+      <label>Halsmått i stängt läge: <strong id="circVal">45 cm</strong></label>
+      <input type="range" id="circ" min="25" max="70" step="1" value="45">
+      <p class="note">Mät en gång extra – halsbanden går inte att sy om! Se <a href="https://www.valleydogs.se/storleksguide" target="_blank" rel="noopener">storleksguiden</a>.</p>
+    </section>
+
+    <section class="card">
+      <h2>6 · Text</h2>
+      <input type="text" id="textInput" maxlength="24" placeholder="T.ex. hundens namn">
+      <label>Typsnitt</label>
+      <div class="fontgrid" id="fontGrid"></div>
+      <p class="note" id="capsNote" style="display:none">Detta typsnitt finns endast med versaler.</p>
+      <label>Textfärg</label>
+      <div class="swatches" id="textColorSwatches"></div>
+      <p class="note">Regnbåge, Dimmig, metallic och Reflex kan inte användas på BioThane, som skugga eller vid dubbeltext.</p>
+      <label class="switch-row">
+        <input type="checkbox" id="shadowToggle">
+        <span>Skugga bakom text och symbol</span>
+      </label>
+      <div id="shadowColorRow" style="display:none">
+        <label>Skuggfärg</label>
+        <div class="swatches" id="shadowSwatches"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>7 · Symbol</h2>
+      <div id="symbolSelect"></div>
+      <div id="symbolExtra">
+        <label>Placering</label>
+        <div class="seg-row" id="placementSeg"></div>
+        <div id="symbolColorRow">
+          <label>Färg på symbol</label>
+          <div id="symbolColorSelect"></div>
+        </div>
+        <p class="note" id="flagNote" style="display:none">Flaggor sys alltid i sina riktiga färger.</p>
+      </div>
+      <p class="note">Egen symbol? Mejla den till <a href="mailto:info@valleydogs.se">info@valleydogs.se</a> och skriv det i övrig info.</p>
+    </section>
+
+    <section class="card">
+      <h2>8 · Beslag</h2>
+      <div class="swatches metal" id="hwSwatches"></div>
+      <p class="note" id="buckleNote"></p>
+      <label class="switch-row">
+        <input type="checkbox" id="hwToggle" checked>
+        <span>Visa beslag i 3D-vyn</span>
+      </label>
+      <p class="note">Beslagen i 3D-vyn är förenklade – dölj dem om du hellre ser bandet rent.</p>
+    </section>
+
+    <section class="card">
+      <h2>9 · Övrig info</h2>
+      <textarea id="extraInfo" rows="3" placeholder="T.ex. dubbeltext: bakre texten i typsnitt … färg …, främre texten i typsnitt … färg …"></textarea>
+    </section>
+
+  </aside>
+
+  <!-- Mitten: 3D -->
+  <section class="stage">
+    <canvas id="c3d"></canvas>
+    <div class="stage-hint">Dra för att rotera · scrolla för att zooma</div>
+
+    <!-- Sammanfattning -->
+    <div class="summary card">
+      <h2>Ditt halsband</h2>
+      <table class="pricetable">
+        <tbody id="priceRows"></tbody>
+        <tfoot>
+          <tr><td>Totalt</td><td class="pr" id="priceTotal">–</td></tr>
+        </tfoot>
+      </table>
+      <button class="btn primary" id="copyBtn">Kopiera beställningstext</button>
+      <button class="btn" id="mailBtn">Mejla beställningen</button>
+      <a class="btn ghost" id="productLink" href="#" target="_blank" rel="noopener">Öppna produktsidan hos Valley Dogs ↗</a>
+      <p class="note">Beställningen läggs hos Valley Dogs – klistra in texten i produktsidans fält, eller mejla den.</p>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="orderDialog">
+  <h2>Beställningsunderlag</h2>
+  <pre id="orderPreview"></pre>
+  <div class="row end">
+    <button class="btn" id="closeDialog">Stäng</button>
+  </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
