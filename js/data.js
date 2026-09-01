@@ -318,6 +318,9 @@ export const BIOTHANE = {
 // Pristillägg för äkta läder per färdig bredd (från produktformulären).
 export const LEATHER_SURCHARGE = { '2.5': 100, '3.5': 120, '4': 120, '5': 150 };
 
+// Expresshantering inom Sverige (från Villkor & info; ordinarie leverans ca 35 dagar).
+export const EXPRESS_SURCHARGE = 220;
+
 export const PRODUCT_URLS = {
   cotton: {
     '2.5': 'https://www.valleydogs.se/produkter/hundhalsband-25-cm/',

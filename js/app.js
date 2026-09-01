@@ -1,8 +1,8 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS, DUBBEL_POSITIONS, TEXT_SIZES,
-  allLinings,
+  LEATHER_SURCHARGE, EXPRESS_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
+  DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
 import { EMOJI_GLYPHS, drawSymbol } from './symbols.js';
@@ -40,6 +40,7 @@ const state = {
   shadowColor: 'svart',
   hardware: 'stal',
   showHardware: true,
+  express: false,
   extraInfo: '',
 };
 
@@ -136,6 +137,10 @@ function computePrice() {
     if (width.surcharge) { rows.push([`Bredd ${width.name}`, width.surcharge]); total += width.surcharge; }
     const hwf = byId(HARDWARE_FINISHES, state.hardware);
     if (hwf.surcharge) { rows.push([hwf.name, hwf.surcharge.biothane]); total += hwf.surcharge.biothane; }
+  }
+  if (state.express) {
+    rows.push(['Expresshantering', EXPRESS_SURCHARGE]);
+    total += EXPRESS_SURCHARGE;
   }
   return { rows, total };
 }
@@ -547,6 +552,7 @@ function orderText() {
   if (state.shadow && !isDouble()) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
+  L.push(`Expresshantering: ${state.express ? `Ja (+${EXPRESS_SURCHARGE} kr)` : 'Nej (ordinarie leveranstid ca 35 dagar)'}`);
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
   L.push('--------------------------------------');
   L.push(`Beräknat pris: ${total} kr`);
@@ -589,6 +595,7 @@ $('#removeTextBtn').addEventListener('click', () => {
 
 $('#glitterToggle').addEventListener('change', e => { state.fullGlitter = e.target.checked; refresh(); });
 $('#hwToggle').addEventListener('change', e => { state.showHardware = e.target.checked; rebuild3D(); });
+$('#expressToggle').addEventListener('change', e => { state.express = e.target.checked; renderSummary(); });
 $('#shadowToggle').addEventListener('change', e => { state.shadow = e.target.checked; refresh(); });
 $('#extraInfo').addEventListener('input', e => { state.extraInfo = e.target.value; });
 
