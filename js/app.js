@@ -637,41 +637,50 @@ $('#snapshotBtn').addEventListener('click', () => {
   a.click();
 });
 
-$('#svgBtn').addEventListener('click', async () => {
-  const btn = $('#svgBtn');
+function exportCfg() {
+  const isCotton = state.family === 'cotton';
+  const widthCm = currentWidthCm();
+  return {
+    texts: state.texts.map(t => ({
+      text: t.text,
+      font: byId(FONTS, t.font),
+      color: byId(TEXT_COLORS, t.color),
+      sizeK: byId(TEXT_SIZES, t.size).k,
+    })),
+    layout: state.textLayout,
+    dubbelPos: state.dubbelPos,
+    symbol: state.symbol,
+    symbolPlacement: state.symbolPlacement,
+    symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
+    bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
+  };
+}
+
+async function runExport(btnId, builderName, filename, mime) {
+  const btn = $(btnId);
   const prev = btn.textContent;
   btn.textContent = 'Genererar…';
   btn.disabled = true;
   try {
-    const { buildCutSvg } = await import('./export.js');
-    const isCotton = state.family === 'cotton';
-    const widthCm = currentWidthCm();
-    const svg = await buildCutSvg({
-      texts: state.texts.map(t => ({
-        text: t.text,
-        font: byId(FONTS, t.font),
-        color: byId(TEXT_COLORS, t.color),
-        sizeK: byId(TEXT_SIZES, t.size).k,
-      })),
-      layout: state.textLayout,
-      dubbelPos: state.dubbelPos,
-      symbol: state.symbol,
-      symbolPlacement: state.symbolPlacement,
-      symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
-      bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
-    });
-    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const mod = await import('./export.js');
+    const content = await mod[builderName](exportCfg());
+    const blob = new Blob([content], { type: mime });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'halsband-text-symboler.svg';
+    a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (err) {
-    alert('SVG-exporten misslyckades: ' + err.message);
+    alert('Exporten misslyckades: ' + err.message);
   }
   btn.textContent = prev;
   btn.disabled = false;
-});
+}
+
+$('#svgBtn').addEventListener('click', () =>
+  runExport('#svgBtn', 'buildCutSvg', 'halsband-text-symboler.svg', 'image/svg+xml'));
+$('#dxfBtn').addEventListener('click', () =>
+  runExport('#dxfBtn', 'buildCutDxf', 'halsband-text-symboler.dxf', 'application/dxf'));
 
 $('#showOrderBtn').addEventListener('click', () => {
   $('#orderPreview').textContent = orderText();
