@@ -18,6 +18,19 @@ function loadOpentype() {
   return opentypeReady;
 }
 
+let clipperReady = null;
+function loadClipper() {
+  if (clipperReady) return clipperReady;
+  clipperReady = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'vendor/clipper.js';
+    s.onload = () => resolve(window.ClipperLib);
+    s.onerror = () => reject(new Error('Kunde inte ladda clipper.js'));
+    document.head.appendChild(s);
+  });
+  return clipperReady;
+}
+
 const fontCache = {};
 async function loadFont(ttf) {
   if (fontCache[ttf]) return fontCache[ttf];
@@ -129,10 +142,73 @@ function textOtPath(p, L) {
   return { path: p.font.getPath(L.disp(p.t), p.cx - w / 2, baseline, p.size), w };
 }
 
+// ------------------------------------------------------------- skugga
+// Allt "bläck" (text + symbol) som plattade polygoner i mm-rymden.
+function collectInkPolys(L, cfg) {
+  const polys = [];
+  for (const p of L.placedTexts) {
+    const { path } = textOtPath(p, L);
+    let tp = otPathToPolys(path);
+    if (p.t.font.italic) {
+      const k = Math.tan((8 * Math.PI) / 180);
+      const xOff = p.cx * 0.14;
+      tp = tp.map(poly => poly.map(([px, py]) => [px + xOff - k * py, py]));
+    }
+    polys.push(...tp);
+  }
+  for (const s of L.placedSymbols) {
+    const data = symbolExportData(cfg.symbol);
+    if (!data) continue;
+    if (data.flag) {
+      polys.push(...flagRects(s.cx, s.cy, L.symSize, data.flag)
+        .map(r => [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]));
+    } else {
+      const b = data.bounds;
+      const k = L.symSize / b.h;
+      const tx = s.cx - (b.w * k) / 2 - b.x * k;
+      const ty = s.cy - L.symSize / 2 - b.y * k;
+      const subs = data.d.split(/(?=M)/).filter(v => v.trim());
+      polys.push(...subs.map(sd =>
+        sampleSubpath(sd, k).map(([px, py]) => [px * k + tx, py * k + ty])));
+    }
+  }
+  return polys;
+}
+
+// Skugglagret: unionen av allt bläck, utvidgat med skuggradien (samma
+// radie som konturen i 3D-vyn). Returnerar polygoner i mm, eller null.
+async function buildShadowPolys(L, cfg) {
+  if (!cfg.shadowColor) return null;
+  const CL = await loadClipper();
+  const SC = 1000; // µm-precision
+  const subj = collectInkPolys(L, cfg)
+    .filter(p => p.length > 2)
+    .map(poly => poly.map(([x, y]) => ({ X: Math.round(x * SC), Y: Math.round(y * SC) })));
+  const clip = new CL.Clipper();
+  clip.AddPaths(subj, CL.PolyType.ptSubject, true);
+  const united = new CL.Paths();
+  clip.Execute(CL.ClipType.ctUnion, united, CL.PolyFillType.pftEvenOdd, CL.PolyFillType.pftEvenOdd);
+  const off = new CL.ClipperOffset(2, 0.1 * SC);
+  off.AddPaths(united, CL.JoinType.jtRound, CL.EndType.etClosedPolygon);
+  const out = new CL.Paths();
+  off.Execute(out, L.bandH * 0.045 * SC);
+  return out.map(p => p.map(q => [q.X / SC, q.Y / SC]));
+}
+
+const polysToSvgD = polys => polys
+  .map(p => 'M' + p.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join('L') + 'Z')
+  .join('');
+
 // ------------------------------------------------------------- SVG
 export async function buildCutSvg(cfg) {
   const L = await computeLayout(cfg);
   const parts = [];
+
+  const shadow = await buildShadowPolys(L, cfg);
+  if (shadow) {
+    parts.push(`<g id="skugga"><path fill="${cfg.shadowColor.hex}" fill-rule="evenodd" ` +
+      `d="${polysToSvgD(shadow)}"/></g>`);
+  }
 
   for (const p of L.placedTexts) {
     const { path } = textOtPath(p, L);
@@ -266,6 +342,11 @@ function otPathToPolys(path) {
 export async function buildCutDxf(cfg) {
   const L = await computeLayout(cfg);
   const layers = []; // {name, polys: [[x,y]...]}
+
+  const shadow = await buildShadowPolys(L, cfg);
+  if (shadow) {
+    layers.push({ name: 'SKUGGA', polys: shadow.map(p => [...p, p[0]]) });
+  }
 
   for (const p of L.placedTexts) {
     const { path } = textOtPath(p, L);

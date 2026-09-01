@@ -652,6 +652,7 @@ function exportCfg() {
     symbol: state.symbol,
     symbolPlacement: state.symbolPlacement,
     symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
+    shadowColor: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor) : null,
     bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
   };
 }
