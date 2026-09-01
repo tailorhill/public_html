@@ -194,18 +194,27 @@ function refresh() {
 
   // modell + bredd
   if (state.family === 'cotton') {
+    // se till att vald bandfärg finns i vald bredd
+    const ensureWebbing = () => {
+      const c = byId(WEBBING_COLORS, state.webbing);
+      if (!c || !c.widths.includes(state.cottonWidth)) state.webbing = 'svart';
+    };
     segmented($('#modelSeg'), COTTON_MODELS, () => state.cottonModel, id => {
       state.cottonModel = id;
       if (!byId(COTTON_MODELS, id).prices[state.cottonWidth]) {
         state.cottonWidth = Object.keys(byId(COTTON_MODELS, id).prices)[0];
       }
       if (!byId(COTTON_MODELS, id).glitterPrices) state.fullGlitter = false;
+      ensureWebbing();
     });
     segmented($('#widthSeg'), COTTON_WIDTHS.filter(w => byId(COTTON_MODELS, state.cottonModel).prices[w.id]),
-      () => state.cottonWidth, id => { state.cottonWidth = id; });
+      () => state.cottonWidth, id => { state.cottonWidth = id; ensureWebbing(); });
+    ensureWebbing();
+    const available = WEBBING_COLORS.filter(c => c.widths.includes(state.cottonWidth));
     $('#bandWidthNote').textContent =
-      `Bomullsbandet är ${byId(COTTON_WIDTHS, state.cottonWidth).bandWidth} brett – fodret utgör resten av bredden.`;
-    swatchGrid($('#webbingSwatches'), WEBBING_COLORS, () => state.webbing, id => { state.webbing = id; });
+      `Bomullsbandet är ${byId(COTTON_WIDTHS, state.cottonWidth).bandWidth} brett – fodret utgör resten av bredden. ` +
+      `${available.length} färger finns i denna bredd.`;
+    swatchGrid($('#webbingSwatches'), available, () => state.webbing, id => { state.webbing = id; });
 
     // foder
     const linSel = $('#liningSelect');

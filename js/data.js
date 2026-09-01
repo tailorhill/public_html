@@ -31,31 +31,38 @@ export const BIOTHANE_COLORS = [
 ];
 
 // Bomullsband per bandbredd (bandet är smalare än det färdiga halsbandet).
+// `widths` anger vilka FÄRDIGA halsbandsbredder färgen finns i, enligt
+// https://www.valleydogs.se/material-till-halsband/bomullsband/ :
+//   2.5 cm halsband = 1,8 cm band (14 färger)
+//   3.5 cm halsband = 2,5 cm band (20 färger)
+//   4 cm halsband   = 3 cm band   (21 färger)
+//   5 cm halsband   = 4 cm band   (16 färger)
 export const WEBBING_COLORS = [
-  { id: 'svart',      name: 'Svart',      hex: '#17181a' },
-  { id: 'marinbla',   name: 'Marinblå',   hex: '#232f45' },
-  { id: 'sverigebla', name: 'Sverigeblå', hex: '#1c3f9e' },
-  { id: 'turkos',     name: 'Turkos',     hex: '#19a7d4' },
-  { id: 'aqua',       name: 'Aqua',       hex: '#4fb3a5' },
-  { id: 'oliv',       name: 'Oliv',       hex: '#45483c' },
-  { id: 'skogsgron',  name: 'Skogsgrön',  hex: '#17402c' },
-  { id: 'grasgron',   name: 'Gräsgrön',   hex: '#2f7d4a' },
-  { id: 'gron',       name: 'Grön',       hex: '#22994d' },
-  { id: 'neongron',   name: 'Neongrön',   hex: '#5aef62' },
-  { id: 'vinrod',     name: 'Vinröd',     hex: '#57202b' },
-  { id: 'rod',        name: 'Röd',        hex: '#cf2028' },
-  { id: 'korall',     name: 'Korall',     hex: '#f2766b' },
-  { id: 'cerise',     name: 'Cerise',     hex: '#ef2f8e' },
-  { id: 'ljusrosa',   name: 'Ljusrosa',   hex: '#dc93ac' },
-  { id: 'lila',       name: 'Lila',       hex: '#4a3f92' },
-  { id: 'lavendel',   name: 'Lavendel',   hex: '#8c8cc8' },
-  { id: 'ljusbla',    name: 'Ljusblå',    hex: '#45b7e3' },
-  { id: 'gul',        name: 'Gul',        hex: '#e0b91d' },
-  { id: 'orange',     name: 'Orange',     hex: '#e06a38' },
-  { id: 'brun',       name: 'Brun',       hex: '#4a3226' },
-  { id: 'khaki',      name: 'Khaki',      hex: '#b39970' },
-  { id: 'gra',        name: 'Grå',        hex: '#9a9da1' },
-  { id: 'vit',        name: 'Vit',        hex: '#eef0f4' },
+  { id: 'svart',      name: 'Svart',      hex: '#17181a', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'marinbla',   name: 'Marinblå',   hex: '#232f45', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'sverigebla', name: 'Sverigeblå', hex: '#1c3f9e', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'ljusbla',    name: 'Ljusblå',    hex: '#45b7e3', widths: ['2.5'] },
+  { id: 'turkos',     name: 'Turkos',     hex: '#19a7d4', widths: ['3.5', '4', '5'] },
+  { id: 'aqua',       name: 'Aqua',       hex: '#4fb3a5', widths: ['3.5', '4', '5'] },
+  { id: 'oliv',       name: 'Oliv',       hex: '#45483c', widths: ['3.5', '4', '5'] },
+  { id: 'skogsgron',  name: 'Skogsgrön',  hex: '#17402c', widths: ['4'] },
+  { id: 'grasgron',   name: 'Gräsgrön',   hex: '#2f7d4a', widths: ['3.5'] },
+  { id: 'gron',       name: 'Grön',       hex: '#22994d', widths: ['2.5', '3.5'] },
+  { id: 'neongron',   name: 'Neongrön',   hex: '#5aef62', widths: ['3.5', '4'] },
+  { id: 'vinrod',     name: 'Vinröd',     hex: '#57202b', widths: ['3.5', '4', '5'] },
+  { id: 'rod',        name: 'Röd',        hex: '#cf2028', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'korall',     name: 'Korall',     hex: '#f2766b', widths: ['4'] },
+  { id: 'cerise',     name: 'Cerise',     hex: '#ef2f8e', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'ljusrosa',   name: 'Ljusrosa',   hex: '#dc93ac', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'lila',       name: 'Lila',       hex: '#4a3f92', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'lavendel',   name: 'Lavendel',   hex: '#8c8cc8', widths: ['2.5', '4'] },
+  { id: 'gul',        name: 'Gul',        hex: '#e0b91d', widths: ['3.5', '4', '5'] },
+  { id: 'orange',     name: 'Orange',     hex: '#e06a38', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'brun',       name: 'Brun',       hex: '#4a3226', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'khaki',      name: 'Khaki',      hex: '#b39970', widths: ['2.5', '3.5', '4', '5'] },
+  { id: 'gra',        name: 'Grå',        hex: '#9a9da1', widths: ['3.5', '4'] },
+  { id: 'vit',        name: 'Vit',        hex: '#eef0f4', widths: ['3.5', '4', '5'] },
+  { id: 'offwhite',   name: 'Off-white',  hex: '#f0eee6', widths: ['2.5'] },
 ];
 
 // Foder (visas som kant över/under bomullsbandet).
