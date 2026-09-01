@@ -142,6 +142,42 @@ function rebuild3D() {
 }
 
 // ---------------------------------------------------------------- UI bygge
+
+// Liten glittertextur (transparent PNG) som läggs ovanpå glitterswatcharna.
+const GLITTER_OVERLAY = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 56;
+  const x = c.getContext('2d');
+  for (let i = 0; i < 130; i++) {
+    const bright = Math.random() < 0.6;
+    x.fillStyle = bright
+      ? `rgba(255,255,255,${0.35 + Math.random() * 0.5})`
+      : `rgba(0,0,0,${0.15 + Math.random() * 0.25})`;
+    const s = Math.random() < 0.14 ? 2 : 1;
+    x.fillRect(Math.random() * 56, Math.random() * 56, s, s);
+  }
+  // några större glimtar
+  x.fillStyle = 'rgba(255,255,255,0.9)';
+  for (let i = 0; i < 6; i++) {
+    const px = Math.random() * 56, py = Math.random() * 56;
+    x.fillRect(px - 1.5, py, 4, 1);
+    x.fillRect(px, py - 1.5, 1, 4);
+  }
+  return `url(${c.toDataURL()})`;
+})();
+
+function swatchBackground(c) {
+  if (c.glitter) return `${GLITTER_OVERLAY}, linear-gradient(${c.hex}, ${c.hex})`;
+  if (c.special === 'rainbow') return 'linear-gradient(135deg,#e4342c,#f09022,#ecd51b,#3fae49,#2e6db4,#8a3f9e)';
+  if (c.special === 'pastelrainbow') return 'linear-gradient(135deg,#f2a1b4,#f5cf9c,#f7f0a8,#a8dcb2,#a5c8ec,#cbaede)';
+  if (c.special === 'metal') {
+    const l = '#ffffffcc';
+    return `linear-gradient(125deg, ${c.hex} 20%, ${l} 42%, ${c.hex} 55%, ${l} 78%, ${c.hex} 95%)`;
+  }
+  if (c.hex2) return `linear-gradient(135deg, ${c.hex} 55%, ${c.hex2} 55%)`;
+  return c.hex;
+}
+
 function swatchGrid(container, list, getSel, onPick, opts = {}) {
   container.innerHTML = '';
   for (const c of list) {
@@ -149,8 +185,7 @@ function swatchGrid(container, list, getSel, onPick, opts = {}) {
     const b = el('button', 'swatch' + (getSel() === c.id ? ' sel' : '') + (disabled ? ' dis' : ''));
     b.type = 'button';
     b.title = c.name + (c.note ? ` – ${c.note}` : '');
-    b.style.background = c.hex2 ? `linear-gradient(135deg, ${c.hex} 55%, ${c.hex2} 55%)` : c.hex;
-    if (c.glitter) b.classList.add('glit');
+    b.style.background = swatchBackground(c);
     if (c.special) b.classList.add('spec');
     b.disabled = disabled;
     b.addEventListener('click', () => { onPick(c.id); refresh(); });
