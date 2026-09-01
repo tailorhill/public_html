@@ -106,7 +106,7 @@ export class CollarViewer {
       const edgeFrac = Math.max(0.09, (cfg.width - cfg.bandWidthCm) / 2 / cfg.width);
       const e = Math.round(H * edgeFrac);
       bandTop = e; bandBottom = H - e;
-      this.paintLining(ctx, W, H, cfg.lining);
+      this.paintLiningInto(ctx, 0, 0, W, H, cfg.lining, pxPerCm);
       this.paintWebbing(ctx, 0, bandTop, W, bandBottom - bandTop, cfg.bandColor);
       // söm: två streckade stygnrader längs bandets kanter
       ctx.strokeStyle = 'rgba(0,0,0,0.25)';
@@ -191,46 +191,228 @@ export class CollarViewer {
     ctx.globalAlpha = 1;
   }
 
-  paintLining(ctx, w, h, lining) {
+  // Materialtyp för ett foder – styr både målning och materialparametrar.
+  liningKind(lining) {
+    if (!lining) return 'softshell';
+    if (lining.leather) return 'leather';
+    if (lining.metallic) return 'metallic';
+    return lining.pattern ? 'patterned' : 'softshell';
+  }
+
+  // Ritar valt fodermaterial realistiskt i regionen (x,y,w,h).
+  // scale = pixlar per cm, så mönster/narv får samma fysiska storlek överallt.
+  paintLiningInto(ctx, x, y, w, h, lining, scale = 90) {
+    const col = new THREE.Color(lining.hex);
+    const light = a => col.clone().lerp(new THREE.Color('#ffffff'), a).getStyle();
+    const dark = a => col.clone().lerp(new THREE.Color('#000000'), a).getStyle();
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
     ctx.fillStyle = lining.hex;
-    ctx.fillRect(0, 0, w, h);
-    if (lining.pattern && lining.hex2) {
-      ctx.save();
-      ctx.fillStyle = lining.hex2;
-      if (lining.pattern === 'stripes') {
-        for (let x = 0; x < w; x += 26) ctx.fillRect(x, 0, 10, h);
-      } else if (lining.pattern === 'zigzag') {
-        ctx.strokeStyle = lining.hex2; ctx.lineWidth = 6;
-        for (let yy = -10; yy < h + 10; yy += 22) {
+    ctx.fillRect(x, y, w, h);
+    const kind = this.liningKind(lining);
+
+    if (kind === 'leather') {
+      // flammighet: mjuka fläckar (starkare för "brun flammig")
+      const blotch = lining.id === 'lader-brunflammig' ? 0.3 : 0.09;
+      for (let i = 0; i < 24; i++) {
+        const px = x + Math.random() * w, py = y + Math.random() * h;
+        const r = scale * (0.5 + Math.random() * 1.3);
+        const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+        g.addColorStop(0, Math.random() < 0.5 ? light(0.18) : dark(0.3));
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = blotch * (0.4 + Math.random() * 0.6);
+        ctx.fillStyle = g;
+        ctx.fillRect(px - r, py - r, r * 2, r * 2);
+      }
+      // narv: fina korn
+      ctx.globalAlpha = 0.13;
+      const grains = Math.min(16000, (w * h) / 40);
+      for (let i = 0; i < grains; i++) {
+        ctx.fillStyle = Math.random() < 0.5 ? light(0.12) : dark(0.16);
+        ctx.fillRect(x + Math.random() * w, y + Math.random() * h, 1.4, 1.4);
+      }
+      // veck: slingrande mörka linjer med ljus kant
+      ctx.lineCap = 'round';
+      const creases = Math.max(8, Math.round((w * h) / (scale * scale) * 0.9));
+      for (let i = 0; i < creases; i++) {
+        let px = x + Math.random() * w, py = y + Math.random() * h;
+        let a = Math.random() * Math.PI * 2;
+        const path = [[px, py]];
+        for (let s = 0; s < 3 + Math.random() * 4; s++) {
+          a += (Math.random() - 0.5) * 1.3;
+          px += Math.cos(a) * scale * 0.35;
+          py += Math.sin(a) * scale * 0.35;
+          path.push([px, py]);
+        }
+        const draw = () => {
           ctx.beginPath();
-          for (let x = 0; x <= w; x += 18) {
-            const y = yy + ((x / 18) % 2 ? 8 : -8);
-            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-          }
+          path.forEach(([qx, qy], j) => j ? ctx.lineTo(qx, qy) : ctx.moveTo(qx, qy));
+          ctx.stroke();
+        };
+        ctx.strokeStyle = dark(0.32); ctx.globalAlpha = 0.25; ctx.lineWidth = scale * 0.02; draw();
+        ctx.save(); ctx.translate(scale * 0.012, scale * 0.012);
+        ctx.strokeStyle = light(0.28); ctx.globalAlpha = 0.12; ctx.lineWidth = scale * 0.012; draw();
+        ctx.restore();
+      }
+    } else if (kind === 'metallic') {
+      // skimmer: breda diagonala ljusband
+      const g = ctx.createLinearGradient(x, y, x + w * 0.9, y + h);
+      const stops = [[0, 0.05], [0.14, 0.3], [0.25, 0.0], [0.4, 0.22], [0.52, -0.14],
+        [0.66, 0.28], [0.78, 0.0], [0.9, 0.2], [1, -0.08]];
+      for (const [p, v] of stops) {
+        g.addColorStop(p, v >= 0 ? `rgba(255,255,255,${v})` : `rgba(0,0,0,${-v})`);
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+      // skrynkelstråk: tunna ljusa streck
+      ctx.lineCap = 'round';
+      const streaks = Math.max(14, Math.round((w * h) / (scale * scale) * 2));
+      for (let i = 0; i < streaks; i++) {
+        const px = x + Math.random() * w, py = y + Math.random() * h;
+        const a = -0.5 + (Math.random() - 0.5) * 1.4, len = scale * (0.3 + Math.random() * 0.9);
+        ctx.strokeStyle = Math.random() < 0.6 ? light(0.5) : dark(0.3);
+        ctx.globalAlpha = 0.10 + Math.random() * 0.14;
+        ctx.lineWidth = scale * (0.01 + Math.random() * 0.02);
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.quadraticCurveTo(px + Math.cos(a + 0.3) * len / 2, py + Math.sin(a + 0.3) * len / 2,
+          px + Math.cos(a) * len, py + Math.sin(a) * len);
+        ctx.stroke();
+      }
+    } else if (kind === 'patterned') {
+      this.paintPattern(ctx, x, y, w, h, lining, scale);
+    } else {
+      // softshell: matt fintrådig textil
+      ctx.globalAlpha = 0.06;
+      const step = Math.max(2, scale * 0.03);
+      for (let yy = y; yy < y + h; yy += step) {
+        ctx.fillStyle = (yy / step) % 2 < 1 ? light(0.1) : dark(0.12);
+        ctx.fillRect(x, yy, w, 1);
+      }
+      ctx.globalAlpha = 0.05;
+      const fibers = Math.min(9000, (w * h) / 70);
+      for (let i = 0; i < fibers; i++) {
+        ctx.fillStyle = Math.random() < 0.5 ? light(0.16) : dark(0.16);
+        ctx.fillRect(x + Math.random() * w, y + Math.random() * h, 1, 2 + Math.random() * 3);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  paintPattern(ctx, x, y, w, h, lining, scale) {
+    const c2 = lining.hex2 || '#ffffff';
+    const col2 = new THREE.Color(c2);
+    const light2 = col2.clone().lerp(new THREE.Color('#ffffff'), 0.3).getStyle();
+    ctx.fillStyle = c2;
+    if (lining.pattern === 'stripes') {
+      const sw = scale * 0.14;
+      const extra = [c2, light2, new THREE.Color(lining.hex).lerp(new THREE.Color('#000'), 0.3).getStyle()];
+      let i = 0;
+      for (let xx = x; xx < x + w; xx += sw * 2) {
+        ctx.fillStyle = extra[i++ % extra.length];
+        ctx.fillRect(xx, y, sw, h);
+      }
+    } else if (lining.pattern === 'zigzag') {
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = scale * 0.09;
+      ctx.lineJoin = 'round';
+      const step = scale * 0.22, amp = scale * 0.11;
+      for (let yy = y - amp; yy < y + h + amp; yy += scale * 0.3) {
+        ctx.beginPath();
+        for (let xx = x, i = 0; xx <= x + w + step; xx += step, i++) {
+          const py = yy + (i % 2 ? amp : -amp);
+          i === 0 ? ctx.moveTo(xx, py) : ctx.lineTo(xx, py);
+        }
+        ctx.stroke();
+      }
+    } else if (lining.pattern === 'leopard') {
+      // rosetter: brutna bågar kring en mörk kärna
+      const n = Math.max(10, (w * h) / (scale * scale) * 6);
+      for (let i = 0; i < n; i++) {
+        const px = x + Math.random() * w, py = y + Math.random() * h;
+        const r = scale * (0.08 + Math.random() * 0.09);
+        ctx.strokeStyle = c2;
+        ctx.lineWidth = r * 0.75;
+        for (let s = 0; s < 2 + Math.random() * 2; s++) {
+          const a0 = Math.random() * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(px, py, r, a0, a0 + 1.2 + Math.random() * 1.4);
           ctx.stroke();
         }
-      } else if (lining.pattern === 'leopard') {
-        for (let i = 0; i < (w * h) / 900; i++) {
-          const x = Math.random() * w, y = Math.random() * h;
+        if (Math.random() < 0.5) {
+          ctx.fillStyle = new THREE.Color(lining.hex).lerp(col2, 0.35).getStyle();
+          ctx.beginPath(); ctx.arc(px, py, r * 0.45, 0, 7); ctx.fill();
+        }
+      }
+    } else if (lining.pattern === 'fans') {
+      // solfjädrar i förskjutna rader
+      const fr = scale * 0.18;
+      let row = 0;
+      for (let yy = y; yy < y + h + fr; yy += fr * 0.95, row++) {
+        for (let xx = x - fr + (row % 2 ? fr : 0); xx < x + w + fr; xx += fr * 2) {
+          ctx.fillStyle = c2;
           ctx.beginPath();
-          ctx.arc(x, y, 3 + Math.random() * 4, Math.random(), Math.random() + 4);
-          ctx.lineWidth = 3; ctx.strokeStyle = lining.hex2; ctx.stroke();
-        }
-      } else { // floral / dots / fans → prickar
-        for (let i = 0; i < (w * h) / 700; i++) {
-          const x = Math.random() * w, y = Math.random() * h;
-          ctx.beginPath(); ctx.arc(x, y, 2.5 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+          ctx.moveTo(xx, yy);
+          ctx.arc(xx, yy, fr * 0.85, Math.PI, Math.PI * 2);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = lining.hex;
+          ctx.lineWidth = 1;
+          for (const a of [-0.6, -0.3, 0, 0.3, 0.6]) {
+            ctx.beginPath();
+            ctx.moveTo(xx, yy);
+            ctx.lineTo(xx + Math.sin(a) * fr * 0.85, yy - Math.cos(a) * fr * 0.85);
+            ctx.stroke();
+          }
         }
       }
-      ctx.restore();
+    } else {
+      // floral/dots: små blommor + prickar
+      const spacing = scale * 0.28;
+      let row = 0;
+      for (let yy = y + spacing / 2; yy < y + h; yy += spacing * 0.9, row++) {
+        for (let xx = x + spacing / 2 + (row % 2 ? spacing / 2 : 0); xx < x + w; xx += spacing) {
+          const r = spacing * 0.14;
+          if ((row + Math.round(xx / spacing)) % 3 === 0) {
+            ctx.fillStyle = light2;
+            ctx.beginPath(); ctx.arc(xx, yy, r * 0.5, 0, 7); ctx.fill();
+            continue;
+          }
+          ctx.fillStyle = c2;
+          for (let p = 0; p < 5; p++) {
+            const a = (p / 5) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(xx + Math.cos(a) * r, yy + Math.sin(a) * r, r * 0.75, 0, 7);
+            ctx.fill();
+          }
+          ctx.fillStyle = light2;
+          ctx.beginPath(); ctx.arc(xx, yy, r * 0.55, 0, 7); ctx.fill();
+        }
+      }
     }
-    if (lining.metallic) {
-      const grad = ctx.createLinearGradient(0, 0, w, 0);
-      for (let i = 0; i <= 10; i++) {
-        grad.addColorStop(i / 10, i % 2 ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)');
-      }
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
+  }
+
+  // Sömlös fodertextur för halsbandets insida. Kvadraten motsvarar 5x5 cm.
+  makeLiningTexture(lining) {
+    const size = 512;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    this.paintLiningInto(ctx, 0, 0, size, size, lining, size / 5);
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // Materialparametrar per fodertyp.
+  liningMaterialProps(lining) {
+    switch (this.liningKind(lining)) {
+      case 'leather':   return { roughness: 0.52, metalness: 0.0, bumpScale: 2.2, envMapIntensity: 0.6 };
+      case 'metallic':  return { roughness: 0.3, metalness: 0.55, bumpScale: 1.2, envMapIntensity: 1.0 };
+      case 'patterned': return { roughness: 0.88, metalness: 0.0, bumpScale: 0.8, envMapIntensity: 0.25 };
+      default:          return { roughness: 0.95, metalness: 0.0, bumpScale: 1.0, envMapIntensity: 0.2 };
     }
   }
 
@@ -403,13 +585,25 @@ export class CollarViewer {
 
     const tex = this.makeBandTexture(cfg);
     const isBio = cfg.family === 'biothane';
-    const outerMat = new THREE.MeshStandardMaterial({
-      map: tex,
-      roughness: isBio ? 0.35 : 0.85,
-      metalness: 0.0,
-      envMapIntensity: isBio ? 0.8 : 0.3,
-      side: THREE.FrontSide,
-    });
+    const outerMat = isBio
+      ? new THREE.MeshPhysicalMaterial({
+          map: tex,
+          roughness: 0.38,
+          metalness: 0.0,
+          clearcoat: 0.55,
+          clearcoatRoughness: 0.3,
+          envMapIntensity: 0.7,
+          side: THREE.FrontSide,
+        })
+      : new THREE.MeshStandardMaterial({
+          map: tex,
+          bumpMap: tex,
+          bumpScale: 1.6,
+          roughness: 0.85,
+          metalness: 0.0,
+          envMapIntensity: 0.3,
+          side: THREE.FrontSide,
+        });
 
     const seg = 160;
     const outer = new THREE.Mesh(new THREE.CylinderGeometry(R, R, width, seg, 1, true), outerMat);
@@ -417,17 +611,38 @@ export class CollarViewer {
     outer.castShadow = true;
     this.collarGroup.add(outer);
 
+    // insida: fodrets material (bomull) eller biothanefärgen
     const innerHex = isBio ? cfg.bandColor : (cfg.lining ? cfg.lining.hex : '#555');
-    const innerMat = new THREE.MeshStandardMaterial({
-      color: innerHex,
-      roughness: isBio ? 0.4 : 0.9,
-      side: THREE.BackSide,
-    });
+    let innerMat;
+    if (isBio) {
+      innerMat = new THREE.MeshStandardMaterial({
+        color: innerHex, roughness: 0.4, side: THREE.BackSide,
+      });
+    } else {
+      const linTex = this.makeLiningTexture(cfg.lining);
+      linTex.repeat.set(Math.max(1, Math.round(cfg.circumference / 5)), Math.max(1, width / 5));
+      const props = this.liningMaterialProps(cfg.lining);
+      innerMat = new THREE.MeshStandardMaterial({
+        map: linTex,
+        bumpMap: linTex,
+        bumpScale: props.bumpScale,
+        roughness: props.roughness,
+        metalness: props.metalness,
+        envMapIntensity: props.envMapIntensity,
+        side: THREE.BackSide,
+      });
+    }
     const inner = new THREE.Mesh(new THREE.CylinderGeometry(R - thickness, R - thickness, width, seg, 1, true), innerMat);
     this.collarGroup.add(inner);
 
     // kantringar (tjocklek)
-    const edgeMat = new THREE.MeshStandardMaterial({ color: innerHex, roughness: 0.85 });
+    const edgeProps = isBio ? { roughness: 0.4 } : this.liningMaterialProps(cfg.lining);
+    const edgeMat = new THREE.MeshStandardMaterial({
+      color: innerHex,
+      roughness: edgeProps.roughness,
+      metalness: edgeProps.metalness || 0,
+      envMapIntensity: edgeProps.envMapIntensity || 0.7,
+    });
     for (const sgn of [1, -1]) {
       const ringGeo = new THREE.TorusGeometry(R - thickness / 2, thickness / 2, 10, seg);
       const ring = new THREE.Mesh(ringGeo, edgeMat);
