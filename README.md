@@ -69,8 +69,6 @@ pris" i verktyget och bekräftas alltid i Valley Dogs kassa.
 
 ## Symboler
 
-Symbolerna är Valley Dogs egna (genererade ur leverantörens symbolark till
-`js/vd-symbols.js`) – samma former som sys på halsbanden. Undantag: tass och
-clown saknas i arket och renderas med
-[Noto Emoji](https://fonts.google.com/noto/specimen/Noto+Emoji) (OFL), och
-flaggorna ritas exakt efter respektive flaggas geometri.
+Samtliga symboler är Valley Dogs egna (genererade ur leverantörens symbolark
+till `js/vd-symbols.js`) – exakt samma former som sys på halsbanden.
+Flaggorna ritas efter respektive flaggas geometri i riktiga färger.

@@ -1,19 +1,8 @@
 // Symboler för halsbanden.
-// - De flesta är Valley Dogs EGNA symboler (js/vd-symbols.js, genererade ur
+// - Samtliga symboler är Valley Dogs EGNA (js/vd-symbols.js, genererade ur
 //   leverantörens symbolark) – exakt samma former som sys på halsbanden.
 // - Flaggorna ritas exakt enligt sina geometrier, i riktiga färger.
-// - Tass och clown saknas i arket och renderas med Noto Emoji tills vidare.
 import { VD_SYMBOL_PATHS } from './vd-symbols.js';
-
-const EMOJI = {
-  tass:  '🐾',
-  clown: '🤡',
-};
-
-export const EMOJI_FONT = '"Noto Emoji"';
-
-// Alla emoji-glyfer som används – behövs för att tvinga fram rätt font-subset.
-export const EMOJI_GLYPHS = Object.values(EMOJI).join('');
 
 // Registret över path-siluetter (Valley Dogs ark har viewBox 2048).
 const SVG_SYMBOLS = {};
@@ -49,19 +38,6 @@ function getBounds(entry) {
   return entry.bounds;
 }
 
-function drawEmoji(ctx, glyph, cx, cy, s, color) {
-  ctx.save();
-  ctx.font = `600 ${Math.round(s * 1.18)}px ${EMOJI_FONT}, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = color;
-  // centrera glyfen exakt via dess faktiska bounding box
-  const m = ctx.measureText(glyph);
-  const yOff = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-  ctx.fillText(glyph, cx, cy + yOff);
-  ctx.restore();
-}
-
 export function drawSymbol(ctx, id, cx, cy, s, color) {
   switch (id) {
     case 'svenskaflaggan': flagNordic(ctx, cx, cy, s, '#1c50a0', '#f8d015'); return;
@@ -82,11 +58,7 @@ export function drawSymbol(ctx, id, cx, cy, s, color) {
     ctx.fillStyle = color;
     ctx.fill(entry.path, 'evenodd');
     ctx.restore();
-    return;
   }
-
-  const glyph = EMOJI[id];
-  if (glyph) drawEmoji(ctx, glyph, cx, cy, s, color);
 }
 
 function flagNordic(ctx, cx, cy, s, bg, cross, innerCross = null, outline = false) {
