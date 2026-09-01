@@ -624,10 +624,48 @@ $('#copyBtn').addEventListener('click', async () => {
   setTimeout(() => { $('#copyBtn').textContent = 'Kopiera beställningstext'; }, 2000);
 });
 
-$('#mailBtn').addEventListener('click', () => {
+// Mejla: mailto kan inte bifoga filer, så vi paketerar bild + skärfiler +
+// beställningstext i en zip som laddas ner, och ber användaren bifoga den.
+$('#mailBtn').addEventListener('click', async () => {
+  const btn = $('#mailBtn');
+  const prev = btn.textContent;
+  btn.textContent = 'Packar bilagor…';
+  btn.disabled = true;
+  let hasZip = false;
+  try {
+    const files = [{ name: 'bestallning.txt', data: orderText() }];
+
+    // PNG-bild av 3D-vyn
+    const png = viewer.snapshot();
+    const bin = atob(png.split(',')[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    files.push({ name: 'halsband-design.png', data: bytes });
+
+    // skärfiler (hoppas över om det inte finns text/symbol)
+    try {
+      const mod = await import('./export.js');
+      files.push({ name: 'halsband-text-symboler.svg', data: await mod.buildCutSvg(exportCfg()) });
+      files.push({ name: 'halsband-text-symboler.dxf', data: await mod.buildCutDxf(exportCfg()) });
+    } catch { /* ingen text/symbol att exportera */ }
+
+    const { makeZip } = await import('./zip.js');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(makeZip(files));
+    a.download = 'halsband-bilagor.zip';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    hasZip = true;
+  } catch { /* zip-paketeringen är ett tillägg – mejlet ska öppnas ändå */ }
+
   const subject = encodeURIComponent('Beställning av designat halsband');
-  const body = encodeURIComponent(orderText());
+  const note = hasZip
+    ? 'OBS: Bifoga filen "halsband-bilagor.zip" som just laddades ner – den innehåller bild på designen och skärfiler (SVG + DXF).\n\n'
+    : '';
+  const body = encodeURIComponent(note + orderText());
   window.location.href = `mailto:info@valleydogs.se?subject=${subject}&body=${body}`;
+  btn.textContent = prev;
+  btn.disabled = false;
 });
 
 $('#snapshotBtn').addEventListener('click', () => {
