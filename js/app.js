@@ -1,7 +1,7 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, PRODUCT_URLS, allLinings,
+  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS, allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
 
@@ -25,9 +25,12 @@ const state = {
   lining: 'ss-svart',
   fullGlitter: false,
   glitterColor: 'guldglitter',
-  text: 'LUNA',
-  font: 'built',
-  textColor: 'vit',
+  texts: [
+    { text: 'LUNA', font: 'built', color: 'vit' },
+    { text: '', font: 'magnolia', color: 'guldglitter' },
+  ],
+  text2: false,
+  textLayout: 'rad',           // 'rad' | 'rader' | 'dubbel'
   symbol: 'tass',
   symbolPlacement: 'efter',
   symbolColor: '',             // '' = samma som texten
@@ -78,6 +81,23 @@ function shadowColorAllowed(c) {
   return !c.special; // special ej som skugga
 }
 
+function isDouble() {
+  return state.text2 && state.textLayout === 'dubbel';
+}
+
+// Butikens regel för dubbeltext: glitter på glitter, eller slät under och
+// glitter över. Specialfärger går inte alls. Returnerar varningstext eller ''.
+function doubleTextWarning() {
+  if (!isDouble()) return '';
+  const c1 = byId(TEXT_COLORS, state.texts[0].color);
+  const c2 = byId(TEXT_COLORS, state.texts[1].color);
+  if (c1.special || c2.special) {
+    return 'Specialfärger (Regnbåge, Dimmig, metallic, Reflex) kan inte användas vid dubbeltext.';
+  }
+  const ok = (c1.glitter && c2.glitter) || (!c1.glitter && c2.glitter);
+  return ok ? '' : 'Vid dubbeltext måste det vara glitter på glitter, eller slät färg under och glitter över (välj en glitterfärg på text 2).';
+}
+
 function computePrice() {
   const rows = [];
   let total = 0;
@@ -90,7 +110,11 @@ function computePrice() {
     rows.push([`${useGlitter ? 'Helglittrigt ' : ''}${model.name} ${byId(COTTON_WIDTHS, w).name}`, base]);
     total += base;
     const lin = byId(linings, state.lining);
-    if (lin && lin.leather) { rows.push(['Äkta läder på fodret', LEATHER_SURCHARGE]); total += LEATHER_SURCHARGE; }
+    if (lin && lin.leather) {
+      const ls = LEATHER_SURCHARGE[w];
+      rows.push(['Äkta läder på fodret', ls]);
+      total += ls;
+    }
     const hwf = byId(HARDWARE_FINISHES, state.hardware);
     if (hwf.surcharge) { rows.push([hwf.name, hwf.surcharge.cotton]); total += hwf.surcharge.cotton; }
   } else {
@@ -126,13 +150,16 @@ function rebuild3D() {
       lining: isCotton ? lin : null,
       fullGlitter: state.fullGlitter && glitterAvailable(),
       glitterColor: byId(TEXT_COLORS, state.glitterColor)?.hex,
-      text: state.text,
-      font: byId(FONTS, state.font),
-      textColor: byId(TEXT_COLORS, state.textColor),
+      texts: (state.text2 ? state.texts : state.texts.slice(0, 1)).map(t => ({
+        text: t.text,
+        font: byId(FONTS, t.font),
+        color: byId(TEXT_COLORS, t.color),
+      })),
+      textLayout: state.textLayout,
       symbol: state.symbol,
       symbolPlacement: state.symbolPlacement,
       symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
-      shadowColor: state.shadow ? byId(TEXT_COLORS, state.shadowColor) : null,
+      shadowColor: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor) : null,
       hardware: byId(HARDWARE_FINISHES, state.hardware),
       showHardware: state.showHardware,
       modelKind: modelKind(),
@@ -294,28 +321,43 @@ function refresh() {
       () => state.glitterColor, id => { state.glitterColor = id; });
   }
 
-  // typsnitt
-  const fontWrap = $('#fontGrid');
-  fontWrap.innerHTML = '';
-  for (const f of FONTS) {
-    const b = el('button', 'fontopt' + (state.font === f.id ? ' sel' : ''));
-    b.type = 'button';
-    const prev = el('span', 'font-preview', f.caps ? f.name.toUpperCase() : f.name);
-    prev.style.fontFamily = f.css;
-    prev.style.fontWeight = f.weight;
-    if (f.italic) prev.style.fontStyle = 'italic';
-    b.appendChild(prev);
-    b.title = f.name + (f.caps ? ' (endast versaler)' : '');
-    b.addEventListener('click', () => { state.font = f.id; refresh(); });
-    fontWrap.appendChild(b);
-  }
-  const fnt = byId(FONTS, state.font);
-  $('#capsNote').style.display = fnt.caps ? '' : 'none';
-
-  // textfärg
-  swatchGrid($('#textColorSwatches'), TEXT_COLORS, () => state.textColor,
-    id => { state.textColor = id; },
+  // typsnitt + textfärg för respektive text
+  const buildFontGrid = (container, idx) => {
+    container.innerHTML = '';
+    for (const f of FONTS) {
+      const b = el('button', 'fontopt' + (state.texts[idx].font === f.id ? ' sel' : ''));
+      b.type = 'button';
+      const prev = el('span', 'font-preview', f.caps ? f.name.toUpperCase() : f.name);
+      prev.style.fontFamily = f.css;
+      prev.style.fontWeight = f.weight;
+      if (f.italic) prev.style.fontStyle = 'italic';
+      b.appendChild(prev);
+      b.title = f.name + (f.caps ? ' (endast versaler)' : '');
+      b.addEventListener('click', () => { state.texts[idx].font = f.id; refresh(); });
+      container.appendChild(b);
+    }
+  };
+  buildFontGrid($('#fontGrid'), 0);
+  $('#capsNote').style.display = byId(FONTS, state.texts[0].font).caps ? '' : 'none';
+  swatchGrid($('#textColorSwatches'), TEXT_COLORS, () => state.texts[0].color,
+    id => { state.texts[0].color = id; },
     { isDisabled: c => !textColorAllowed(c) });
+
+  // andra texten
+  $('#text2Toggle').checked = state.text2;
+  $('#text2Block').style.display = state.text2 ? '' : 'none';
+  if (state.text2) {
+    buildFontGrid($('#fontGrid2'), 1);
+    $('#capsNote2').style.display = byId(FONTS, state.texts[1].font).caps ? '' : 'none';
+    swatchGrid($('#textColorSwatches2'), TEXT_COLORS, () => state.texts[1].color,
+      id => { state.texts[1].color = id; },
+      { isDisabled: c => !textColorAllowed(c) });
+    segmented($('#layoutSeg'), TEXT_LAYOUTS, () => state.textLayout,
+      id => { state.textLayout = id; });
+    const warn = doubleTextWarning();
+    $('#dubbelWarn').style.display = warn ? '' : 'none';
+    $('#dubbelWarn').textContent = warn;
+  }
 
   // symboler
   selectBox($('#symbolSelect'), SYMBOLS, () => state.symbol, id => { state.symbol = id; });
@@ -333,10 +375,13 @@ function refresh() {
     $('#symbolColorRow').style.display = isFlag ? 'none' : '';
   }
 
-  // skugga
+  // skugga (går ej med dubbeltext)
+  const dbl = isDouble();
+  $('#shadowRow').style.display = dbl ? 'none' : '';
+  $('#noShadowNote').style.display = dbl ? '' : 'none';
   $('#shadowToggle').checked = state.shadow;
-  $('#shadowColorRow').style.display = state.shadow ? '' : 'none';
-  if (state.shadow) {
+  $('#shadowColorRow').style.display = state.shadow && !dbl ? '' : 'none';
+  if (state.shadow && !dbl) {
     swatchGrid($('#shadowSwatches'), TEXT_COLORS.filter(shadowColorAllowed),
       () => state.shadowColor, id => { state.shadowColor = id; });
   }
@@ -377,12 +422,14 @@ function orderText() {
   const { total } = computePrice();
   const L = [];
   const lin = byId(linings, state.lining);
-  const fnt = byId(FONTS, state.font);
   const sym = byId(SYMBOLS, state.symbol);
   const place = byId(SYMBOL_PLACEMENTS, state.symbolPlacement);
   const hwf = byId(HARDWARE_FINISHES, state.hardware);
-  const tc = byId(TEXT_COLORS, state.textColor);
   const sc = state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null;
+  const t1 = state.texts[0], t2 = state.texts[1];
+  const fname = t => byId(FONTS, t.font).name;
+  const cname = t => byId(TEXT_COLORS, t.color).name;
+  const hasT2 = state.text2 && t2.text.trim();
 
   L.push('BESTÄLLNING – designad i 3D-verktyget');
   L.push('======================================');
@@ -392,7 +439,7 @@ function orderText() {
     L.push(`Produkt: ${state.fullGlitter ? 'Helglittrigt ' : ''}${model.name} ${w.name}`);
     L.push(`Storlek i stängt läge: ${state.circumference} cm`);
     L.push(`Färg på bomullsband: ${byId(WEBBING_COLORS, state.webbing).name}`);
-    L.push(`Äkta läder på fodret: ${lin.leather ? 'Ja (+120 kr)' : 'Nej'}`);
+    L.push(`Äkta läder på fodret: ${lin.leather ? `Ja (+${LEATHER_SURCHARGE[state.cottonWidth]} kr)` : 'Nej'}`);
     L.push(`Foder: ${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`);
   } else {
     const model = byId(BIOTHANE.models, state.bioModel);
@@ -404,10 +451,21 @@ function orderText() {
     L.push(`Färg på biothane: ${byId(BIOTHANE_COLORS, state.biothane).name}`);
   }
   if (state.fullGlitter) L.push(`Glitterfärg (helglitter): ${byId(TEXT_COLORS, state.glitterColor).name}`);
-  L.push(`Text på halsbandet: ${state.text.trim() || '(ingen text)'}`);
-  if (state.text.trim()) {
-    L.push(`Typsnitt: ${fnt.name}`);
-    L.push(`Textfärg: ${tc.name}`);
+  if (!t1.text.trim() && !hasT2) {
+    L.push('Text på halsbandet: (ingen text)');
+  } else if (!hasT2) {
+    L.push(`Text på halsbandet: ${t1.text.trim()}`);
+    L.push(`Typsnitt: ${fname(t1)}`);
+    L.push(`Textfärg: ${cname(t1)}`);
+  } else if (state.textLayout === 'dubbel') {
+    L.push(`Text på halsbandet: Dubbeltext – "${t1.text.trim()}" med "${t2.text.trim()}" ovanpå`);
+    L.push(`Dubbeltext: bakre texten i typsnitt ${fname(t1)} i färgen ${cname(t1)}, ` +
+      `främre texten i typsnitt ${fname(t2)} i färgen ${cname(t2)}`);
+  } else {
+    const layoutName = state.textLayout === 'rader' ? 'två rader' : 'efter varandra';
+    L.push(`Text på halsbandet: "${t1.text.trim()}" och "${t2.text.trim()}" (${layoutName})`);
+    L.push(`Text 1: "${t1.text.trim()}" i typsnitt ${fname(t1)}, färg ${cname(t1)}`);
+    L.push(`Text 2: "${t2.text.trim()}" i typsnitt ${fname(t2)}, färg ${cname(t2)}`);
   }
   if (state.symbol !== 'ingen') {
     L.push(`Symbol: ${sym.name}`);
@@ -416,7 +474,7 @@ function orderText() {
   } else {
     L.push('Symbol: Ingen symbol');
   }
-  if (state.shadow) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
+  if (state.shadow && !isDouble()) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
@@ -438,8 +496,17 @@ $('#circ').addEventListener('input', e => {
 });
 
 $('#textInput').addEventListener('input', e => {
-  state.text = e.target.value.slice(0, 24);
+  state.texts[0].text = e.target.value.slice(0, 24);
   renderSummary(); rebuild3D();
+});
+$('#textInput2').addEventListener('input', e => {
+  state.texts[1].text = e.target.value.slice(0, 24);
+  renderSummary(); rebuild3D();
+});
+$('#text2Toggle').addEventListener('change', e => {
+  state.text2 = e.target.checked;
+  if (state.text2 && !state.texts[1].text) state.texts[1].text = 'Sparky';
+  refresh();
 });
 
 $('#glitterToggle').addEventListener('change', e => { state.fullGlitter = e.target.checked; refresh(); });
@@ -474,7 +541,8 @@ $('#showOrderBtn').addEventListener('click', () => {
 $('#closeDialog').addEventListener('click', () => $('#orderDialog').close());
 
 // init
-$('#textInput').value = state.text;
+$('#textInput').value = state.texts[0].text;
+$('#textInput2').value = state.texts[1].text;
 $('#circ').value = state.circumference;
 $('#circVal').textContent = `${state.circumference} cm`;
 

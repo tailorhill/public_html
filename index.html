@@ -111,15 +111,35 @@
       <p class="note" id="capsNote" style="display:none">Detta typsnitt finns endast med versaler.</p>
       <label>Textfärg</label>
       <div class="swatches" id="textColorSwatches"></div>
-      <p class="note">Regnbåge, Dimmig, metallic och Reflex kan inte användas på BioThane, som skugga eller vid dubbeltext.</p>
+
       <label class="switch-row">
-        <input type="checkbox" id="shadowToggle">
-        <span>Skugga bakom text och symbol</span>
+        <input type="checkbox" id="text2Toggle">
+        <span>Lägg till en andra text</span>
       </label>
-      <div id="shadowColorRow" style="display:none">
-        <label>Skuggfärg</label>
-        <div class="swatches" id="shadowSwatches"></div>
+      <div id="text2Block" style="display:none">
+        <input type="text" id="textInput2" maxlength="24" placeholder="T.ex. telefonnummer eller smeknamn">
+        <label>Typsnitt (text 2)</label>
+        <div class="fontgrid" id="fontGrid2"></div>
+        <p class="note" id="capsNote2" style="display:none">Detta typsnitt finns endast med versaler.</p>
+        <label>Textfärg (text 2)</label>
+        <div class="swatches" id="textColorSwatches2"></div>
+        <label>Placering av texterna</label>
+        <div class="seg-row" id="layoutSeg"></div>
+        <p class="note warn" id="dubbelWarn" style="display:none"></p>
       </div>
+
+      <p class="note">Regnbåge, Dimmig, metallic och Reflex kan inte användas på BioThane, som skugga eller vid dubbeltext.</p>
+      <div id="shadowRow">
+        <label class="switch-row">
+          <input type="checkbox" id="shadowToggle">
+          <span>Skugga bakom text och symbol</span>
+        </label>
+        <div id="shadowColorRow" style="display:none">
+          <label>Skuggfärg</label>
+          <div class="swatches" id="shadowSwatches"></div>
+        </div>
+      </div>
+      <p class="note" id="noShadowNote" style="display:none">Skugga går inte att kombinera med dubbeltext.</p>
     </section>
 
     <section class="card">

@@ -480,88 +480,133 @@ export class CollarViewer {
     return colorObj.hex; // reflex m.m.
   }
 
+  // Ritar 1–2 texter + symbol. cfg.texts = [{text, font, color}], cfg.textLayout:
+  //   'rad'    – texterna efter varandra på samma rad
+  //   'rader'  – två rader ovanför varandra
+  //   'dubbel' – dubbeltext: text 2 läggs ovanpå text 1
   paintTextBlock(ctx, W, H, bandTop, bandBottom, cfg) {
-    const text = (cfg.text || '').trim();
+    const texts = (cfg.texts || []).filter(t => t.text && t.text.trim());
     const hasSymbol = cfg.symbol && cfg.symbol !== 'ingen';
-    if (!text && !hasSymbol) return;
+    if (!texts.length && !hasSymbol) return;
 
     const bandH = bandBottom - bandTop;
-    const size = bandH * 0.56;
     const cyMid = bandTop + bandH / 2;
-    const font = cfg.font;
-    const displayText = font.caps ? text.toUpperCase() : text;
-    const fontStr = `${font.italic ? 'italic ' : ''}${font.weight} ${size}px ${font.css}`;
+    const layout = texts.length > 1 ? (cfg.textLayout || 'rad') : 'rad';
 
-    // mät layout
-    ctx.font = fontStr;
-    const tw = displayText ? ctx.measureText(displayText).width : 0;
+    const scratch = document.createElement('canvas');
+    scratch.width = W; scratch.height = H;
+    const sctx = scratch.getContext('2d');
+
+    const fontStr = (f, size) => `${f.italic ? 'italic ' : ''}${f.weight} ${size}px ${f.css}`;
+    const disp = t => (t.font.caps ? t.text.trim().toUpperCase() : t.text.trim());
+    const measure = (t, size) => {
+      sctx.font = fontStr(t.font, size);
+      return sctx.measureText(disp(t)).width;
+    };
+
+    // grundstorlekar per layout
+    let sizes;
+    if (layout === 'rader' && texts.length > 1) sizes = [bandH * 0.4, bandH * 0.4];
+    else if (layout === 'dubbel' && texts.length > 1) sizes = [bandH * 0.62, bandH * 0.46];
+    else sizes = texts.map(() => bandH * 0.54);
+
+    // blockbredd (utan symbol)
+    const blockWidth = () => {
+      const ws = texts.map((t, i) => measure(t, sizes[i]));
+      if (layout === 'rad' && texts.length > 1) return ws[0] + sizes[0] * 0.5 + ws[1];
+      return Math.max(...ws, 0);
+    };
+
+    // krymp om texten blir för bred för framsidan
+    const maxW = W * 0.42;
+    let bw = blockWidth();
+    if (bw > maxW) {
+      const k = maxW / bw;
+      sizes = sizes.map(s => s * k);
+      bw = blockWidth();
+    }
+
     const symSize = bandH * 0.5;
     const symW = hasSymbol ? symSize * symbolAspect(cfg.symbol) : 0;
-    const gap = displayText && hasSymbol ? size * 0.45 : 0;
+    const gap = (texts.length && hasSymbol) ? bandH * 0.24 : 0;
 
-    let items = [];
-    if (hasSymbol && cfg.symbolPlacement === 'fore') items = [['sym'], ['txt']];
-    else if (hasSymbol && cfg.symbolPlacement === 'efter') items = [['txt'], ['sym']];
-    else if (hasSymbol && cfg.symbolPlacement === 'bada') items = [['sym'], ['txt'], ['sym']];
-    else if (hasSymbol && !displayText) items = [['sym']];
-    else items = [['txt']];
+    let items = []; // [kind]
+    if (hasSymbol && !texts.length) items = [['sym']];
+    else if (hasSymbol && cfg.symbolPlacement === 'fore') items = [['sym'], ['blk']];
+    else if (hasSymbol && cfg.symbolPlacement === 'bada') items = [['sym'], ['blk'], ['sym']];
+    else if (hasSymbol) items = [['blk'], ['sym']];
+    else items = [['blk']];
 
     let total = 0;
-    for (const [k] of items) total += (k === 'txt' ? tw : symW);
+    for (const [k] of items) total += (k === 'blk' ? bw : symW);
     total += gap * (items.length - 1);
 
-    // rendera till offscreen för glitter-klippning
-    const off = document.createElement('canvas');
-    off.width = W; off.height = H;
-    const octx = off.getContext('2d');
-    octx.font = fontStr;
-    octx.textBaseline = 'middle';
+    // en text med ev. glitter/reflex begränsat till tecknen
+    const drawUnit = (t, size, cx, cy, colorOverride) => {
+      const w = measure(t, size);
+      const x = cx - w / 2;
+      const target = (!colorOverride && (t.color.glitter || t.color.special === 'reflex')) ? sctx : ctx;
+      if (target === sctx) sctx.clearRect(0, 0, W, H);
+      target.font = fontStr(t.font, size);
+      target.textBaseline = 'middle';
+      const col = colorOverride || t.color;
+      target.fillStyle = this.fillStyleFor(target, col, x, cy - size / 2, w, size);
+      target.fillText(disp(t), x, cy);
+      if (target === sctx) {
+        sctx.save();
+        sctx.globalCompositeOperation = 'source-atop';
+        if (t.color.glitter) {
+          this.sprinkle(sctx, x - 8, cy - size * 0.75, w + 16, size * 1.5, new THREE.Color(t.color.hex), 2.2);
+        } else { // reflex
+          sctx.fillStyle = 'rgba(255,255,255,0.5)';
+          for (let i = 0; i < 300; i++) {
+            sctx.fillRect(x + Math.random() * w, cy - size * 0.6 + Math.random() * size * 1.2, 1.5, 1.5);
+          }
+        }
+        sctx.restore();
+        ctx.drawImage(scratch, 0, 0);
+      }
+    };
 
-    const drawItems = (targetCtx, colorObjTxt, colorObjSym, dx, dy) => {
+    // ritar textblocket centrerat kring (cx, cyMid)
+    const drawBlock = (cx, dy, colorOverride) => {
+      if (!texts.length) return;
+      if (layout === 'rader' && texts.length > 1) {
+        drawUnit(texts[0], sizes[0], cx, bandTop + bandH * 0.28 + dy, colorOverride);
+        drawUnit(texts[1], sizes[1], cx, bandTop + bandH * 0.73 + dy, colorOverride);
+      } else if (layout === 'dubbel' && texts.length > 1) {
+        drawUnit(texts[0], sizes[0], cx, cyMid - bandH * 0.04 + dy, colorOverride);
+        drawUnit(texts[1], sizes[1], cx, cyMid + bandH * 0.12 + dy, colorOverride);
+      } else if (texts.length > 1) {
+        const w0 = measure(texts[0], sizes[0]), w1 = measure(texts[1], sizes[1]);
+        const g2 = sizes[0] * 0.5;
+        drawUnit(texts[0], sizes[0], cx - (w0 + g2 + w1) / 2 + w0 / 2, cyMid + dy, colorOverride);
+        drawUnit(texts[1], sizes[1], cx + (w0 + g2 + w1) / 2 - w1 / 2, cyMid + dy, colorOverride);
+      } else {
+        drawUnit(texts[0], sizes[0], cx, cyMid + dy, colorOverride);
+      }
+    };
+
+    const drawAll = (dx, dy, colorOverride) => {
       let x = W / 2 - total / 2 + dx;
       for (const [k] of items) {
-        if (k === 'txt' && displayText) {
-          targetCtx.fillStyle = this.fillStyleFor(targetCtx, colorObjTxt, x, bandTop + dy, tw, bandH);
-          targetCtx.fillText(displayText, x, cyMid + dy);
-          x += tw + gap;
-        } else if (k === 'sym') {
-          const colHex = colorObjSym.special ? colorObjSym.hex : colorObjSym.hex;
-          drawSymbol(targetCtx, cfg.symbol, x + symW / 2 + dx * 0, cyMid + dy, symSize, colHex);
+        if (k === 'blk') {
+          drawBlock(x + bw / 2, dy, colorOverride);
+          x += bw + gap;
+        } else {
+          const symCol = colorOverride || cfg.symbolColor || (texts[0] ? texts[0].color : { hex: '#111' });
+          drawSymbol(ctx, cfg.symbol, x + symW / 2, cyMid + dy, symSize, symCol.hex);
           x += symW + gap;
         }
       }
     };
 
-    // skugga
+    // skugga (endast utan dubbeltext – regeln från butiken hanteras i UI:t)
     if (cfg.shadowColor) {
-      ctx.save();
-      ctx.font = fontStr;
-      ctx.textBaseline = 'middle';
-      const so = size * 0.07;
-      drawItems(ctx, cfg.shadowColor, cfg.shadowColor, so, so);
-      ctx.restore();
+      const so = bandH * 0.045;
+      drawAll(so, so, cfg.shadowColor);
     }
-
-    drawItems(octx, cfg.textColor, cfg.symbolColor || cfg.textColor, 0, 0);
-
-    // glitter i text/symbol
-    if (cfg.textColor.glitter || (cfg.symbolColor && cfg.symbolColor.glitter)) {
-      octx.save();
-      octx.globalCompositeOperation = 'source-atop';
-      this.sprinkle(octx, W / 2 - total / 2 - 10, bandTop, total + 20, bandH, new THREE.Color(cfg.textColor.hex), 2.2);
-      octx.restore();
-    }
-    if (cfg.textColor.special === 'reflex') {
-      octx.save();
-      octx.globalCompositeOperation = 'source-atop';
-      octx.fillStyle = 'rgba(255,255,255,0.5)';
-      for (let i = 0; i < 400; i++) {
-        octx.fillRect(W / 2 - total / 2 + Math.random() * total, bandTop + Math.random() * bandH, 1.5, 1.5);
-      }
-      octx.restore();
-    }
-
-    ctx.drawImage(off, 0, 0);
+    drawAll(0, 0, null);
   }
 
   // ------------------------------------------------------------- geometri

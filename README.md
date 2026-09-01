@@ -16,9 +16,13 @@ webbplats.
   foder (äkta läder, metallic-konstskinn, behandlad bomull, softshell),
   49 text-/vinylfärger inkl. glitter och specialfärger, 16 typsnitt,
   28 symboler, beslag i 5 utföranden samt helglittrigt tillval.
+- **Två texter** med eget typsnitt och egen färg, i tre placeringar:
+  efter varandra, två rader eller dubbeltext (text 2 ovanpå text 1).
 - **Regler från butiken** inbyggda: versal-typsnitt, specialfärger som inte
-  funkar på BioThane/som skugga, färger som saknas i vissa bredder,
-  pristillägg (äkta läder +120 kr, solid mässing +30/40 kr osv.).
+  funkar på BioThane/som skugga, dubbeltextregler (glitter på glitter eller
+  slät under + glitter över, ingen skugga), färger som saknas i vissa
+  bredder, pristillägg (äkta läder +100–150 kr beroende på bredd,
+  solid mässing +30/40 kr osv.).
 - **Livepris** och **beställningsunderlag**: texten matchar fälten i Valley
   Dogs beställningsformulär och kan kopieras eller mejlas till
   info@valleydogs.se, med direktlänk till rätt produktsida.

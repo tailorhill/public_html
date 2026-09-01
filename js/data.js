@@ -30,28 +30,24 @@ export const BIOTHANE_COLORS = [
   { id: 'mango',        name: 'Mango',        hex: '#ffa023', note: 'Tillfälligt parti, endast 25 mm' },
 ];
 
-// Bomullsband per bandbredd (bandet är smalare än det färdiga halsbandet).
-// `widths` anger vilka FÄRDIGA halsbandsbredder färgen finns i, enligt
-// https://www.valleydogs.se/material-till-halsband/bomullsband/ :
-//   2.5 cm halsband = 1,8 cm band (14 färger)
-//   3.5 cm halsband = 2,5 cm band (20 färger)
-//   4 cm halsband   = 3 cm band   (21 färger)
-//   5 cm halsband   = 4 cm band   (16 färger)
+// Bomullsband per FÄRDIG halsbandsbredd, enligt beställningsformulären på
+// respektive produktsida (Fast halsband 2.5/3.5/4/5 cm) – de är facit för
+// vad som går att beställa:
+//   2.5 cm: 14 färger · 3.5 cm: 19 · 4 cm: 21 · 5 cm: 18
 export const WEBBING_COLORS = [
   { id: 'svart',      name: 'Svart',      hex: '#17181a', widths: ['2.5', '3.5', '4', '5'] },
   { id: 'marinbla',   name: 'Marinblå',   hex: '#232f45', widths: ['2.5', '3.5', '4', '5'] },
   { id: 'sverigebla', name: 'Sverigeblå', hex: '#1c3f9e', widths: ['2.5', '3.5', '4', '5'] },
-  { id: 'ljusbla',    name: 'Ljusblå',    hex: '#45b7e3', widths: ['2.5'] },
+  { id: 'ljusbla',    name: 'Ljusblå',    hex: '#45b7e3', widths: ['2.5', '4', '5'] },
   { id: 'turkos',     name: 'Turkos',     hex: '#19a7d4', widths: ['3.5', '4', '5'] },
   { id: 'aqua',       name: 'Aqua',       hex: '#4fb3a5', widths: ['3.5', '4', '5'] },
   { id: 'oliv',       name: 'Oliv',       hex: '#45483c', widths: ['3.5', '4', '5'] },
   { id: 'skogsgron',  name: 'Skogsgrön',  hex: '#17402c', widths: ['4'] },
   { id: 'grasgron',   name: 'Gräsgrön',   hex: '#2f7d4a', widths: ['3.5'] },
-  { id: 'gron',       name: 'Grön',       hex: '#22994d', widths: ['2.5', '3.5'] },
-  { id: 'neongron',   name: 'Neongrön',   hex: '#5aef62', widths: ['3.5', '4'] },
+  { id: 'gron',       name: 'Grön',       hex: '#22994d', widths: ['2.5'] },
+  { id: 'neongron',   name: 'Neongrön',   hex: '#5aef62', widths: ['3.5', '4', '5'] },
   { id: 'vinrod',     name: 'Vinröd',     hex: '#57202b', widths: ['3.5', '4', '5'] },
   { id: 'rod',        name: 'Röd',        hex: '#cf2028', widths: ['2.5', '3.5', '4', '5'] },
-  { id: 'korall',     name: 'Korall',     hex: '#f2766b', widths: ['4'] },
   { id: 'cerise',     name: 'Cerise',     hex: '#ef2f8e', widths: ['2.5', '3.5', '4', '5'] },
   { id: 'ljusrosa',   name: 'Ljusrosa',   hex: '#dc93ac', widths: ['2.5', '3.5', '4', '5'] },
   { id: 'lila',       name: 'Lila',       hex: '#4a3f92', widths: ['2.5', '3.5', '4', '5'] },
@@ -63,6 +59,13 @@ export const WEBBING_COLORS = [
   { id: 'gra',        name: 'Grå',        hex: '#9a9da1', widths: ['3.5', '4'] },
   { id: 'vit',        name: 'Vit',        hex: '#eef0f4', widths: ['3.5', '4', '5'] },
   { id: 'offwhite',   name: 'Off-white',  hex: '#f0eee6', widths: ['2.5'] },
+];
+
+// Placering när man har två texter.
+export const TEXT_LAYOUTS = [
+  { id: 'rad',    name: 'Efter varandra' },
+  { id: 'rader',  name: 'Två rader' },
+  { id: 'dubbel', name: 'Dubbeltext (ovanpå)' },
 ];
 
 // Foder (visas som kant över/under bomullsbandet).
@@ -298,7 +301,8 @@ export const BIOTHANE = {
   ],
 };
 
-export const LEATHER_SURCHARGE = 120;
+// Pristillägg för äkta läder per färdig bredd (från produktformulären).
+export const LEATHER_SURCHARGE = { '2.5': 100, '3.5': 120, '4': 120, '5': 150 };
 
 export const PRODUCT_URLS = {
   cotton: {
