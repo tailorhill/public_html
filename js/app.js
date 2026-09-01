@@ -630,6 +630,49 @@ $('#mailBtn').addEventListener('click', () => {
   window.location.href = `mailto:info@valleydogs.se?subject=${subject}&body=${body}`;
 });
 
+$('#snapshotBtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = viewer.snapshot();
+  a.download = 'halsband-design.png';
+  a.click();
+});
+
+$('#svgBtn').addEventListener('click', async () => {
+  const btn = $('#svgBtn');
+  const prev = btn.textContent;
+  btn.textContent = 'Genererar…';
+  btn.disabled = true;
+  try {
+    const { buildCutSvg } = await import('./export.js');
+    const isCotton = state.family === 'cotton';
+    const widthCm = currentWidthCm();
+    const svg = await buildCutSvg({
+      texts: state.texts.map(t => ({
+        text: t.text,
+        font: byId(FONTS, t.font),
+        color: byId(TEXT_COLORS, t.color),
+        sizeK: byId(TEXT_SIZES, t.size).k,
+      })),
+      layout: state.textLayout,
+      dubbelPos: state.dubbelPos,
+      symbol: state.symbol,
+      symbolPlacement: state.symbolPlacement,
+      symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
+      bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
+    });
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'halsband-text-symboler.svg';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (err) {
+    alert('SVG-exporten misslyckades: ' + err.message);
+  }
+  btn.textContent = prev;
+  btn.disabled = false;
+});
+
 $('#showOrderBtn').addEventListener('click', () => {
   $('#orderPreview').textContent = orderText();
   $('#orderDialog').showModal();

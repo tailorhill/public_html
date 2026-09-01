@@ -26,6 +26,10 @@ webbplats.
 - **Livepris** och **beställningsunderlag**: texten matchar fälten i Valley
   Dogs beställningsformulär och kan kopieras eller mejlas till
   info@valleydogs.se, med direktlänk till rätt produktsida.
+- **PNG-bild** av designen (bifogas i mejlet) och **SVG-export för skärning**:
+  text konverteras till banor (opentype.js + fontfilerna i `fonts/`) och
+  symbolerna är redan vektorer – i verklig storlek (mm), redo för
+  Cricut/Silhouette, med streckad referensram för bandhöjden.
 
 ## Kör lokalt
 

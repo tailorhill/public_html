@@ -214,23 +214,24 @@ export const TEXT_COLORS = [
 ];
 
 // Typsnitt – Valley Dogs-namn mappade till liknande Google Fonts för förhandsvisning.
+// `ttf` pekar på fontfilen i fonts/ (används för SVG-exportens text-till-banor).
 export const FONTS = [
-  { id: 'bubbly',    name: 'Bubbly',    css: '"Baloo 2", cursive',           weight: 800, caps: true },
-  { id: 'fancy',     name: 'Fancy',     css: '"Titan One", cursive',         weight: 400, caps: false },
-  { id: 'autumn',    name: 'Autumn',    css: '"Archivo Black", sans-serif',  weight: 400, caps: false },
-  { id: 'avenir',    name: 'Avenir',    css: '"Nunito Sans", sans-serif',    weight: 800, caps: false },
-  { id: 'magnolia',  name: 'Magnolia',  css: '"Pacifico", cursive',          weight: 400, caps: false },
-  { id: 'dancing',   name: 'Dancing',   css: '"Dancing Script", cursive',    weight: 600, caps: false },
-  { id: 'clarissa',  name: 'Clarissa',  css: '"Great Vibes", cursive',       weight: 400, caps: false },
-  { id: 'signature', name: 'Signature', css: '"Mr Dafoe", cursive',          weight: 400, caps: false },
-  { id: 'stopme',    name: 'Stop me',   css: '"Oswald", sans-serif',         weight: 600, caps: true },
-  { id: 'beckman',   name: 'Beckman',   css: '"Josefin Sans", sans-serif',   weight: 600, caps: true },
-  { id: 'blixten',   name: 'Blixten',   css: '"Archivo Black", sans-serif',  weight: 400, caps: true, italic: true },
-  { id: 'built',     name: 'Built',     css: '"Anton", sans-serif',          weight: 400, caps: true },
-  { id: 'marker',    name: 'Marker',    css: '"Permanent Marker", cursive',  weight: 400, caps: true },
-  { id: 'abril',     name: 'Abril',     css: '"Abril Fatface", serif',       weight: 400, caps: false },
-  { id: 'baskerville', name: 'Baskerville', css: '"Libre Baskerville", serif', weight: 400, caps: false },
-  { id: 'typewriter',  name: 'Typewriter',  css: '"Special Elite", cursive',   weight: 400, caps: false },
+  { id: 'bubbly',    name: 'Bubbly',    css: '"Baloo 2", cursive',           weight: 800, caps: true,  ttf: 'baloo2.ttf' },
+  { id: 'fancy',     name: 'Fancy',     css: '"Titan One", cursive',         weight: 400, caps: false, ttf: 'titanone.ttf' },
+  { id: 'autumn',    name: 'Autumn',    css: '"Archivo Black", sans-serif',  weight: 400, caps: false, ttf: 'archivoblack.ttf' },
+  { id: 'avenir',    name: 'Avenir',    css: '"Nunito Sans", sans-serif',    weight: 800, caps: false, ttf: 'nunitosans.ttf' },
+  { id: 'magnolia',  name: 'Magnolia',  css: '"Pacifico", cursive',          weight: 400, caps: false, ttf: 'pacifico.ttf' },
+  { id: 'dancing',   name: 'Dancing',   css: '"Dancing Script", cursive',    weight: 600, caps: false, ttf: 'dancingscript.ttf' },
+  { id: 'clarissa',  name: 'Clarissa',  css: '"Great Vibes", cursive',       weight: 400, caps: false, ttf: 'greatvibes.ttf' },
+  { id: 'signature', name: 'Signature', css: '"Mr Dafoe", cursive',          weight: 400, caps: false, ttf: 'mrdafoe.ttf' },
+  { id: 'stopme',    name: 'Stop me',   css: '"Oswald", sans-serif',         weight: 600, caps: true,  ttf: 'oswald.ttf' },
+  { id: 'beckman',   name: 'Beckman',   css: '"Josefin Sans", sans-serif',   weight: 600, caps: true,  ttf: 'josefinsans.ttf' },
+  { id: 'blixten',   name: 'Blixten',   css: '"Archivo Black", sans-serif',  weight: 400, caps: true, italic: true, ttf: 'archivoblack.ttf' },
+  { id: 'built',     name: 'Built',     css: '"Anton", sans-serif',          weight: 400, caps: true,  ttf: 'anton.ttf' },
+  { id: 'marker',    name: 'Marker',    css: '"Permanent Marker", cursive',  weight: 400, caps: true,  ttf: 'permanentmarker.ttf' },
+  { id: 'abril',     name: 'Abril',     css: '"Abril Fatface", serif',       weight: 400, caps: false, ttf: 'abrilfatface.ttf' },
+  { id: 'baskerville', name: 'Baskerville', css: '"Libre Baskerville", serif', weight: 400, caps: false, ttf: 'librebaskerville.ttf' },
+  { id: 'typewriter',  name: 'Typewriter',  css: '"Special Elite", cursive',   weight: 400, caps: false, ttf: 'specialelite.ttf' },
 ];
 // Endast versaler: Bubbly, Stop me, Beckman, Blixten, Marker, Built.
 

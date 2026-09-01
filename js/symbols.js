@@ -81,6 +81,21 @@ function flagNordic(ctx, cx, cy, s, bg, cross, innerCross = null, outline = fals
   ctx.restore();
 }
 
+// Exportdata för SVG-skärfiler: path + uppmätt bounding box (viewBox 2048),
+// eller flaggans geometri. null för okänd symbol.
+export function symbolExportData(id) {
+  const FLAGS = {
+    svenskaflaggan: { bg: '#1c50a0', cross: '#f8d015' },
+    norskaflaggan:  { bg: '#d5273b', cross: '#ffffff', inner: '#26356e' },
+    finskaflaggan:  { bg: '#f4f5f8', cross: '#1c3f7c' },
+    danskaflaggan:  { bg: '#e8112d', cross: '#ffffff' },
+  };
+  if (FLAGS[id]) return { flag: FLAGS[id] };
+  const entry = SVG_SYMBOLS[id];
+  if (!entry) return null;
+  return { d: VD_SYMBOL_PATHS[id], bounds: getBounds(entry), viewBox: entry.viewBox };
+}
+
 // Symbolens naturliga bredd i förhållande till höjden (för layout).
 export function symbolAspect(id) {
   switch (id) {
