@@ -238,15 +238,11 @@ export async function buildCutSvg(cfg) {
     }
   }
 
-  const ref = `<g id="REFERENS-bandhojd-${L.bandH}mm-ta-bort-fore-skarning">` +
-    `<rect x="${L.M}" y="${L.M}" width="${L.total.toFixed(2)}" height="${L.bandH}" fill="none" ` +
-    `stroke="#999999" stroke-width="0.3" stroke-dasharray="2 2"/></g>`;
-
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<svg xmlns="http://www.w3.org/2000/svg" width="${L.W.toFixed(1)}mm" height="${L.H.toFixed(1)}mm" ` +
     `viewBox="0 0 ${L.W.toFixed(1)} ${L.H.toFixed(1)}">\n` +
     `<!-- Text och symboler i verklig storlek (1 enhet = 1 mm). Bandhöjd ${L.bandH} mm. -->\n` +
-    ref + '\n' + parts.join('\n') + '\n</svg>\n';
+    parts.join('\n') + '\n</svg>\n';
 }
 
 function flagRects(cx, cy, s, f) {
@@ -378,12 +374,6 @@ export async function buildCutDxf(cfg) {
       layers.push({ name: 'SYMBOL', polys });
     }
   }
-
-  // referensram
-  layers.push({
-    name: 'REFERENS',
-    polys: [[[L.M, L.M], [L.M + L.total, L.M], [L.M + L.total, L.M + L.bandH], [L.M, L.M + L.bandH], [L.M, L.M]]],
-  });
 
   // DXF R12 – y-axeln pekar uppåt, så flippa
   const H = L.H;
