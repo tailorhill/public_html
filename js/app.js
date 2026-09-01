@@ -5,7 +5,7 @@ import {
   allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
-import { EMOJI_GLYPHS } from './symbols.js';
+import { EMOJI_GLYPHS, drawSymbol } from './symbols.js';
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -404,8 +404,26 @@ function refresh() {
     $('#dubbelWarn').textContent = warn;
   }
 
-  // symboler
-  selectBox($('#symbolSelect'), SYMBOLS, () => state.symbol, id => { state.symbol = id; });
+  // symboler: rutnät med renderade förhandsvisningar
+  const symWrap = $('#symbolGrid');
+  symWrap.innerHTML = '';
+  for (const s of SYMBOLS) {
+    const b = el('button', 'symopt' + (state.symbol === s.id ? ' sel' : ''));
+    b.type = 'button';
+    b.title = s.name;
+    if (s.id === 'ingen') {
+      b.textContent = '∅';
+    } else if (s.id === 'egen') {
+      b.textContent = '?';
+    } else {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      drawSymbol(c.getContext('2d'), s.id, 32, 32, s.flag ? 34 : 42, '#3a332b');
+      b.appendChild(c);
+    }
+    b.addEventListener('click', () => { state.symbol = s.id; refresh(); });
+    symWrap.appendChild(b);
+  }
   const hasSym = state.symbol !== 'ingen';
   $('#symbolExtra').style.display = hasSym ? '' : 'none';
   if (hasSym) {
@@ -617,7 +635,8 @@ refresh();
 if (document.fonts && document.fonts.ready) {
   const loads = [document.fonts.ready];
   if (document.fonts.load) loads.push(document.fonts.load('600 32px "Noto Emoji"', EMOJI_GLYPHS));
-  Promise.all(loads).then(() => rebuild3D());
-  document.fonts.addEventListener('loadingdone', () => rebuild3D());
-  setTimeout(() => rebuild3D(), 1500);
+  // refresh() ritar även om symbolförhandsvisningarna när fonterna laddats
+  Promise.all(loads).then(() => refresh());
+  document.fonts.addEventListener('loadingdone', () => refresh());
+  setTimeout(() => refresh(), 1500);
 }

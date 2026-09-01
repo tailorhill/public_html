@@ -179,6 +179,31 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .swatches.metal { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
 .swatches.metal .swatch { border-radius: 50%; }
 
+/* ---------- symboler ---------- */
+#textTabs { margin-bottom: 12px; }
+.symgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
+}
+.symopt {
+  aspect-ratio: 1;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #faf8f4;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  transition: all 0.12s;
+  font: inherit;
+  color: var(--muted);
+  font-size: 18px;
+}
+.symopt:hover { border-color: var(--accent); transform: scale(1.06); }
+.symopt.sel { border-color: var(--accent); background: #f3ead9; }
+.symopt canvas { width: 100%; height: 100%; display: block; }
+
 /* ---------- fonts ---------- */
 .fontgrid {
   display: grid;
