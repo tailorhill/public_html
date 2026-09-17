@@ -48,6 +48,34 @@ const state = {
 const viewer = new CollarViewer($('#c3d'));
 window.viewer = viewer;
 
+// Felsökningsläge: öppna sidan med ?debug=1 för att se fel och GPU-info
+// direkt på skärmen (praktiskt på mobil där konsolen inte syns).
+if (new URLSearchParams(location.search).has('debug')) {
+  const box = el('pre');
+  box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;' +
+    'background:rgba(0,0,0,0.85);color:#7CFC7C;font:11px monospace;z-index:9999;margin:0;' +
+    'padding:8px;white-space:pre-wrap';
+  document.body.appendChild(box);
+  const log = m => { box.textContent += m + '\n'; box.scrollTop = box.scrollHeight; };
+  window.addEventListener('error', e =>
+    log(`FEL: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+  window.addEventListener('unhandledrejection', e =>
+    log('PROMISE-FEL: ' + ((e.reason && e.reason.message) || e.reason)));
+  const gl = viewer.renderer.getContext();
+  let gpu = 'okänd';
+  try {
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) gpu = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+  } catch { /* ok */ }
+  log('GPU: ' + gpu);
+  log(`maxTex: ${viewer.renderer.capabilities.maxTextureSize} · dpr: ${devicePixelRatio}` +
+    ` · minne: ${navigator.deviceMemory || '?'} GB · lite-läge: ${viewer.lite}`);
+  viewer.renderer.domElement.addEventListener('webglcontextlost',
+    () => log('WEBGL-KONTEXT FÖRLORAD ' + new Date().toLocaleTimeString()));
+  viewer.renderer.domElement.addEventListener('webglcontextrestored',
+    () => log('kontext återställd'));
+}
+
 // ---------------------------------------------------------------- helpers
 const linings = allLinings();
 const byId = (list, id) => list.find(x => x.id === id);
@@ -739,9 +767,14 @@ function isBioColorDisabled(c) {
 }
 
 refresh();
-// rendera om när typsnitten laddats
+// rendera om när typsnitten laddats (debouncat – loadingdone kan avfyras
+// många gånger i följd och varje refresh bygger om GPU-texturer)
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => refresh());
-  document.fonts.addEventListener('loadingdone', () => refresh());
+  let fontTimer;
+  document.fonts.addEventListener('loadingdone', () => {
+    clearTimeout(fontTimer);
+    fontTimer = setTimeout(() => refresh(), 400);
+  });
   setTimeout(() => refresh(), 1500);
 }

@@ -8,19 +8,29 @@ import { drawSymbol, symbolAspect } from './symbols.js';
 export class CollarViewer {
   constructor(canvas) {
     this.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // lite-läge på mobiler: mindre texturer, ingen skuggrendering, lägre
+    // upplösning – svaga GPU:er tappar annars WebGL-kontexten
+    const params = new URLSearchParams(location.search);
+    this.lite = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || params.has('lite');
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !this.lite, alpha: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.lite ? 1.5 : 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = !this.lite;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene = new THREE.Scene();
 
     // miljökarta så att metallbeslagen får reflektioner
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    // (try/catch: vissa mobil-GPU:er klarar inte PMREM-genereringen)
+    try {
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+    } catch (err) {
+      console.warn('Miljökarta kunde inte skapas:', err);
+    }
 
     this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 500);
     this.camera.position.set(0, 9, 34);
@@ -38,8 +48,8 @@ export class CollarViewer {
     this.scene.add(hemi);
     const key = new THREE.DirectionalLight(0xffffff, 2.2);
     key.position.set(12, 22, 18);
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.castShadow = !this.lite;
+    key.shadow.mapSize.set(this.lite ? 1024 : 2048, this.lite ? 1024 : 2048);
     key.shadow.camera.left = -20; key.shadow.camera.right = 20;
     key.shadow.camera.top = 20; key.shadow.camera.bottom = -20;
     key.shadow.radius = 6;
@@ -106,9 +116,9 @@ export class CollarViewer {
   // ---------------------------------------------------------------- textur
   makeBandTexture(cfg) {
     const circumference = cfg.circumference;
-    // respektera GPU:ns maxstorlek (mobiler klarar ofta bara 4096 eller 2048)
+    // respektera GPU:ns maxstorlek; halverad upplösning i lite-läge
     const maxTex = (this.renderer.capabilities && this.renderer.capabilities.maxTextureSize) || 4096;
-    const W = Math.min(4096, maxTex);
+    const W = Math.min(this.lite ? 2048 : 4096, maxTex);
     const pxPerCm = W / circumference;
     const H = Math.max(256, Math.round(cfg.width * pxPerCm));
     const c = this.texCanvas;
