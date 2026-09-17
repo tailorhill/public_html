@@ -69,6 +69,13 @@ export class CollarViewer {
     this.resize();
     this._animate = this._animate.bind(this);
     requestAnimationFrame(this._animate);
+
+    // om GPU-kontexten ändå tappas (mobil under minnespress): bygg om när
+    // den kommer tillbaka i stället för att visa en död canvas
+    canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+    canvas.addEventListener('webglcontextrestored', () => {
+      if (this._lastCfg) this.build(this._lastCfg);
+    });
   }
 
   resize() {
@@ -99,7 +106,9 @@ export class CollarViewer {
   // ---------------------------------------------------------------- textur
   makeBandTexture(cfg) {
     const circumference = cfg.circumference;
-    const W = 4096;
+    // respektera GPU:ns maxstorlek (mobiler klarar ofta bara 4096 eller 2048)
+    const maxTex = (this.renderer.capabilities && this.renderer.capabilities.maxTextureSize) || 4096;
+    const W = Math.min(4096, maxTex);
     const pxPerCm = W / circumference;
     const H = Math.max(256, Math.round(cfg.width * pxPerCm));
     const c = this.texCanvas;
@@ -665,9 +674,20 @@ export class CollarViewer {
   }
 
   build(cfg) {
-    // städa
+    this._lastCfg = cfg;
+    // städa: geometrier, material OCH texturer måste frigöras, annars
+    // läcker GPU-minne vid varje ombygge (kraschar mobiler)
+    this.collarGroup.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (m.map) m.map.dispose();
+          if (m.bumpMap) m.bumpMap.dispose();
+          m.dispose();
+        }
+      }
+    });
     this.collarGroup.clear();
-    this.collarGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); });
 
     const R = cfg.circumference / (2 * Math.PI);
     const width = cfg.width;
