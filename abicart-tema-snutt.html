@@ -48,9 +48,28 @@
     return best ? best[1] : undefined;
   }
 
+  // hämta befintlig korg (bevaras); fel/ingen → null
+  function getExistingOrder() {
+    return rpc('Session.getOrder', [{ uid: true }]).catch(function () { return null; });
+  }
+  // lägg i BEFINTLIG korg om giltig, annars skapa ny och försök igen
+  // (kundens session kan peka på en utgången order → "Object not found")
+  function addPreservingCart(articleUid, params, existingOrder) {
+    function addTo(order) {
+      return rpc('Order.addArticle', [order.uid, articleUid, params, { uid: true }, { fastVerify: true }]);
+    }
+    function fresh() {
+      return rpc('Order.set', [null, { language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } } }, { uid: true }]).then(addTo);
+    }
+    if (existingOrder && existingOrder.uid) {
+      return addTo(existingOrder).catch(function () { return fresh(); });
+    }
+    return fresh();
+  }
+
   Promise.all([
     rpc('Article.get', [articleUid, { choices: true }]),
-    rpc('Session.getOrder', [{ uid: true }])   // befintlig korg (bevaras)
+    getExistingOrder()
   ]).then(function (res) {
     var choiceUids = res[0].choices || [];
     var existingOrder = res[1];
@@ -80,13 +99,7 @@
       });
       if (commentUid) params[commentUid] = comment;
 
-      // lägg i BEFINTLIG korg om den finns, annars skapa ny
-      var orderPromise = existingOrder && existingOrder.uid
-        ? Promise.resolve(existingOrder)
-        : rpc('Order.set', [null, { language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } } }, { uid: true }]);
-      return orderPromise.then(function (order) {
-        return rpc('Order.addArticle', [order.uid, articleUid, params, { uid: true }, { fastVerify: true }]);
-      });
+      return addPreservingCart(articleUid, params, existingOrder);
     });
   }).then(function () {
     location.href = '/';   // startsidan visar varukorgen

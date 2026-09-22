@@ -671,12 +671,13 @@ function cartFieldValues() {
   if (state.family === 'cotton') {
     f['Färg på bomullsband'] = byId(WEBBING_COLORS, state.webbing).name;
     f['Vill du ha äkta läder på fodret?'] = lin.leather ? 'Ja' : 'Nej';
-    f['Klickspänne'] = 'Svart plast';
   } else {
     f['Färg på biothane'] = byId(BIOTHANE_COLORS, state.biothane).name;
     f['Vilken bredd ska halsbandet ha?'] = byId(BIOTHANE.widths, state.bioWidth).name;
     f['Vilken halsbandsmodell vill du ha?'] = byId(BIOTHANE.models, state.bioModel).name;
   }
+  // Klickspänne är obligatoriskt på både bomull och biothane (enda val: Svart plast)
+  f['Klickspänne'] = 'Svart plast';
   if (state.fullGlitter && glitterAvailable()) {
     f['Vilken färg på glittret vill du ha runt hela halsbandet? (OBS det går endast att använda färgerna som heter glitter)'] =
       byId(TEXT_COLORS, state.glitterColor).name;
