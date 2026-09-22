@@ -1,45 +1,25 @@
-<!--
-  VALLEY DOGS – koppling mellan butiken och designverktyget
-  =========================================================
-  Klistra in HELA denna kod i Abicart:
-    Utseende → Teman → redigera aktuellt tema → "Eget innehåll i head"
-    (fungerar utmärkt – koden lyssnar på klick och behöver inte body).
-
-  Vad den gör: när en kund klickar på en länk till designverktyget hämtar
-  den butikens sessionstoken (Session.getToken) och skickar med den till
-  verktyget som #s=<token>. Då kan verktygets "Lägg i varukorgen" lägga
-  halsbandet i kundens EGNA varukorg, och kunden kommer tillbaka till kassan
-  med varan i korgen.
-
-  Så här länkar du till verktyget (i meny, knapp eller sidinnehåll):
-    <a href="https://design.valleydogs.se/" class="designa-halsband">Designa ditt halsband</a>
-  Alla länkar som pekar på design.valleydogs.se hanteras automatiskt,
-  liksom länkar med klassen "designa-halsband".
--->
 <script>
+/* Valley Dogs – skickar butikens sessionstoken till designverktyget.
+   Klistras in i Abicart: Utseende → Teman → redigera → "Eget innehåll i head".
+   Länka till verktyget med t.ex.:
+     <a href="https://design.valleydogs.se/">Designa ditt halsband</a>
+   Alla länkar till design.valleydogs.se hanteras automatiskt. */
 (function () {
   var VERKTYG = 'https://design.valleydogs.se/';
   var WEBSHOP = 119951;
-
   function isDesignLink(a) {
-    if (!a) return false;
-    if (a.classList && a.classList.contains('designa-halsband')) return true;
-    return a.href && a.href.indexOf('design.valleydogs.se') !== -1;
+    return a && a.href && a.href.indexOf('design.valleydogs.se') !== -1;
   }
-
-  // Hämta butikens sessionstoken (samma origin → använder butikens cookie).
   function getToken() {
     return fetch('/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'Session.getToken', params: [] })
-    })
-      .then(function (r) { return r.json(); })
+    }).then(function (r) { return r.json(); })
       .then(function (j) { return (j && j.result) ? String(j.result) : null; })
       .catch(function () { return null; });
   }
-
   document.addEventListener('click', function (e) {
     var a = e.target.closest ? e.target.closest('a') : null;
     if (!isDesignLink(a)) return;
