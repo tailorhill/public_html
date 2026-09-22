@@ -7,6 +7,7 @@ import {
 import { CollarViewer } from './collar3d.js';
 import { drawSymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
+import * as cart from './cart.js';
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -657,6 +658,78 @@ function orderText() {
   return L.join('\n');
 }
 
+// -------------------------------------------------- Abicart-varukorg
+// Karta { butikens valnamn : önskat värde } från designen. Enum-val matchas
+// mot optionsnamn, textfält får fritext. Bygger på samma katalogdata som
+// beställningstexten; okända/omappade fält täcks av "Övrig info".
+function cartFieldValues() {
+  const f = {};
+  const lin = byId(linings, state.lining);
+  const activeTexts = state.texts.filter(t => t.text.trim());
+  const t1 = activeTexts[0];
+
+  if (state.family === 'cotton') {
+    f['Färg på bomullsband'] = byId(WEBBING_COLORS, state.webbing).name;
+    f['Vill du ha äkta läder på fodret?'] = lin.leather ? 'Ja' : 'Nej';
+    f['Klickspänne'] = 'Svart plast';
+  } else {
+    f['Färg på biothane'] = byId(BIOTHANE_COLORS, state.biothane).name;
+    f['Vilken bredd ska halsbandet ha?'] = byId(BIOTHANE.widths, state.bioWidth).name;
+    f['Vilken halsbandsmodell vill du ha?'] = byId(BIOTHANE.models, state.bioModel).name;
+  }
+  f['Vilket foder vill du ha samt färg på fodret? (Äkta läder, softshell, behandlad bomull)'] =
+    `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`;
+  f['Vilken storlek ska halsbandet ha i stängt läge? (OBS se storleksguiden)'] = `${state.circumference} cm`;
+
+  // text 1 fyller de enkla textfälten; full spec (flera texter, dubbeltext,
+  // storlekar) hamnar i Övrig info via beställningstexten
+  if (t1) {
+    f['Vad ska det stå på halsbandet?'] = t1.text.trim();
+    f['Typsnitt'] = byId(FONTS, t1.font).name;
+    f['Vad vill du ha för färg på din text?'] = byId(TEXT_COLORS, t1.color).name;
+  }
+
+  const sym = byId(SYMBOLS, state.symbol);
+  if (state.symbol !== 'ingen') {
+    f['Symbol'] = sym.name;
+    f['Symbolens placering'] = byId(SYMBOL_PLACEMENTS, state.symbolPlacement).name;
+    const sc = state.symbolColor ? byId(TEXT_COLORS, state.symbolColor).name : (t1 ? byId(TEXT_COLORS, t1.color).name : '');
+    if (sc) f['Vad vill du ha för färg på symbol?'] = sc;
+  } else {
+    f['Symbolens placering'] = 'Ingen symbol';
+  }
+  if (state.shadow && !isDouble()) {
+    f['Vill du ha skugga bakom din text och symbol? Om ja, vilken färg?'] = byId(TEXT_COLORS, state.shadowColor).name;
+  }
+  const hwName = byId(HARDWARE_FINISHES, state.hardware).name;
+  f['D-ring'] = hwName;
+  f['D-ringar och nitar'] = hwName;
+  return f;
+}
+
+async function handleAddToCart() {
+  const btn = $('#cartBtn');
+  const uid = cart.articleUidFor(state);
+  if (!uid) {
+    alert('Den här produktvarianten är inte kopplad till varukorgen än. ' +
+      'Använd "Kopiera beställningstext" så länge, eller välj en annan modell/bredd.');
+    return;
+  }
+  const prev = btn.textContent;
+  btn.textContent = 'Lägger i varukorgen…';
+  btn.disabled = true;
+  try {
+    await cart.addToCart(uid, cartFieldValues(), orderText());
+    btn.textContent = '✓ Tillagd – går till kassan…';
+    setTimeout(() => { location.href = cart.SHOP_URL; }, 900);
+  } catch (err) {
+    alert('Kunde inte lägga i varukorgen: ' + err.message +
+      '\n\nDu kan i stället kopiera beställningstexten och beställa på produktsidan.');
+    btn.textContent = prev;
+    btn.disabled = false;
+  }
+}
+
 // ---------------------------------------------------------------- wiring
 document.querySelectorAll('[data-family]').forEach(b => {
   b.addEventListener('click', () => { state.family = b.dataset.family; refresh(); });
@@ -840,10 +913,18 @@ $('#shareBtn').addEventListener('click', async () => {
   setTimeout(() => { $('#shareBtn').textContent = 'Kopiera designlänk'; }, 2000);
 });
 
-// init: återställ ev. design från länken (#d=...)
-if (location.hash.startsWith('#d=')) {
-  const d = decodeDesign(location.hash.slice(3));
-  if (d) applyDesign(d);
+// init: läs ev. butikssession (#s=<token>) och design (#d=...) ur länken.
+// Token gör "Lägg i varukorgen" möjlig; den lagras aldrig i designlänken.
+{
+  const hash = location.hash || '';
+  const sm = hash.match(/[#&]s=([a-f0-9]{16,64})/i);
+  if (sm) cart.setToken(sm[1]);
+  const dm = hash.match(/[#&]d=([A-Za-z0-9\-_]+)/);
+  if (dm) { const d = decodeDesign(dm[1]); if (d) applyDesign(d); }
+  if (cart.hasToken()) {
+    $('#cartBtn').style.display = '';
+    $('#cartBtn').addEventListener('click', handleAddToCart);
+  }
 }
 $('#textInputT').value = state.texts[0].text;
 $('#circ').value = state.circumference;
