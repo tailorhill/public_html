@@ -1,0 +1,12 @@
+# Verktygets kod (HTML/JS/CSS) ska alltid vara färsk: webbläsaren får
+# cacha men MÅSTE kontrollera med servern (ETag → 304 om oförändrat).
+# Utan detta behåller webbläsare gamla filer efter en uppdatering.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  # Fonter och bibliotek ändras sällan – korta cachetider är ok
+  <FilesMatch "\.(ttf|woff2?)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+</IfModule>
