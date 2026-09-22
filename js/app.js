@@ -6,6 +6,7 @@ import {
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
 import { drawSymbol } from './symbols.js';
+import { encodeDesign, decodeDesign } from './share.js';
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -135,6 +136,60 @@ function doubleTextWarning() {
   }
   const ok = (c1.glitter && c2.glitter) || (!c1.glitter && c2.glitter);
   return ok ? '' : 'Vid dubbeltext måste det vara glitter på glitter, eller slät färg under och glitter över (välj en glitterfärg på text 2).';
+}
+
+// ------------------------------------------------ designlänk (#d=...)
+function designUrl() {
+  return location.origin + location.pathname + '#d=' + encodeDesign(state);
+}
+
+let lastHash = '';
+function updateHash() {
+  try {
+    const h = '#d=' + encodeDesign(state);
+    if (h !== lastHash) {
+      lastHash = h;
+      history.replaceState(null, '', h);
+    }
+  } catch { /* ok – t.ex. miljöer utan history-API */ }
+}
+
+// Återställ en design från en länk. Alla id:n valideras mot katalogen –
+// okända värden (t.ex. utgångna färger) faller tillbaka på standard.
+function applyDesign(d) {
+  const valid = (list, id, fallback) => (id && byId(list, id) ? id : fallback);
+  if (d.f === 'cotton' || d.f === 'biothane') state.family = d.f;
+  state.cottonModel = valid(COTTON_MODELS, d.cm, state.cottonModel);
+  if (COTTON_WIDTHS.some(w => w.id === d.cw)) state.cottonWidth = d.cw;
+  state.bioModel = valid(BIOTHANE.models, d.bm, state.bioModel);
+  if (BIOTHANE.widths.some(w => w.id === d.bw)) state.bioWidth = d.bw;
+  const c = parseInt(d.c, 10);
+  if (c >= 25 && c <= 70) state.circumference = c;
+  state.webbing = valid(WEBBING_COLORS, d.wb, state.webbing);
+  state.biothane = valid(BIOTHANE_COLORS, d.bt, state.biothane);
+  state.lining = valid(linings, d.li, state.lining);
+  state.fullGlitter = d.fg === 1;
+  state.glitterColor = valid(TEXT_COLORS, d.gc, state.glitterColor);
+  if (Array.isArray(d.tx) && d.tx.length) {
+    state.texts = d.tx.slice(0, MAX_TEXTS).map(([text, font, color, size]) => ({
+      text: String(text || '').slice(0, 24),
+      font: valid(FONTS, font, 'built'),
+      color: valid(TEXT_COLORS, color, 'vit'),
+      size: valid(TEXT_SIZES, size, 'mellan'),
+    }));
+    state.activeText = 0;
+  }
+  if (TEXT_LAYOUTS.some(l => l.id === d.tl)) state.textLayout = d.tl;
+  if (DUBBEL_POSITIONS.some(p => p.id === d.dp)) state.dubbelPos = d.dp;
+  state.symbol = valid(SYMBOLS, d.sy, state.symbol);
+  if (SYMBOL_PLACEMENTS.some(p => p.id === d.sp)) state.symbolPlacement = d.sp;
+  state.symbolColor = d.sc ? valid(TEXT_COLORS, d.sc, '') : '';
+  state.shadow = d.sh === 1;
+  state.shadowColor = valid(TEXT_COLORS, d.shc, state.shadowColor);
+  state.hardware = valid(HARDWARE_FINISHES, d.hw, state.hardware);
+  state.express = d.ex === 1;
+  if (SHIPPING.some(s => s.id === d.si)) state.shipping = d.si;
+  if (typeof d.oi === 'string') state.extraInfo = d.oi.slice(0, 200);
 }
 
 function computePrice() {
@@ -521,6 +576,8 @@ function renderSummary() {
     ? PRODUCT_URLS.cotton[state.cottonWidth]
     : PRODUCT_URLS.biothane;
   $('#productLink').href = url;
+
+  updateHash();
 }
 
 function orderText() {
@@ -593,6 +650,7 @@ function orderText() {
   L.push(`Frakt: ${ship.name}${ship.detail ? ` (${ship.detail})` : ''} – ${ship.price} kr`);
   L.push(`Expresshantering: ${state.express ? `Ja (+${EXPRESS_SURCHARGE} kr)` : 'Nej (ordinarie leveranstid ca 35 dagar)'}`);
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
+  L.push(`Designlänk (öppnar designen i 3D-verktyget): ${designUrl()}`);
   L.push('--------------------------------------');
   L.push(`Beräknat pris: ${total} kr`);
   L.push('(Priset bekräftas i Valley Dogs kassa)');
@@ -769,10 +827,29 @@ $('#showOrderBtn').addEventListener('click', () => {
 });
 $('#closeDialog').addEventListener('click', () => $('#orderDialog').close());
 
-// init
+$('#shareBtn').addEventListener('click', async () => {
+  const url = designUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    $('#shareBtn').textContent = '✓ Länk kopierad!';
+  } catch {
+    const ta = el('textarea'); ta.value = url; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+    $('#shareBtn').textContent = '✓ Länk kopierad!';
+  }
+  setTimeout(() => { $('#shareBtn').textContent = 'Kopiera designlänk'; }, 2000);
+});
+
+// init: återställ ev. design från länken (#d=...)
+if (location.hash.startsWith('#d=')) {
+  const d = decodeDesign(location.hash.slice(3));
+  if (d) applyDesign(d);
+}
 $('#textInputT').value = state.texts[0].text;
 $('#circ').value = state.circumference;
 $('#circVal').textContent = `${state.circumference} cm`;
+$('#extraInfo').value = state.extraInfo;
+$('#expressToggle').checked = state.express;
 
 function isBioColorDisabled(c) {
   if (c.id === 'orange') return true; // finns ej i 25/38 mm
