@@ -13,13 +13,27 @@
 const WEBSHOP = 119951;
 const API = `https://www.valleydogs.se/backend/jsonrpc/v1`;
 
-// Artikel-uid per produkt. Fylls från Abicarts API-konsol (Article.list) –
-// en läsning per produkt, inga köp. Känt sedan tidigare: Fast halsband 4 cm.
-// Nycklar: cotton "<model>_<width>" och biothane "<model>_<width>".
+// Artikel-uid per produkt (från Article.list, webshop 119951).
+// Bomull: en artikel per modell+bredd. Helglittrigt är EGNA artiklar.
+// BioThane: en artikel per modell (bredden 25/38 är ett val inuti artikeln);
+// helglittrig biothane är EN artikel där modell+bredd är val.
 export const ARTICLE_UIDS = {
-  'cotton_fast_4': 188162041,
-  // TODO fyll på övriga varianter (uid från Article.list i API-konsolen):
-  // 'cotton_fast_2.5': ..., 'cotton_halvstryp_4': ..., 'biothane_fast_25': ... osv.
+  cotton: {
+    fast:            { '2.5': 221787757, '3.5': 188200699, '4': 188162041, '5': 215037633 },
+    halvstryp:       { '2.5': 221787747, '3.5': 188200679, '4': 188143237, '5': 215037437 },
+    halvstrypknappe: { '2.5': 221809977, '3.5': 193277178, '4': 193277220, '5': 215735283 },
+    stallbart:       { '2.5': 221809933, '3.5': 188200851, '4': 188162917 },
+    agility:         { '2.5': 221809963, '3.5': 188200711, '4': 188200629, '5': 215909047 },
+    justerbart:      { '2.5': 225137826, '3.5': 225138482, '4': 225138484 },
+  },
+  cottonGlitter: {
+    fast:            { '2.5': 221958363, '3.5': 221958417, '4': 221958455, '5': 221959601 },
+    halvstryp:       { '2.5': 221958375, '3.5': 221958419, '4': 221958463, '5': 221959609 },
+    halvstrypknappe: { '2.5': 221958395, '3.5': 221958423, '4': 221959533, '5': 221959605 },
+    agility:         { '2.5': 221946313, '3.5': 221958407, '4': 221958443, '5': 221959599 },
+  },
+  biothane:        { fast: 201852439, halvstryp: 213629143, stallbart: 216877697 },
+  biothaneGlitter: 221959743,
 };
 
 let sessionToken = null;
@@ -46,11 +60,16 @@ async function rpc(method, params) {
   return json.result;
 }
 
-export function articleUidFor(state) {
-  const key = state.family === 'cotton'
-    ? `cotton_${state.cottonModel}_${state.cottonWidth}`
-    : `biothane_${state.bioModel}_${state.bioWidth}`;
-  return ARTICLE_UIDS[key] || null;
+// state.glitter = true endast när helglitter faktiskt är valt OCH tillgängligt
+// (app.js skickar med det). Faller tillbaka på icke-glitter om variant saknas.
+export function articleUidFor(state, glitter) {
+  if (state.family === 'cotton') {
+    const g = glitter && ARTICLE_UIDS.cottonGlitter[state.cottonModel];
+    const table = g ? ARTICLE_UIDS.cottonGlitter : ARTICLE_UIDS.cotton;
+    return (table[state.cottonModel] && table[state.cottonModel][state.cottonWidth]) || null;
+  }
+  if (glitter) return ARTICLE_UIDS.biothaneGlitter;
+  return ARTICLE_UIDS.biothane[state.bioModel] || null;
 }
 
 const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();

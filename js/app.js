@@ -677,6 +677,10 @@ function cartFieldValues() {
     f['Vilken bredd ska halsbandet ha?'] = byId(BIOTHANE.widths, state.bioWidth).name;
     f['Vilken halsbandsmodell vill du ha?'] = byId(BIOTHANE.models, state.bioModel).name;
   }
+  if (state.fullGlitter && glitterAvailable()) {
+    f['Vilken färg på glittret vill du ha runt hela halsbandet? (OBS det går endast att använda färgerna som heter glitter)'] =
+      byId(TEXT_COLORS, state.glitterColor).name;
+  }
   f['Vilket foder vill du ha samt färg på fodret? (Äkta läder, softshell, behandlad bomull)'] =
     `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`;
   f['Vilken storlek ska halsbandet ha i stängt läge? (OBS se storleksguiden)'] = `${state.circumference} cm`;
@@ -709,7 +713,8 @@ function cartFieldValues() {
 
 async function handleAddToCart() {
   const btn = $('#cartBtn');
-  const uid = cart.articleUidFor(state);
+  const glitter = state.fullGlitter && glitterAvailable();
+  const uid = cart.articleUidFor(state, glitter);
   if (!uid) {
     alert('Den här produktvarianten är inte kopplad till varukorgen än. ' +
       'Använd "Kopiera beställningstext" så länge, eller välj en annan modell/bredd.');
