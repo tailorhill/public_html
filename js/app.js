@@ -693,18 +693,26 @@ function cartFieldValues() {
     f['Vad vill du ha för färg på din text?'] = byId(TEXT_COLORS, t1.color).name;
   }
 
+  // textfärg är obligatoriskt – sätt alltid (text 1, annars svart)
+  f['Vad vill du ha för färg på din text?'] = byId(TEXT_COLORS, (t1 ? t1.color : 'svart')).name;
+
+  // symbol + symbolfärg är obligatoriska – sätt alltid ett värde
   const sym = byId(SYMBOLS, state.symbol);
   if (state.symbol !== 'ingen') {
     f['Symbol'] = sym.name;
     f['Symbolens placering'] = byId(SYMBOL_PLACEMENTS, state.symbolPlacement).name;
-    const sc = state.symbolColor ? byId(TEXT_COLORS, state.symbolColor).name : (t1 ? byId(TEXT_COLORS, t1.color).name : '');
-    if (sc) f['Vad vill du ha för färg på symbol?'] = sc;
+    f['Vad vill du ha för färg på symbol?'] =
+      byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name;
   } else {
+    f['Symbol'] = 'Ingen symbol';
     f['Symbolens placering'] = 'Ingen symbol';
+    f['Vad vill du ha för färg på symbol?'] = '-';
   }
-  if (state.shadow && !isDouble()) {
-    f['Vill du ha skugga bakom din text och symbol? Om ja, vilken färg?'] = byId(TEXT_COLORS, state.shadowColor).name;
-  }
+
+  // skugga är obligatoriskt fält – "Nej" när den inte används
+  f['Vill du ha skugga bakom din text och symbol? Om ja, vilken färg?'] =
+    (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej';
+
   const hwName = byId(HARDWARE_FINISHES, state.hardware).name;
   f['D-ring'] = hwName;
   f['D-ringar och nitar'] = hwName;
