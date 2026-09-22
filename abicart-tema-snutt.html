@@ -1,12 +1,8 @@
 <script>
-/* Valley Dogs – lägger ett designat halsband i varukorgen.
-   Klistras in i Abicart: Utseende → Teman → redigera → "Eget innehåll i head".
-
-   Designverktyget (design.valleydogs.se) skickar hit designen som
-   #vdadd=<data>. Snutten resolvar valen mot artikeln och lägger halsbandet
-   i kundens varukorg (butikens egen session), och går sedan till startsidan
-   där varukorgen syns. Länka till verktyget helt vanligt:
-     <a href="https://design.valleydogs.se/">Designa ditt halsband</a> */
+/* Valley Dogs varukorgssnutt. Enda snutt som ska ligga i temats head.
+   Designverktyget skickar designen som #vdadd=... och denna snutt lagger
+   halsbandet i kundens varukorg och gar till startsidan dar korgen syns.
+   Lanka till verktyget med en vanlig lank till design.valleydogs.se */
 (function () {
   var WEBSHOP = 119951;
   var m = location.hash.match(/[#&]vdadd=([A-Za-z0-9\-_]+)/);
