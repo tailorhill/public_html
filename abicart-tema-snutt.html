@@ -1,33 +1,103 @@
 <script>
-/* Valley Dogs – skickar butikens sessionstoken till designverktyget.
+/* Valley Dogs – lägger ett designat halsband i varukorgen.
    Klistras in i Abicart: Utseende → Teman → redigera → "Eget innehåll i head".
-   Länka till verktyget med t.ex.:
-     <a href="https://design.valleydogs.se/">Designa ditt halsband</a>
-   Alla länkar till design.valleydogs.se hanteras automatiskt. */
+
+   Designverktyget (design.valleydogs.se) skickar hit designen som
+   #vdadd=<data>. Snutten resolvar valen mot artikeln och lägger halsbandet
+   i kundens varukorg (butikens egen session), och går sedan till startsidan
+   där varukorgen syns. Länka till verktyget helt vanligt:
+     <a href="https://design.valleydogs.se/">Designa ditt halsband</a> */
 (function () {
-  var VERKTYG = 'https://design.valleydogs.se/';
   var WEBSHOP = 119951;
-  function isDesignLink(a) {
-    return a && a.href && a.href.indexOf('design.valleydogs.se') !== -1;
-  }
-  function getToken() {
-    return fetch('/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv', {
+  var m = location.hash.match(/[#&]vdadd=([A-Za-z0-9\-_]+)/);
+  if (!m) return;
+
+  function rpc(method, params) {
+    return fetch('/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv&vat_country=SE', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'Session.getToken', params: [] })
-    }).then(function (r) { return r.json(); })
-      .then(function (j) { return (j && j.result) ? String(j.result) : null; })
-      .catch(function () { return null; });
-  }
-  document.addEventListener('click', function (e) {
-    var a = e.target.closest ? e.target.closest('a') : null;
-    if (!isDesignLink(a)) return;
-    e.preventDefault();
-    var base = a.href.split('#')[0] || VERKTYG;
-    getToken().then(function (token) {
-      window.location.href = base + (token ? '#s=' + token : '');
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) throw new Error(j.error.message || 'API-fel');
+      return j.result;
     });
-  }, true);
+  }
+  function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  function b64decode(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    var bin = atob(s), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  var data;
+  try { data = JSON.parse(b64decode(m[1])); } catch (e) { return; }
+  var articleUid = data.a, fields = data.f || {}, comment = data.c || '';
+
+  // rensa hashen direkt så en omladdning inte lägger i dubbelt
+  history.replaceState(null, '', location.pathname + location.search);
+
+  // matcha designens (korta) fältnyckel som prefix av butikens valnamn,
+  // med ordgräns så "Symbol" inte krockar med "Symbolens placering"
+  var wants = Object.keys(fields).map(function (k) { return [norm(k), fields[k]]; });
+  function matchValue(nm) {
+    var best = null;
+    wants.forEach(function (kv) {
+      var key = kv[0];
+      if (nm === key || nm.indexOf(key + ' ') === 0 || nm.indexOf(key + '?') === 0) {
+        if (!best || key.length > best[0].length) best = kv;
+      }
+    });
+    return best ? best[1] : undefined;
+  }
+
+  Promise.all([
+    rpc('Article.get', [articleUid, { choices: true }]),
+    rpc('Session.getOrder', [{ uid: true }])   // befintlig korg (bevaras)
+  ]).then(function (res) {
+    var choiceUids = res[0].choices || [];
+    var existingOrder = res[1];
+    return Promise.all(choiceUids.map(function (u) {
+      return rpc('ArticleChoice.get', [u, { uid: true, name: true, type: true, mandatory: true, options: { uid: true, name: true } }]);
+    })).then(function (choices) {
+      var params = { quantity: 1 };
+      var commentUid = null;
+      choices.forEach(function (ch) {
+        var nm = norm(ch.name && (ch.name.sv || ch.name));
+        if (/övrig info|ovrig info/.test(nm)) { commentUid = ch.uid; return; }
+        var desired = matchValue(nm);
+        if (ch.type === 'enum' && ch.options) {
+          if (desired === undefined) return;
+          var d = norm(desired);
+          var opt = null;
+          ch.options.forEach(function (o) {
+            var on = norm(o.name && (o.name.sv || o.name));
+            if (on === d) opt = o;
+            else if (!opt && (on.indexOf(d + ' ') === 0 || d.indexOf(on + ' ') === 0)) opt = o;
+          });
+          if (opt) params[ch.uid] = String(opt.uid);
+        } else {
+          if (desired !== undefined && String(desired).trim() !== '') params[ch.uid] = String(desired);
+          else if (ch.mandatory) params[ch.uid] = '-';
+        }
+      });
+      if (commentUid) params[commentUid] = comment;
+
+      // lägg i BEFINTLIG korg om den finns, annars skapa ny
+      var orderPromise = existingOrder && existingOrder.uid
+        ? Promise.resolve(existingOrder)
+        : rpc('Order.set', [null, { language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } } }, { uid: true }]);
+      return orderPromise.then(function (order) {
+        return rpc('Order.addArticle', [order.uid, articleUid, params, { uid: true }, { fastVerify: true }]);
+      });
+    });
+  }).then(function () {
+    location.href = '/';   // startsidan visar varukorgen
+  }).catch(function (err) {
+    alert('Kunde inte lägga halsbandet i varukorgen: ' + (err && err.message) +
+      '. Prova igen, eller mejla oss så hjälper vi till.');
+    location.href = '/';
+  });
 })();
 </script>

@@ -719,8 +719,7 @@ function cartFieldValues() {
   return f;
 }
 
-async function handleAddToCart() {
-  const btn = $('#cartBtn');
+function handleAddToCart() {
   const glitter = state.fullGlitter && glitterAvailable();
   const uid = cart.articleUidFor(state, glitter);
   if (!uid) {
@@ -728,19 +727,9 @@ async function handleAddToCart() {
       'Använd "Kopiera beställningstext" så länge, eller välj en annan modell/bredd.');
     return;
   }
-  const prev = btn.textContent;
-  btn.textContent = 'Lägger i varukorgen…';
-  btn.disabled = true;
-  try {
-    await cart.addToCart(uid, cartFieldValues(), orderText());
-    btn.textContent = '✓ Tillagd – går till kassan…';
-    setTimeout(() => { location.href = cart.SHOP_URL; }, 900);
-  } catch (err) {
-    alert('Kunde inte lägga i varukorgen: ' + err.message +
-      '\n\nDu kan i stället kopiera beställningstexten och beställa på produktsidan.');
-    btn.textContent = prev;
-    btn.disabled = false;
-  }
+  // Skicka designen till butiken – temasnutten där lägger den i cookie-korgen.
+  $('#cartBtn').textContent = 'Går till butiken…';
+  location.href = cart.cartRedirectUrl(uid, cartFieldValues(), orderText());
 }
 
 // ---------------------------------------------------------------- wiring
@@ -926,18 +915,12 @@ $('#shareBtn').addEventListener('click', async () => {
   setTimeout(() => { $('#shareBtn').textContent = 'Kopiera designlänk'; }, 2000);
 });
 
-// init: läs ev. butikssession (#s=<token>) och design (#d=...) ur länken.
-// Token gör "Lägg i varukorgen" möjlig; den lagras aldrig i designlänken.
+// init: återställ ev. design från länken (#d=...) och aktivera varukorgsknappen.
 {
-  const hash = location.hash || '';
-  const sm = hash.match(/[#&]s=([a-f0-9]{16,64})/i);
-  if (sm) cart.setToken(sm[1]);
-  const dm = hash.match(/[#&]d=([A-Za-z0-9\-_]+)/);
+  const dm = (location.hash || '').match(/[#&]d=([A-Za-z0-9\-_]+)/);
   if (dm) { const d = decodeDesign(dm[1]); if (d) applyDesign(d); }
-  if (cart.hasToken()) {
-    $('#cartBtn').style.display = '';
-    $('#cartBtn').addEventListener('click', handleAddToCart);
-  }
+  $('#cartBtn').style.display = '';
+  $('#cartBtn').addEventListener('click', handleAddToCart);
 }
 $('#textInputT').value = state.texts[0].text;
 $('#circ').value = state.circumference;
