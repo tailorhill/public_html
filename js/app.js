@@ -749,6 +749,20 @@ $('#svgBtn').addEventListener('click', () =>
 $('#dxfBtn').addEventListener('click', () =>
   runExport('#dxfBtn', 'buildCutDxf', 'halsband-text-symboler.dxf', 'application/dxf'));
 
+// Välkomstdialog: förhandsbild-informationen visas en gång per besök
+// (sessionStorage), inte vid varje sidbyte inom samma flik.
+try {
+  if (!sessionStorage.getItem('vd_info_visad')) {
+    $('#infoDialog').showModal();
+  }
+} catch {
+  $('#infoDialog').showModal(); // t.ex. privat läge utan sessionStorage
+}
+$('#infoDialogOk').addEventListener('click', () => {
+  $('#infoDialog').close();
+  try { sessionStorage.setItem('vd_info_visad', '1'); } catch { /* ok */ }
+});
+
 $('#showOrderBtn').addEventListener('click', () => {
   $('#orderPreview').textContent = orderText();
   $('#orderDialog').showModal();
