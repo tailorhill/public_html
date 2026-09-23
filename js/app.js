@@ -659,74 +659,37 @@ function orderText() {
 }
 
 // -------------------------------------------------- Abicart-varukorg
-// Karta { butikens valnamn : önskat värde } från designen. Enum-val matchas
-// mot optionsnamn, textfält får fritext. Bygger på samma katalogdata som
-// beställningstexten; okända/omappade fält täcks av "Övrig info".
-function cartFieldValues() {
-  const f = {};
+// Semantisk beskrivning av designen (namn ur katalogen). cart.resolveOrder
+// matchar den mot artikelns RIKTIGA val och options, så namn behöver inte
+// stämma exakt med butikens (spretiga) valnamn. Full spec går ändå med i
+// Övrig info via beställningstexten.
+function cartDesign() {
   const lin = byId(linings, state.lining);
-  const activeTexts = state.texts.filter(t => t.text.trim());
-  const t1 = activeTexts[0];
-
-  if (state.family === 'cotton') {
-    f['Färg på bomullsband'] = byId(WEBBING_COLORS, state.webbing).name;
-    f['Vill du ha äkta läder på fodret?'] = lin.leather ? 'Ja' : 'Nej';
-  } else {
-    f['Färg på biothane'] = byId(BIOTHANE_COLORS, state.biothane).name;
-    f['Vilken bredd ska halsbandet ha?'] = byId(BIOTHANE.widths, state.bioWidth).name;
-    f['Vilken halsbandsmodell vill du ha?'] = byId(BIOTHANE.models, state.bioModel).name;
-  }
-  // Klickspänne är obligatoriskt på både bomull och biothane (enda val: Svart plast)
-  f['Klickspänne'] = 'Svart plast';
-  if (state.fullGlitter && glitterAvailable()) {
-    f['Vilken färg på glittret vill du ha runt hela halsbandet? (OBS det går endast att använda färgerna som heter glitter)'] =
-      byId(TEXT_COLORS, state.glitterColor).name;
-  }
-  f['Vilket foder vill du ha samt färg på fodret? (Äkta läder, softshell, behandlad bomull)'] =
-    `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`;
-  // storleksvalet heter olika på vanliga vs helglittriga artiklar – sätt båda
-  const sizeVal = `${state.circumference} cm`;
-  f['Vilken storlek ska halsbandet ha i stängt läge? (OBS se storleksguiden)'] = sizeVal;
-  f['Storlek på halsbandet i stängt läge? (OBS se storleksguiden)'] = sizeVal;
-
-  // text 1 fyller de enkla textfälten; full spec (flera texter, dubbeltext,
-  // storlekar) hamnar i Övrig info via beställningstexten
-  if (t1) {
-    f['Vad ska det stå på halsbandet?'] = t1.text.trim();
-    f['Typsnitt'] = byId(FONTS, t1.font).name;
-    f['Vad vill du ha för färg på din text?'] = byId(TEXT_COLORS, t1.color).name;
-  }
-
-  // textfärg är obligatoriskt – sätt alltid (text 1, annars svart)
-  f['Vad vill du ha för färg på din text?'] = byId(TEXT_COLORS, (t1 ? t1.color : 'svart')).name;
-
-  // symbol + symbolfärg är obligatoriska – sätt alltid ett värde
-  const sym = byId(SYMBOLS, state.symbol);
-  if (state.symbol !== 'ingen') {
-    f['Symbol'] = sym.name;
-    f['Symbolens placering'] = byId(SYMBOL_PLACEMENTS, state.symbolPlacement).name;
-    f['Vad vill du ha för färg på symbol?'] =
-      byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name;
-  } else {
-    f['Symbol'] = 'Ingen symbol';
-    f['Symbolens placering'] = 'Ingen symbol';
-    f['Vad vill du ha för färg på symbol?'] = '-';
-  }
-
-  // skugga är obligatoriskt fält – "Nej" när den inte används
-  f['Vill du ha skugga bakom din text och symbol? Om ja, vilken färg?'] =
-    (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej';
-
-  // beslagsvalet heter olika mellan artiklar (D-ring / D-ringar och nitar på
-  // vanliga, Beslag på helglittriga) – sätt alla så rätt val alltid fylls
-  const hwName = byId(HARDWARE_FINISHES, state.hardware).name;
-  f['D-ring'] = hwName;
-  f['D-ringar och nitar'] = hwName;
-  f['Beslag'] = hwName;
-  return f;
+  const t1 = state.texts.filter(t => t.text.trim())[0];
+  const isCotton = state.family === 'cotton';
+  const hasSymbol = state.symbol !== 'ingen';
+  return {
+    webbingColor: isCotton ? byId(WEBBING_COLORS, state.webbing).name : null,
+    biothaneColor: isCotton ? null : byId(BIOTHANE_COLORS, state.biothane).name,
+    bioWidth: isCotton ? null : byId(BIOTHANE.widths, state.bioWidth).name,
+    bioModel: isCotton ? null : byId(BIOTHANE.models, state.bioModel).name,
+    leather: lin.leather ? 'Ja' : 'Nej',
+    glitterColor: (state.fullGlitter && glitterAvailable()) ? byId(TEXT_COLORS, state.glitterColor).name : null,
+    foder: `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`,
+    sizeCm: state.circumference,
+    text: t1 ? t1.text.trim() : '',
+    font: t1 ? byId(FONTS, t1.font).name : null,
+    textColor: byId(TEXT_COLORS, (t1 ? t1.color : 'svart')).name,
+    symbol: hasSymbol ? byId(SYMBOLS, state.symbol).name : 'Ingen symbol',
+    placement: hasSymbol ? byId(SYMBOL_PLACEMENTS, state.symbolPlacement).name : 'Ingen symbol',
+    symbolColor: hasSymbol ? byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name : '-',
+    shadow: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
+    hardware: byId(HARDWARE_FINISHES, state.hardware).name,
+    comment: orderText(),
+  };
 }
 
-function handleAddToCart() {
+async function handleAddToCart() {
   const glitter = state.fullGlitter && glitterAvailable();
   const uid = cart.articleUidFor(state, glitter);
   if (!uid) {
@@ -734,9 +697,29 @@ function handleAddToCart() {
       'Använd "Kopiera beställningstext" så länge, eller välj en annan modell/bredd.');
     return;
   }
-  // Skicka designen till butiken – temasnutten där lägger den i cookie-korgen.
-  $('#cartBtn').textContent = 'Går till butiken…';
-  location.href = cart.cartRedirectUrl(uid, cartFieldValues(), orderText());
+  const btn = $('#cartBtn');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Förbereder…';
+  try {
+    // Resolva designen mot artikelns riktiga val och validera INNAN redirect.
+    const { params, problems } = await cart.resolveOrder(uid, cartDesign());
+    if (problems.length) {
+      btn.disabled = false;
+      btn.textContent = label;
+      alert('Några val går inte att beställa för just den här modellen/bredden:\n\n' +
+        problems.map(p => '• ' + p).join('\n') +
+        '\n\nÄndra dem i designen så lägger vi halsbandet i varukorgen.');
+      return;
+    }
+    btn.textContent = 'Går till butiken…';
+    location.href = cart.cartUrl(uid, params, cartDesign().comment);
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = label;
+    alert('Kunde inte nå butiken just nu (' + (err && err.message) + '). ' +
+      'Försök igen, eller använd "Kopiera beställningstext".');
+  }
 }
 
 // ---------------------------------------------------------------- wiring

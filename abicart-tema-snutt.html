@@ -1,7 +1,8 @@
 <script>
 /* Valley Dogs varukorgssnutt. Enda snutt som ska ligga i temats head.
-   Designverktyget skickar designen som #vdadd=... och denna snutt lagger
-   halsbandet i kundens varukorg och gar till startsidan dar korgen syns.
+   Designverktyget resolvar designen mot artikelns riktiga val och skickar
+   FÄRDIGA val-uid:n som #vdadd=... Denna snutt gör bara: hämta/skapa
+   sessionens korg och lagg halsbandet i den, gå sen till startsidan.
    Lanka till verktyget med en vanlig lank till design.valleydogs.se */
 (function () {
   var WEBSHOP = 119951;
@@ -19,7 +20,6 @@
       return j.result;
     });
   }
-  function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
   function b64decode(s) {
     s = s.replace(/-/g, '+').replace(/_/g, '/');
     var bin = atob(s), bytes = new Uint8Array(bin.length);
@@ -29,31 +29,17 @@
 
   var data;
   try { data = JSON.parse(b64decode(m[1])); } catch (e) { return; }
-  var articleUid = data.a, fields = data.f || {}, comment = data.c || '';
+  var articleUid = data.a, params = data.p || {};
 
   // rensa hashen direkt så en omladdning inte lägger i dubbelt
   history.replaceState(null, '', location.pathname + location.search);
 
-  // matcha designens (korta) fältnyckel som prefix av butikens valnamn,
-  // med ordgräns så "Symbol" inte krockar med "Symbolens placering"
-  var wants = Object.keys(fields).map(function (k) { return [norm(k), fields[k]]; });
-  function matchValue(nm) {
-    var best = null;
-    wants.forEach(function (kv) {
-      var key = kv[0];
-      if (nm === key || nm.indexOf(key + ' ') === 0 || nm.indexOf(key + '?') === 0) {
-        if (!best || key.length > best[0].length) best = kv;
-      }
-    });
-    return best ? best[1] : undefined;
-  }
-
   // Hämta sessionens korg-order. Session.get({order:true}) ger den befintliga
-  // korgen, men för en HELT TOM session (ny kund utan korg) returnerar den
-  // {order:null}. Då måste vi skapa en order OCH länka den till sessionen med
-  // Session.set – annars blir det en orphan-order som addArticle lägger i utan
-  // fel men som aldrig syns i korgen. (Session.set kan svara "Validation error"
-  // men länkningen sker ändå; vi läser tillbaka den med Session.get.)
+  // korgen, men för en HELT TOM session (ny kund) returnerar den {order:null}.
+  // Då skapas en order OCH länkas till sessionen med Session.set – annars blir
+  // det en orphan-order som addArticle lägger i utan fel men som aldrig syns i
+  // korgen. (Session.set kan svara "Validation error" men länkningen sker ändå;
+  // vi läser tillbaka den med Session.get.)
   function sessionOrderUid() {
     return rpc('Session.get', [{ order: true }]).then(function (s) {
       if (s && s.order) return s.order;
@@ -71,40 +57,10 @@
     });
   }
 
-  Promise.all([
-    rpc('Article.get', [articleUid, { choices: true }]),
-    sessionOrderUid()
-  ]).then(function (res) {
-    var choiceUids = res[0].choices || [];
-    var orderUid = res[1];
-    return Promise.all(choiceUids.map(function (u) {
-      return rpc('ArticleChoice.get', [u, { uid: true, name: true, type: true, mandatory: true, options: { uid: true, name: true } }]);
-    })).then(function (choices) {
-      var params = { quantity: 1 };
-      var commentUid = null;
-      choices.forEach(function (ch) {
-        var nm = norm(ch.name && (ch.name.sv || ch.name));
-        if (/övrig info|ovrig info/.test(nm)) { commentUid = ch.uid; return; }
-        var desired = matchValue(nm);
-        if (ch.type === 'enum' && ch.options) {
-          if (desired === undefined) return;
-          var d = norm(desired);
-          var opt = null;
-          ch.options.forEach(function (o) {
-            var on = norm(o.name && (o.name.sv || o.name));
-            if (on === d) opt = o;
-            else if (!opt && (on.indexOf(d + ' ') === 0 || d.indexOf(on + ' ') === 0)) opt = o;
-          });
-          if (opt) params[ch.uid] = String(opt.uid);
-        } else {
-          if (desired !== undefined && String(desired).trim() !== '') params[ch.uid] = String(desired);
-          else if (ch.mandatory) params[ch.uid] = '-';
-        }
-      });
-      if (commentUid) params[commentUid] = comment;
-
-      return rpc('Order.addArticle', [orderUid, articleUid, params, { uid: true }, { fastVerify: true }]);
-    });
+  sessionOrderUid().then(function (orderUid) {
+    var p = { quantity: 1 };
+    for (var k in params) if (params.hasOwnProperty(k)) p[k] = params[k];
+    return rpc('Order.addArticle', [orderUid, articleUid, p, { uid: true }, { fastVerify: true }]);
   }).then(function () {
     location.href = '/';   // startsidan visar varukorgen
   }).catch(function (err) {
