@@ -684,7 +684,10 @@ function cartFieldValues() {
   }
   f['Vilket foder vill du ha samt färg på fodret? (Äkta läder, softshell, behandlad bomull)'] =
     `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`;
-  f['Vilken storlek ska halsbandet ha i stängt läge? (OBS se storleksguiden)'] = `${state.circumference} cm`;
+  // storleksvalet heter olika på vanliga vs helglittriga artiklar – sätt båda
+  const sizeVal = `${state.circumference} cm`;
+  f['Vilken storlek ska halsbandet ha i stängt läge? (OBS se storleksguiden)'] = sizeVal;
+  f['Storlek på halsbandet i stängt läge? (OBS se storleksguiden)'] = sizeVal;
 
   // text 1 fyller de enkla textfälten; full spec (flera texter, dubbeltext,
   // storlekar) hamnar i Övrig info via beställningstexten
@@ -714,9 +717,12 @@ function cartFieldValues() {
   f['Vill du ha skugga bakom din text och symbol? Om ja, vilken färg?'] =
     (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej';
 
+  // beslagsvalet heter olika mellan artiklar (D-ring / D-ringar och nitar på
+  // vanliga, Beslag på helglittriga) – sätt alla så rätt val alltid fylls
   const hwName = byId(HARDWARE_FINISHES, state.hardware).name;
   f['D-ring'] = hwName;
   f['D-ringar och nitar'] = hwName;
+  f['Beslag'] = hwName;
   return f;
 }
 
