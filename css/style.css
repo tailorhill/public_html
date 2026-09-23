@@ -289,6 +289,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .btn.cart:hover { filter: brightness(1.08); }
 .btn.ghost { background: transparent; }
 .btn.small { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 10px; }
+/* Leverantörs-/adminvyn: dolda som standard, visas bara med ?supplier=1 */
+.admin-only { display: none; }
+body.supplier .admin-only { display: block; }
+body.supplier .top-actions .admin-only { display: inline-block; }
 .seg.add { flex: 0 0 auto; font-weight: 700; }
 .top-actions .btn { width: auto; }
 

@@ -1,7 +1,7 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, EXPRESS_SURCHARGE, SHIPPING, PRODUCT_URLS, TEXT_LAYOUTS,
+  LEATHER_SURCHARGE, EXPRESS_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
   DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
@@ -43,9 +43,14 @@ const state = {
   hardware: 'stal',
   showHardware: true,
   express: false,
-  shipping: 'sverige',
   extraInfo: '',
 };
+
+// Leverantörs-/adminläge: ?supplier=1 i URL:en visar nedladdnings-/export- och
+// beställningsverktygen. Vanliga kunder ser dem inte. Flaggan följer med i
+// designlänken som läggs i varukorgen, så sömmerskan som öppnar länken får dem.
+const SUPPLIER = new URLSearchParams(location.search).has('supplier');
+if (SUPPLIER) document.body.classList.add('supplier');
 
 const viewer = new CollarViewer($('#c3d'));
 window.viewer = viewer;
@@ -140,8 +145,9 @@ function doubleTextWarning() {
 }
 
 // ------------------------------------------------ designlänk (#d=...)
-function designUrl() {
-  return location.origin + location.pathname + '#d=' + encodeDesign(state);
+function designUrl(forSupplier) {
+  const q = forSupplier ? '?supplier=1' : '';
+  return location.origin + location.pathname + q + '#d=' + encodeDesign(state);
 }
 
 let lastHash = '';
@@ -189,7 +195,6 @@ function applyDesign(d) {
   state.shadowColor = valid(TEXT_COLORS, d.shc, state.shadowColor);
   state.hardware = valid(HARDWARE_FINISHES, d.hw, state.hardware);
   state.express = d.ex === 1;
-  if (SHIPPING.some(s => s.id === d.si)) state.shipping = d.si;
   if (typeof d.oi === 'string') state.extraInfo = d.oi.slice(0, 200);
 }
 
@@ -227,9 +232,6 @@ function computePrice() {
     rows.push(['Expresshantering', EXPRESS_SURCHARGE]);
     total += EXPRESS_SURCHARGE;
   }
-  const ship = byId(SHIPPING, state.shipping);
-  rows.push([ship.rowLabel, ship.price]);
-  total += ship.price;
   return { rows, total };
 }
 
@@ -547,11 +549,6 @@ function refresh() {
     ...h,
     name: h.name + (h.surcharge ? ` (+${state.family === 'cotton' ? h.surcharge.cotton : h.surcharge.biothane} kr)` : ''),
   })), () => state.hardware, id => { state.hardware = id; });
-  // frakt
-  segmented($('#shippingSeg'), SHIPPING, () => state.shipping,
-    id => { state.shipping = id; },
-    s => `${s.name} (+${s.price} kr)`);
-
   $('#buckleNote').textContent = state.family === 'cotton'
     ? 'Klickspänne: svart plast. D-ring i valt utförande.'
     : 'Metallspänne, D-ringar och nitar i valt utförande.';
@@ -647,11 +644,10 @@ function orderText() {
   if (state.shadow && !isDouble()) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
-  const ship = byId(SHIPPING, state.shipping);
-  L.push(`Frakt: ${ship.name}${ship.detail ? ` (${ship.detail})` : ''} – ${ship.price} kr`);
   L.push(`Expresshantering: ${state.express ? `Ja (+${EXPRESS_SURCHARGE} kr)` : 'Nej (ordinarie leveranstid ca 35 dagar)'}`);
+  L.push('Frakt: väljs i kassan hos Valley Dogs');
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
-  L.push(`Designlänk (öppnar designen i 3D-verktyget): ${designUrl()}`);
+  L.push(`Designlänk (öppnar designen i leverantörsvyn): ${designUrl(true)}`);
   L.push('--------------------------------------');
   L.push(`Beräknat pris: ${total} kr`);
   L.push('(Priset bekräftas i Valley Dogs kassa)');
@@ -902,7 +898,7 @@ $('#shareBtn').addEventListener('click', async () => {
     ta.select(); document.execCommand('copy'); ta.remove();
     $('#shareBtn').textContent = '✓ Länk kopierad!';
   }
-  setTimeout(() => { $('#shareBtn').textContent = 'Kopiera designlänk'; }, 2000);
+  setTimeout(() => { $('#shareBtn').textContent = '💾 Spara designen'; }, 2000);
 });
 
 // init: återställ ev. design från länken (#d=...) och aktivera varukorgsknappen.

@@ -23,7 +23,7 @@
     </div>
   </div>
   <div class="top-actions">
-    <button id="showOrderBtn" class="btn primary">Visa beställning</button>
+    <button id="showOrderBtn" class="btn primary admin-only">Visa beställning</button>
   </div>
 </header>
 
@@ -170,16 +170,15 @@
     </section>
 
     <section class="card">
-      <h2>9 · Leverans</h2>
-      <label>Frakt</label>
-      <div class="seg-row" id="shippingSeg"></div>
+      <h2>9 · Expresshantering</h2>
       <label class="switch-row">
         <input type="checkbox" id="expressToggle">
         <span>Expresshantering (+220 kr)</span>
       </label>
-      <p class="note">Ordinarie leveranstid är ca 35 dagar. Inom Sverige skickas beställningen
-        som PostNord varubrev. Med expresshantering skickas den inom några dagar – se
-        <a href="https://www.valleydogs.se/villkor-info-1" target="_blank" rel="noopener">villkoren</a>.</p>
+      <p class="note">Ordinarie leveranstid är ca 35 dagar. Med expresshantering görs halsbandet
+        inom några dagar – se
+        <a href="https://www.valleydogs.se/villkor-info-1" target="_blank" rel="noopener">villkoren</a>.
+        Frakt väljs i kassan hos Valley Dogs.</p>
     </section>
 
     <section class="card">
@@ -204,16 +203,19 @@
         </tfoot>
       </table>
       <button class="btn cart" id="cartBtn">🛒 Lägg i varukorgen</button>
-      <button class="btn primary" id="copyBtn">Kopiera beställningstext</button>
-      <button class="btn" id="shareBtn">Kopiera designlänk</button>
-      <button class="btn" id="mailBtn">Mejla beställningen</button>
-      <button class="btn" id="snapshotBtn">Ladda ner bild (PNG)</button>
-      <button class="btn" id="svgBtn">Exportera SVG för skärning</button>
-      <button class="btn" id="dxfBtn">Exportera DXF (Silhouette gratis)</button>
+      <button class="btn" id="shareBtn">💾 Spara designen</button>
       <a class="btn ghost" id="productLink" href="#" target="_blank" rel="noopener">Öppna produktsidan hos Valley Dogs ↗</a>
-      <p class="note">Beställningen läggs hos Valley Dogs – klistra in texten i produktsidans fält,
-        eller mejla den. Mejlknappen laddar även ner en zip med bild + skärfiler (SVG/DXF) att
-        bifoga i mejlet. Skärfilerna är i verklig storlek, redo för Cricut/Silhouette.</p>
+      <p class="note">Lägg halsbandet i varukorgen och slutför köpet hos Valley Dogs.
+        "Spara designen" kopierar en länk till just den här designen – spara den om du vill
+        fortsätta senare eller dela den.</p>
+      <button class="btn primary admin-only" id="copyBtn">Kopiera beställningstext</button>
+      <button class="btn admin-only" id="mailBtn">Mejla beställningen</button>
+      <button class="btn admin-only" id="snapshotBtn">Ladda ner bild (PNG)</button>
+      <button class="btn admin-only" id="svgBtn">Exportera SVG för skärning</button>
+      <button class="btn admin-only" id="dxfBtn">Exportera DXF (Silhouette gratis)</button>
+      <p class="note admin-only">Leverantörsvy: klistra in beställningstexten, mejla den, eller
+        ladda ner skärfiler (SVG/DXF, verklig storlek för Cricut/Silhouette). Mejlknappen packar
+        bild + skärfiler + text i en zip.</p>
     </div>
   </section>
 
