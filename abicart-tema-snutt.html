@@ -48,13 +48,26 @@
     return best ? best[1] : undefined;
   }
 
-  // Session.get({order:true}) ger sessionens EGNA korg-order (skapar+länkar
-  // den om ingen finns). Det är så butikens egen köpknapp gör. Order.set(null)
-  // skapar däremot en orphan-order som addArticle inte hittar ("Object not
-  // found"), så använd ALDRIG den här.
+  // Hämta sessionens korg-order. Session.get({order:true}) ger den befintliga
+  // korgen, men för en HELT TOM session (ny kund utan korg) returnerar den
+  // {order:null}. Då måste vi skapa en order OCH länka den till sessionen med
+  // Session.set – annars blir det en orphan-order som addArticle lägger i utan
+  // fel men som aldrig syns i korgen. (Session.set kan svara "Validation error"
+  // men länkningen sker ändå; vi läser tillbaka den med Session.get.)
   function sessionOrderUid() {
     return rpc('Session.get', [{ order: true }]).then(function (s) {
-      return s && s.order;   // order-uid (redan länkad till sessionen)
+      if (s && s.order) return s.order;
+      return rpc('Order.set', [null, {
+        language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } }
+      }, { uid: true }]).then(function (created) {
+        var uid = created && created.uid;
+        return rpc('Session.set', [{ order: uid }]).catch(function () {})
+          .then(function () {
+            return rpc('Session.get', [{ order: true }]).then(function (s2) {
+              return (s2 && s2.order) || uid;
+            });
+          });
+      });
     });
   }
 
