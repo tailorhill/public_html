@@ -1,7 +1,7 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
   HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, EXPRESS_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
+  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
   DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
 import { CollarViewer } from './collar3d.js';
@@ -42,7 +42,6 @@ const state = {
   shadowColor: 'svart',
   hardware: 'stal',
   showHardware: true,
-  express: false,
   extraInfo: '',
 };
 
@@ -194,7 +193,6 @@ function applyDesign(d) {
   state.shadow = d.sh === 1;
   state.shadowColor = valid(TEXT_COLORS, d.shc, state.shadowColor);
   state.hardware = valid(HARDWARE_FINISHES, d.hw, state.hardware);
-  state.express = d.ex === 1;
   if (typeof d.oi === 'string') state.extraInfo = d.oi.slice(0, 200);
 }
 
@@ -227,10 +225,6 @@ function computePrice() {
     if (width.surcharge) { rows.push([`Bredd ${width.name}`, width.surcharge]); total += width.surcharge; }
     const hwf = byId(HARDWARE_FINISHES, state.hardware);
     if (hwf.surcharge) { rows.push([hwf.name, hwf.surcharge.biothane]); total += hwf.surcharge.biothane; }
-  }
-  if (state.express) {
-    rows.push(['Expresshantering', EXPRESS_SURCHARGE]);
-    total += EXPRESS_SURCHARGE;
   }
   return { rows, total };
 }
@@ -644,7 +638,6 @@ function orderText() {
   if (state.shadow && !isDouble()) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
-  L.push(`Expresshantering: ${state.express ? `Ja (+${EXPRESS_SURCHARGE} kr)` : 'Nej (ordinarie leveranstid ca 35 dagar)'}`);
   L.push('Frakt: väljs i kassan hos Valley Dogs');
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
   L.push(`Designlänk (öppnar designen i leverantörsvyn): ${designUrl(true)}`);
@@ -753,7 +746,6 @@ $('#removeTextBtn').addEventListener('click', () => {
 
 $('#glitterToggle').addEventListener('change', e => { state.fullGlitter = e.target.checked; refresh(); });
 $('#hwToggle').addEventListener('change', e => { state.showHardware = e.target.checked; rebuild3D(); });
-$('#expressToggle').addEventListener('change', e => { state.express = e.target.checked; renderSummary(); });
 $('#shadowToggle').addEventListener('change', e => { state.shadow = e.target.checked; refresh(); });
 $('#extraInfo').addEventListener('input', e => { state.extraInfo = e.target.value; });
 
@@ -912,7 +904,6 @@ $('#textInputT').value = state.texts[0].text;
 $('#circ').value = state.circumference;
 $('#circVal').textContent = `${state.circumference} cm`;
 $('#extraInfo').value = state.extraInfo;
-$('#expressToggle').checked = state.express;
 
 function isBioColorDisabled(c) {
   if (c.id === 'orange') return true; // finns ej i 25/38 mm

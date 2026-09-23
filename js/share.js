@@ -34,7 +34,6 @@ export function encodeDesign(state) {
     sh: state.shadow ? 1 : 0,
     shc: state.shadowColor,
     hw: state.hardware,
-    ex: state.express ? 1 : 0,
     oi: (state.extraInfo || '').slice(0, 200),
   };
   return b64encode(JSON.stringify(d));
