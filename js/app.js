@@ -648,10 +648,38 @@ function orderText() {
 }
 
 // -------------------------------------------------- Abicart-varukorg
+// Kommentar till "Övrig info"-fältet i varukorgen. Håll den KORT: alla vanliga
+// val ligger redan som strukturerade val i ordern, så här tar vi bara med det
+// som inte ryms där (textstorlek, flera texter/dubbeltext, kundens egen info)
+// plus designlänken för leverantörsvyn. (Full beställningstext = orderText()
+// används bara i leverantörsknapparna Kopiera/Mejla/Visa beställning.)
+function cartComment() {
+  const L = [];
+  const activeTexts = state.texts.filter(t => t.text.trim());
+  const fname = t => byId(FONTS, t.font).name;
+  const cname = t => byId(TEXT_COLORS, t.color).name;
+  const sname = t => byId(TEXT_SIZES, t.size).name.toLowerCase();
+  if (isDouble()) {
+    const t1 = state.texts[0], t2 = state.texts[1];
+    L.push(`Dubbeltext: bakre "${t1.text.trim()}" i ${fname(t1)}/${cname(t1)} (${sname(t1)} storlek), ` +
+      `främre "${t2.text.trim()}" i ${fname(t2)}/${cname(t2)} (${sname(t2)} storlek), ` +
+      `främre position: ${byId(DUBBEL_POSITIONS, state.dubbelPos).name}`);
+  } else if (activeTexts.length > 1) {
+    const layoutName = state.textLayout === 'rader'
+      ? `${activeTexts.length === 3 ? 'tre' : 'två'} rader` : 'efter varandra';
+    L.push(`Flera texter (${layoutName}):`);
+    activeTexts.forEach((t, i) => L.push(`  ${i + 1}. "${t.text.trim()}" ${fname(t)}/${cname(t)} (${sname(t)} storlek)`));
+  } else if (activeTexts.length === 1) {
+    L.push(`Textstorlek: ${sname(activeTexts[0])}`);
+  }
+  if (state.extraInfo.trim()) L.push(`Kundens övriga info: ${state.extraInfo.trim()}`);
+  L.push(`Design (öppnas i leverantörsvyn): ${designUrl(true)}`);
+  return L.join('\n');
+}
+
 // Semantisk beskrivning av designen (namn ur katalogen). cart.resolveOrder
 // matchar den mot artikelns RIKTIGA val och options, så namn behöver inte
-// stämma exakt med butikens (spretiga) valnamn. Full spec går ändå med i
-// Övrig info via beställningstexten.
+// stämma exakt med butikens (spretiga) valnamn.
 function cartDesign() {
   const lin = byId(linings, state.lining);
   const t1 = state.texts.filter(t => t.text.trim())[0];
@@ -674,7 +702,7 @@ function cartDesign() {
     symbolColor: hasSymbol ? byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name : '-',
     shadow: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
     hardware: byId(HARDWARE_FINISHES, state.hardware).name,
-    comment: orderText(),
+    comment: cartComment(),
   };
 }
 
@@ -692,7 +720,8 @@ async function handleAddToCart() {
   btn.textContent = 'Förbereder…';
   try {
     // Resolva designen mot artikelns riktiga val och validera INNAN redirect.
-    const { params, problems } = await cart.resolveOrder(uid, cartDesign());
+    const design = cartDesign();
+    const { params, problems } = await cart.resolveOrder(uid, design);
     if (problems.length) {
       btn.disabled = false;
       btn.textContent = label;
@@ -702,7 +731,7 @@ async function handleAddToCart() {
       return;
     }
     btn.textContent = 'Går till butiken…';
-    location.href = cart.cartUrl(uid, params, cartDesign().comment);
+    location.href = cart.cartUrl(uid, params, design.comment);
   } catch (err) {
     btn.disabled = false;
     btn.textContent = label;

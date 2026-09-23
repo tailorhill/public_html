@@ -1,0 +1,13 @@
+/* Valley Dogs – egen CSS för Abicart.
+   Klistra in i Abicart: Utseende → (temat) → Egen CSS.
+
+   Varför: designlänken som läggs i "Övrig info" är en lång sträng utan
+   mellanslag. I varukorgen/kassan renderas Övrig info i
+   .tws-opc-cart--choices-value, som standard utan radbrytning på långa ord,
+   så länken svämmar över rutan. Regeln nedan bryter långa ord/länkar så att
+   texten håller sig inom rutan. Verifierat mot kassan (tws-opc-cart). */
+.tws-opc-cart--choices-value,
+[class*="choices-value"] {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
