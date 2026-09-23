@@ -149,6 +149,25 @@ function designUrl(forSupplier) {
   return location.origin + location.pathname + q + '#d=' + encodeDesign(state);
 }
 
+// Kort leverantörslänk via serverdelen d.php (sparar designen, ger en kort kod).
+// Faller ALLTID tillbaka på den fullständiga #d=-länken om servern inte svarar,
+// så att köpet aldrig blockeras av kortlänken.
+async function supplierDesignLink() {
+  const payload = encodeDesign(state);
+  try {
+    const r = await fetch('d.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'd=' + encodeURIComponent(payload),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.code) return location.origin + '/d.php?c=' + j.code;
+    }
+  } catch { /* nätfel → använd full länk nedan */ }
+  return designUrl(true);
+}
+
 let lastHash = '';
 function updateHash() {
   try {
@@ -653,7 +672,7 @@ function orderText() {
 // som inte ryms där (textstorlek, flera texter/dubbeltext, kundens egen info)
 // plus designlänken för leverantörsvyn. (Full beställningstext = orderText()
 // används bara i leverantörsknapparna Kopiera/Mejla/Visa beställning.)
-function cartComment() {
+function cartComment(supplierLink) {
   const L = [];
   const activeTexts = state.texts.filter(t => t.text.trim());
   const fname = t => byId(FONTS, t.font).name;
@@ -673,14 +692,14 @@ function cartComment() {
     L.push(`Textstorlek: ${sname(activeTexts[0])}`);
   }
   if (state.extraInfo.trim()) L.push(`Kundens övriga info: ${state.extraInfo.trim()}`);
-  L.push(`Design (öppnas i leverantörsvyn): ${designUrl(true)}`);
+  L.push(`Design (öppnas i leverantörsvyn): ${supplierLink || designUrl(true)}`);
   return L.join('\n');
 }
 
 // Semantisk beskrivning av designen (namn ur katalogen). cart.resolveOrder
 // matchar den mot artikelns RIKTIGA val och options, så namn behöver inte
 // stämma exakt med butikens (spretiga) valnamn.
-function cartDesign() {
+function cartDesign(supplierLink) {
   const lin = byId(linings, state.lining);
   const t1 = state.texts.filter(t => t.text.trim())[0];
   const isCotton = state.family === 'cotton';
@@ -702,7 +721,7 @@ function cartDesign() {
     symbolColor: hasSymbol ? byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name : '-',
     shadow: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
     hardware: byId(HARDWARE_FINISHES, state.hardware).name,
-    comment: cartComment(),
+    comment: cartComment(supplierLink),
   };
 }
 
@@ -719,8 +738,10 @@ async function handleAddToCart() {
   btn.disabled = true;
   btn.textContent = 'Förbereder…';
   try {
-    // Resolva designen mot artikelns riktiga val och validera INNAN redirect.
-    const design = cartDesign();
+    // Kort designlänk (faller tillbaka på full länk om servern inte svarar),
+    // sen resolva designen mot artikelns riktiga val och validera INNAN redirect.
+    const supplierLink = await supplierDesignLink();
+    const design = cartDesign(supplierLink);
     const { params, problems } = await cart.resolveOrder(uid, design);
     if (problems.length) {
       btn.disabled = false;
