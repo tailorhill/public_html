@@ -48,31 +48,22 @@
     return best ? best[1] : undefined;
   }
 
-  // hämta befintlig korg (bevaras); fel/ingen → null
-  function getExistingOrder() {
-    return rpc('Session.getOrder', [{ uid: true }]).catch(function () { return null; });
-  }
-  // lägg i BEFINTLIG korg om giltig, annars skapa ny och försök igen
-  // (kundens session kan peka på en utgången order → "Object not found")
-  function addPreservingCart(articleUid, params, existingOrder) {
-    function addTo(order) {
-      return rpc('Order.addArticle', [order.uid, articleUid, params, { uid: true }, { fastVerify: true }]);
-    }
-    function fresh() {
-      return rpc('Order.set', [null, { language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } } }, { uid: true }]).then(addTo);
-    }
-    if (existingOrder && existingOrder.uid) {
-      return addTo(existingOrder).catch(function () { return fresh(); });
-    }
-    return fresh();
+  // Session.get({order:true}) ger sessionens EGNA korg-order (skapar+länkar
+  // den om ingen finns). Det är så butikens egen köpknapp gör. Order.set(null)
+  // skapar däremot en orphan-order som addArticle inte hittar ("Object not
+  // found"), så använd ALDRIG den här.
+  function sessionOrderUid() {
+    return rpc('Session.get', [{ order: true }]).then(function (s) {
+      return s && s.order;   // order-uid (redan länkad till sessionen)
+    });
   }
 
   Promise.all([
     rpc('Article.get', [articleUid, { choices: true }]),
-    getExistingOrder()
+    sessionOrderUid()
   ]).then(function (res) {
     var choiceUids = res[0].choices || [];
-    var existingOrder = res[1];
+    var orderUid = res[1];
     return Promise.all(choiceUids.map(function (u) {
       return rpc('ArticleChoice.get', [u, { uid: true, name: true, type: true, mandatory: true, options: { uid: true, name: true } }]);
     })).then(function (choices) {
@@ -99,7 +90,7 @@
       });
       if (commentUid) params[commentUid] = comment;
 
-      return addPreservingCart(articleUid, params, existingOrder);
+      return rpc('Order.addArticle', [orderUid, articleUid, params, { uid: true }, { fastVerify: true }]);
     });
   }).then(function () {
     location.href = '/';   // startsidan visar varukorgen
