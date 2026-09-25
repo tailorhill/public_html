@@ -193,7 +193,7 @@ function applyDesign(d) {
   state.glitterColor = valid(TEXT_COLORS, d.gc, state.glitterColor);
   if (Array.isArray(d.tx) && d.tx.length) {
     state.texts = d.tx.slice(0, MAX_TEXTS).map(([text, font, color]) => ({
-      text: String(text || '').slice(0, 24),
+      text: String(text || ''),
       font: valid(FONTS, font, 'built'),
       color: valid(TEXT_COLORS, color, 'vit'),
       size: 'stor',
@@ -490,6 +490,8 @@ function refresh() {
 
   const at = state.texts[state.activeText];
   const inpT = $('#textInputT');
+  if (selectedSize(state)?.id === 'custom') inpT.removeAttribute('maxlength');
+  else inpT.maxLength = 24;
   if (inpT.value !== at.text) inpT.value = at.text;
   inpT.placeholder = state.activeText === 0 ? 'T.ex. hundens namn' : 'T.ex. smeknamn eller telefonnummer';
 
@@ -600,7 +602,9 @@ function renderValidation() {
   const errors = validationErrors(state), size = selectedSize(state);
   $('#designErrors').textContent = errors.join(' ');
   $('#designErrors').hidden = !errors.length;
-  $('#textLimitNote').textContent = size
+  $('#textLimitNote').textContent = size?.id === 'custom'
+    ? 'Egen storlek har ingen teckengräns. Ange önskat storleksintervall under Övrig info.'
+    : size
     ? `Max ${size.limit} tecken inklusive symboler. Text: ${characterCounts(state).join(' / ')}. Symboler: ${symbolCount(state)}. Gäller även dubbeltext. Mellanslag räknas.`
     : 'Texten görs alltid i stor storlek, anpassad till bandet.';
   $('#textInputT').setAttribute('aria-invalid', String(errors.some(e => e.includes('tecken'))));
@@ -815,7 +819,7 @@ $('#circ').addEventListener('input', e => {
 });
 
 $('#textInputT').addEventListener('input', e => {
-  state.texts[state.activeText].text = e.target.value.slice(0, 24);
+  state.texts[state.activeText].text = e.target.value;
   renderSummary(); rebuild3D();
 });
 // macOS ersätter dubbelt mellanslag med punkt (insertReplacementText) –

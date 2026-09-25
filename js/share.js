@@ -26,7 +26,7 @@ export function encodeDesign(state) {
     li: state.lining,
     fg: state.fullGlitter ? 1 : 0,
     gc: state.glitterColor,
-    tx: state.texts.map(t => [t.text.slice(0, 24), t.font, t.color, t.size]),
+    tx: state.texts.map(t => [t.text, t.font, t.color, t.size]),
     tl: state.textLayout,
     dp: state.dubbelPos,
     sy: state.symbol,

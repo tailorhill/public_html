@@ -4,18 +4,17 @@ const option = (id, surcharge = 0, limit = 7) => ({
   id, name: id === 'custom' ? 'Egen storlek' : `${id.replace('-', '–')} cm`, surcharge, limit,
   previewCm: id === 'custom' ? null : id.split('-').map(Number).reduce((a, b) => a + b) / 2,
 });
-const standard = () => [option('30-35'), option('35-45', 10), option('45-55', 20, 10), option('custom', 30)];
-// Custom widths 3.5/4 and adjustable 40–50 use the conservative seven-character
-// limit until the owner confirms the omissions in the supplied product rules.
+const standard = () => [option('30-35'), option('35-45', 10), option('45-55', 20, 10), option('custom', 30, null)];
+// Custom sizes have no character limit; the requested measurements are entered in Övrig info.
 export const SIZE_OPTIONS = {
   stallbart: {
-    '2.5': [option('25-30'), option('30-35'), option('35-40'), option('custom', 30)],
+    '2.5': [option('25-30'), option('30-35'), option('35-40'), option('custom', 30, null)],
     '3.5': standard(), '4': standard(),
   },
   justerbart: {
-    '2.5': [option('25-30'), option('30-35'), option('25-35', 10), option('30-40', 10), option('custom', 30)],
+    '2.5': [option('25-30'), option('30-35'), option('25-35', 10), option('30-40', 10), option('custom', 30, null)],
     '3.5': standard(),
-    '4': [option('35-45'), option('40-50', 10), option('45-55', 20, 10), option('custom', 30)],
+    '4': [option('35-45'), option('40-50', 10, 10), option('45-55', 20, 10), option('custom', 30, null)],
   },
 };
 export const sizeOptions = s => s.family === 'cotton' ? SIZE_OPTIONS[s.cottonModel]?.[s.cottonWidth] || [] : [];
@@ -85,7 +84,7 @@ export function validationErrors(s) {
   if (size) {
     // Layered/stacked names each share the available width; sequential texts share it.
     const used = (s.textLayout === 'rad' ? counts.reduce((a, b) => a + b, 0) : Math.max(0, ...counts)) + symbolCount(s);
-    if (used > size.limit) errors.push(`Vald storlek tillåter max ${size.limit} tecken inklusive symboler (${used} valda). Korta texten eller ändra symbolerna.`);
+    if (size.limit !== null && used > size.limit) errors.push(`Vald storlek tillåter max ${size.limit} tecken inklusive symboler (${used} valda). Korta texten eller ändra symbolerna.`);
     if (size.id === 'custom' && !s.extraInfo.trim()) errors.push('Skriv önskat storleksintervall i Övrig info för egen storlek.');
   }
   s.texts.forEach((t, i) => { if (!textColorAllowed(s, color(t.color), i)) errors.push(`Otillåten färg på text ${i + 1}.`); });

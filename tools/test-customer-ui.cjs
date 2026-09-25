@@ -19,7 +19,13 @@ await p.waitForFunction(()=>viewer._lastCfg.shadowColor && viewer._lastCfg.shado
 assert.equal(await p.locator('#sizeSegT').count(),0);assert.equal(await p.evaluate(()=>viewer._lastCfg.texts[0].sizeK),1.25);
 await p.locator('#shadowSwatches button[title="Guldglitter"]').click();
 assert.ok(await p.locator('#colorSwT button[title="Vit"]').isDisabled());
+const longText='EN EGEN TEXT MED FLER ÄN TJUGOFYRA TECKEN';
+await p.locator('#textInputT').fill(longText);
+assert.equal(await p.locator('#textInputT').getAttribute('maxlength'),null);
+assert.ok(await p.locator('#cartBtn').isEnabled());
 const shared=p.url();await p.goto(shared);await p.waitForFunction(()=>viewer?._lastCfg?.shadowSymbols===false);
+assert.equal(await p.locator('#textInputT').inputValue(),longText);
+assert.ok(await p.locator('#cartBtn').isEnabled());
 assert.equal(await p.locator('#rangeSizeSelect select').inputValue(),'custom');assert.equal(await p.locator('#extraInfo').inputValue(),'Önskar 32–38 cm');
 await p.locator('[data-family="biothane"]').click();assert.ok(await p.locator('#shadowRow').isHidden());await p.waitForFunction(()=>viewer._lastCfg.family==='biothane'&&!viewer._lastCfg.shadowColor);
 assert.ok(await p.locator('#colorSwT button[title="Dimmig"]').isEnabled());assert.ok(await p.locator('#colorSwT button[title="Regnbåge"]').isDisabled());
