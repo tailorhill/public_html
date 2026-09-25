@@ -20,6 +20,15 @@ assert.ok(await p.locator('#cartBtn').isDisabled());
 await p.locator('#textInputT').fill('ABCDEFGHIJ');
 assert.equal(await p.locator('#textInputT').inputValue(),'ABCDEF');
 assert.equal(await p.locator('#textInputT').getAttribute('maxlength'),'6');
+assert.ok(await button('#placementSeg','På vardera sida om texten').isDisabled());
+await p.locator('#textInputT').fill('ABCDE');
+await button('#placementSeg','På vardera sida om texten').click();
+assert.equal(await p.locator('#textInputT').getAttribute('maxlength'),'5');
+await p.locator('#textInputT').press('End');
+await p.locator('#textInputT').pressSequentially('FGHI');
+assert.equal(await p.locator('#textInputT').inputValue(),'ABCDE');
+await button('#placementSeg','Efter texten').click();
+
 await p.locator('#textInputT').fill('LUNA');assert.ok(await p.locator('#cartBtn').isEnabled());
 await p.locator('#rangeSizeSelect select').selectOption('custom');assert.ok(await p.locator('#cartBtn').isDisabled());
 await p.locator('#extraInfo').fill('Önskar 32–38 cm');assert.ok(await p.locator('#cartBtn').isEnabled());

@@ -90,6 +90,16 @@ export function textInputLimit(s, index = s.activeText || 0) {
   return Math.max(0, size.limit - symbols - others);
 }
 
+export function symbolChoiceAllowed(s, symbol, placement = s.symbolPlacement) {
+  const size = selectedSize(s);
+  if (!size || size.limit === null) return true;
+  const next = { ...s, symbol, symbolPlacement: placement };
+  if (symbolCount(next) <= symbolCount(s)) return true;
+  const counts = characterCounts(s);
+  const text = s.textLayout === 'rad' ? counts.reduce((a, b) => a + b, 0) : Math.max(0, ...counts);
+  return text + symbolCount(next) <= size.limit;
+}
+
 export function validationErrors(s) {
   const errors = [], size = selectedSize(s), counts = characterCounts(s);
   if (size) {

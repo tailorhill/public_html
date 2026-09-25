@@ -11,7 +11,7 @@ import * as cart from './cart.js';
 import {
   sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
   validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
-  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit,
+  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit, symbolChoiceAllowed,
 } from './design-rules.js';
 
 const $ = sel => document.querySelector(sel);
@@ -543,6 +543,8 @@ function refresh() {
     const b = el('button', 'symopt' + (state.symbol === s.id ? ' sel' : ''));
     b.type = 'button';
     b.title = s.name;
+    b.disabled = !symbolChoiceAllowed(state, s.id);
+    if (b.disabled) b.title += ' – korta texten för att få plats med symbolen';
     if (s.id === 'ingen') {
       b.textContent = '∅';
     } else if (s.id === 'egen') {
@@ -561,6 +563,10 @@ function refresh() {
   if (hasSym) {
     segmented($('#placementSeg'), SYMBOL_PLACEMENTS, () => state.symbolPlacement,
       id => { state.symbolPlacement = id; });
+    $('#placementSeg').querySelectorAll('button').forEach((button, i) => {
+      button.disabled = !symbolChoiceAllowed(state, state.symbol, SYMBOL_PLACEMENTS[i].id);
+      if (button.disabled) button.title = 'Korta texten för att få plats med två symboler';
+    });
     const symColorList = [{ id: '', name: 'Samma som texten', hex: '#888' },
       ...TEXT_COLORS.filter(c => symbolColorAllowed(state, c))];
     selectBox($('#symbolColorSelect'), symColorList, () => state.symbolColor,
@@ -606,7 +612,7 @@ function renderValidation() {
   $('#textLimitNote').textContent = size?.id === 'custom'
     ? 'Egen storlek har ingen teckengräns. Ange önskat storleksintervall under Övrig info.'
     : size
-    ? `Max ${size.limit} tecken inklusive symboler. Text: ${characterCounts(state).join(' / ')}. Symboler: ${symbolCount(state)}. Gäller även dubbeltext. Mellanslag räknas.`
+    ? `Max ${size.limit} tecken inklusive symboler. Text: ${characterCounts(state).join(' / ')}. Symboler: ${symbolCount(state)}. Du kan skriva högst ${textInputLimit(state)} tecken i detta textfält. Gäller även dubbeltext. Mellanslag räknas.`
     : 'Texten görs alltid i stor storlek, anpassad till bandet.';
   $('#textInputT').setAttribute('aria-invalid', String(errors.some(e => e.includes('tecken'))));
   for (const id of ['cartBtn', 'copyBtn', 'mailBtn', 'svgBtn', 'dxfBtn']) $('#' + id).disabled = !!errors.length;
@@ -824,6 +830,15 @@ $('#textInputT').addEventListener('input', e => {
   const value = limit === null ? e.target.value : Array.from(e.target.value.normalize('NFC')).slice(0, limit).join('');
   if (e.target.value !== value) e.target.value = value;
   state.texts[state.activeText].text = value;
+  // Refresh symbol availability too, without rebuilding the focused text field.
+  $('#symbolGrid').querySelectorAll('button').forEach((button, i) => {
+    button.disabled = !symbolChoiceAllowed(state, SYMBOLS[i].id);
+    button.title = SYMBOLS[i].name + (button.disabled ? ' – korta texten för att få plats med symbolen' : '');
+  });
+  $('#placementSeg').querySelectorAll('button').forEach((button, i) => {
+    button.disabled = !symbolChoiceAllowed(state, state.symbol, SYMBOL_PLACEMENTS[i].id);
+    button.title = button.disabled ? 'Korta texten för att få plats med två symboler' : '';
+  });
   renderSummary(); rebuild3D();
 });
 // macOS ersätter dubbelt mellanslag med punkt (insertReplacementText) –
