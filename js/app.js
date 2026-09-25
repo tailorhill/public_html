@@ -4,7 +4,7 @@ import {
   LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
   DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
-import { CollarViewer } from './collar3d.js';
+import { RealisticCollarViewer, ensureTexturesFor } from './foder-realism.js';
 import { drawSymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
@@ -51,7 +51,7 @@ const state = {
 const SUPPLIER = new URLSearchParams(location.search).has('supplier');
 if (SUPPLIER) document.body.classList.add('supplier');
 
-const viewer = new CollarViewer($('#c3d'));
+const viewer = new RealisticCollarViewer($('#c3d'));
 window.viewer = viewer;
 
 // Felsökningsläge: öppna sidan med ?debug=1 för att se fel och GPU-info
@@ -264,6 +264,7 @@ function rebuild3D() {
       bandWidthCm: isCotton ? widthCm - 1 : widthCm,
       circumference: state.circumference,
       bandColor: isCotton ? byId(WEBBING_COLORS, state.webbing).hex : byId(BIOTHANE_COLORS, state.biothane).hex,
+      webbingId: isCotton ? state.webbing : null,
       lining: isCotton ? lin : null,
       fullGlitter: state.fullGlitter && glitterAvailable(),
       glitterColor: byId(TEXT_COLORS, state.glitterColor)?.hex,
@@ -283,9 +284,13 @@ function rebuild3D() {
       showHardware: state.showHardware,
       modelKind: modelKind(),
     };
-    viewer.build(cfg);
+    // Lazy-ladda valt foder + bandfärg (WebP), bygg först när de finns i cachen.
+    // pendingCfg gör att bara den senaste designen ritas om vid snabba byten.
+    pendingCfg = cfg;
+    ensureTexturesFor(cfg).then(() => { if (pendingCfg === cfg) viewer.build(cfg); });
   });
 }
+let pendingCfg = null;
 
 // ---------------------------------------------------------------- UI bygge
 
