@@ -18,7 +18,7 @@ export class CollarViewer {
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = !this.lite;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.VSMShadowMap;
 
     this.scene = new THREE.Scene();
 
@@ -33,7 +33,7 @@ export class CollarViewer {
     }
 
     this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 500);
-    this.camera.position.set(0, 9, 34);
+    this.camera.position.set(0, 12, 34);
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
@@ -41,23 +41,26 @@ export class CollarViewer {
     this.controls.minDistance = 14;
     this.controls.maxDistance = 70;
     this.controls.maxPolarAngle = Math.PI * 0.72;
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(0, 2, 0);
 
     // Ljus
-    const hemi = new THREE.HemisphereLight(0xf4f2ee, 0x8c857c, 1.1);
+    const hemi = new THREE.HemisphereLight(0xfffaf4, 0x77716a, 0.45);
     this.scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xffffff, 2.2);
-    key.position.set(12, 22, 18);
+    const key = new THREE.DirectionalLight(0xfffaf5, 2.6);
+    key.position.set(-12, 20, 14);
     key.castShadow = !this.lite;
-    key.shadow.mapSize.set(this.lite ? 1024 : 2048, this.lite ? 1024 : 2048);
+    key.shadow.mapSize.set(1024, 1024);
     key.shadow.camera.left = -20; key.shadow.camera.right = 20;
     key.shadow.camera.top = 20; key.shadow.camera.bottom = -20;
-    key.shadow.radius = 6;
+    key.shadow.radius = 5;
+    key.shadow.blurSamples = 8;
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 70;
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xdfe8ff, 0.7);
+    const fill = new THREE.DirectionalLight(0xe8efff, 0.35);
     fill.position.set(-16, 8, -10);
     this.scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xfff4e0, 0.5);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.65);
     rim.position.set(0, 6, -22);
     this.scene.add(rim);
 
@@ -200,24 +203,7 @@ export class CollarViewer {
   paintBiothane(ctx, w, h, hex) {
     ctx.fillStyle = hex;
     ctx.fillRect(0, 0, w, h);
-    // svag lädernoise + horisontell glans
-    const col = new THREE.Color(hex);
-    const light = col.clone().lerp(new THREE.Color('#ffffff'), 0.25);
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(0,0,0,0.18)');
-    grad.addColorStop(0.25, 'rgba(255,255,255,0.10)');
-    grad.addColorStop(0.5, 'rgba(255,255,255,0.0)');
-    grad.addColorStop(0.8, 'rgba(0,0,0,0.10)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.22)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalAlpha = 0.05;
-    ctx.fillStyle = light.getStyle();
-    for (let i = 0; i < 900; i++) {
-      const x = Math.random() * w, y = Math.random() * h;
-      ctx.fillRect(x, y, 1 + Math.random() * 2, 1);
-    }
-    ctx.globalAlpha = 1;
+    // Matt polyuretan: inga inbakade glansband som följer med vid rotation.
   }
 
   // Materialtyp för ett foder – styr både målning och materialparametrar.
@@ -691,8 +677,10 @@ export class CollarViewer {
       if (o.geometry) o.geometry.dispose();
       if (o.material) {
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-          if (m.map) m.map.dispose();
-          if (m.bumpMap) m.bumpMap.dispose();
+          if (m.userData.keep) continue;
+          if (m.map && !m.map.userData.keep) m.map.dispose();
+          if (m.bumpMap && !m.bumpMap.userData.keep) m.bumpMap.dispose();
+          if (m.alphaMap && !m.alphaMap.userData.keep) m.alphaMap.dispose();
           m.dispose();
         }
       }
@@ -708,10 +696,10 @@ export class CollarViewer {
     const outerMat = isBio
       ? new THREE.MeshPhysicalMaterial({
           map: tex,
-          roughness: 0.38,
+          roughness: 0.62,
           metalness: 0.0,
-          clearcoat: 0.55,
-          clearcoatRoughness: 0.3,
+          clearcoat: 0.08,
+          clearcoatRoughness: 0.55,
           envMapIntensity: 0.7,
           side: THREE.FrontSide,
         })
@@ -736,7 +724,7 @@ export class CollarViewer {
     let innerMat;
     if (isBio) {
       innerMat = new THREE.MeshStandardMaterial({
-        color: innerHex, roughness: 0.4, side: THREE.BackSide,
+        color: innerHex, roughness: 0.65, side: THREE.BackSide,
       });
     } else {
       const linTex = this.makeLiningTexture(cfg.lining);
@@ -756,7 +744,7 @@ export class CollarViewer {
     this.collarGroup.add(inner);
 
     // kantringar (tjocklek)
-    const edgeProps = isBio ? { roughness: 0.4 } : this.liningMaterialProps(cfg.lining);
+    const edgeProps = isBio ? { roughness: 0.68 } : this.liningMaterialProps(cfg.lining);
     const edgeMat = new THREE.MeshStandardMaterial({
       color: innerHex,
       roughness: edgeProps.roughness,
@@ -774,7 +762,7 @@ export class CollarViewer {
 
     // Beslag
     if (cfg.showHardware === false) {
-      this.collarGroup.position.y = width / 2 + 2.2;
+      this.collarGroup.position.y = width / 2 + 0.75;
       return;
     }
     const metal = this.metalMaterial(cfg.hardware);
@@ -796,17 +784,17 @@ export class CollarViewer {
 
     if (cfg.modelKind === 'halvstryp') {
       hw.add(this.makeMartingale(R, width, metal, cfg));
-    } else if (isBio) {
+    } else if (isBio && cfg.modelKind !== 'fast') {
       const buckle = this.makeMetalBuckle(width, metal);
       mount(buckle, backAngle, R + 0.22);
       // nitar
       for (const off of [-0.28, 0.28]) {
-        const rv = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.16, 20), metal);
-        rv.geometry.rotateX(Math.PI / 2);
-        mount(rv, backAngle + off, R + 0.06);
+        const rv = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 8), metal);
+        rv.scale.z = 0.35;
+        mount(rv, backAngle + off, R + 0.045);
       }
     } else {
-      const buckle = this.makeSideRelease(width); // klickspänne: alltid svart plast
+      const buckle = this.makeSideRelease(width); // fasta bomulls- och BioThane-halsband: svart klickspänne
       mount(buckle, backAngle, R + 0.1);
       if (cfg.modelKind === 'stallbart' || cfg.modelKind === 'justerbart') {
         const tri = this.makeTriGlide(width, metal);
@@ -818,7 +806,7 @@ export class CollarViewer {
     this.collarGroup.add(hw);
 
     // placera kragen svävande något över marken
-    this.collarGroup.position.y = width / 2 + 2.2;
+    this.collarGroup.position.y = width / 2 + 0.75;
   }
 
   // Alla beslag byggs i XY-planet med +Z utåt (monteras med mount() i build).

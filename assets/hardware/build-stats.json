@@ -1,0 +1,30 @@
+{
+  "side-release": {
+    "vertices": 1516,
+    "bytes": 81544
+  },
+  "d-ring": {
+    "vertices": 1008,
+    "bytes": 37400
+  },
+  "tri-glide": {
+    "vertices": 1872,
+    "bytes": 80904
+  },
+  "roller-buckle": {
+    "vertices": 996,
+    "bytes": 41124
+  },
+  "keeper": {
+    "vertices": 624,
+    "bytes": 23576
+  },
+  "half-slip-ring": {
+    "vertices": 624,
+    "bytes": 23604
+  },
+  "split-keeper": {
+    "vertices": 648,
+    "bytes": 24440
+  }
+}

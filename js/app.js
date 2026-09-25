@@ -106,7 +106,7 @@ function currentModel() {
 
 function modelKind() {
   const id = state.family === 'cotton' ? state.cottonModel : state.bioModel;
-  if (id.includes('halvstryp') || id === 'justerbart') return 'halvstryp';
+  if (id.includes('halvstryp') || id === 'justerbart') return id;
   if (id === 'stallbart') return 'stallbart';
   return id === 'justerbart' ? 'justerbart' : 'fast';
 }
