@@ -79,6 +79,17 @@ export function symbolCount(s) {
 export function characterCounts(s) {
   return s.texts.map(t => Array.from(t.text.trim().normalize('NFC')).length);
 }
+// Reserve the space occupied by symbols and by other sequential text blocks.
+export function textInputLimit(s, index = s.activeText || 0) {
+  const size = selectedSize(s);
+  if (!size) return 24;
+  if (size.limit === null) return null;
+  const symbols = !s.symbol || s.symbol === 'ingen' ? 0 : s.symbolPlacement === 'bada' ? 2 : 1;
+  const others = s.textLayout === 'rad'
+    ? characterCounts(s).reduce((sum, count, i) => sum + (i === index ? 0 : count), 0) : 0;
+  return Math.max(0, size.limit - symbols - others);
+}
+
 export function validationErrors(s) {
   const errors = [], size = selectedSize(s), counts = characterCounts(s);
   if (size) {

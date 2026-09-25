@@ -52,6 +52,12 @@ const assert = require('node:assert/strict');
     layered.texts[1].text+='B';
     assert.ok(r.validationErrors(layered).some(e=>e.includes('tecken')));
   }
+  const input={...base(),activeText:0};
+  assert.equal(r.textInputLimit(input),6);
+  input.symbolPlacement='bada';assert.equal(r.textInputLimit(input),5);
+  input.texts.push({text:'DOG',color:'vit'});assert.equal(r.textInputLimit(input),2);
+  input.textLayout='dubbel';assert.equal(r.textInputLimit(input),5);
+  input.sizeRange='custom';assert.equal(r.textInputLimit(input),null);
   const shadow={...base(),shadow:true,shadowColor:'guldglitter'};
   assert.equal(r.textColorAllowed(shadow,col('vit')),false);
   assert.equal(r.textColorAllowed(shadow,col('guldglitter')),true);

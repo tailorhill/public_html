@@ -11,7 +11,7 @@ import * as cart from './cart.js';
 import {
   sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
   validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
-  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount,
+  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit,
 } from './design-rules.js';
 
 const $ = sel => document.querySelector(sel);
@@ -490,8 +490,9 @@ function refresh() {
 
   const at = state.texts[state.activeText];
   const inpT = $('#textInputT');
-  if (selectedSize(state)?.id === 'custom') inpT.removeAttribute('maxlength');
-  else inpT.maxLength = 24;
+  const inputLimit = textInputLimit(state);
+  if (inputLimit === null) inpT.removeAttribute('maxlength');
+  else inpT.maxLength = inputLimit;
   if (inpT.value !== at.text) inpT.value = at.text;
   inpT.placeholder = state.activeText === 0 ? 'T.ex. hundens namn' : 'T.ex. smeknamn eller telefonnummer';
 
@@ -819,7 +820,10 @@ $('#circ').addEventListener('input', e => {
 });
 
 $('#textInputT').addEventListener('input', e => {
-  state.texts[state.activeText].text = e.target.value;
+  const limit = textInputLimit(state);
+  const value = limit === null ? e.target.value : Array.from(e.target.value.normalize('NFC')).slice(0, limit).join('');
+  if (e.target.value !== value) e.target.value = value;
+  state.texts[state.activeText].text = value;
   renderSummary(); rebuild3D();
 });
 // macOS ersätter dubbelt mellanslag med punkt (insertReplacementText) –
