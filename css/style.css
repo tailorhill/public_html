@@ -179,7 +179,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .swatches.metal { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
 .swatches.metal .swatch { border-radius: 50%; }
 /* foder: större bildrutor så fototexturen syns */
-.swatches.lining { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); margin-bottom: 10px; }
+.swatches.lining { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); margin: 10px 0; }
 .chip-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .chip-row .note { margin: 0; }
 
