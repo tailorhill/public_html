@@ -4,7 +4,7 @@ import {
   LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
   DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
-import { RealisticCollarViewer, ensureTexturesFor } from './foder-realism.js';
+import { RealisticCollarViewer, ensureTexturesFor, PHOTO_LININGS } from './foder-realism.js';
 import { drawSymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
@@ -27,6 +27,7 @@ const state = {
   webbing: 'rod',
   biothane: 'sverigebla',
   lining: 'ss-svart',
+  liningGroup: null,   // vald materialgrupp-flik (index); härleds ur lining
   fullGlitter: false,
   glitterColor: 'guldglitter',
   texts: [
@@ -84,6 +85,11 @@ if (new URLSearchParams(location.search).has('debug')) {
 
 // ---------------------------------------------------------------- helpers
 const linings = allLinings();
+// vilken materialgrupp (index i LINING_GROUPS) ett foder-id tillhör
+function liningGroupIndex(id) {
+  const i = LINING_GROUPS.findIndex(g => g.items.some(it => it.id === id));
+  return i < 0 ? 0 : i;
+}
 const byId = (list, id) => list.find(x => x.id === id);
 
 function currentWidthCm() {
@@ -193,6 +199,7 @@ function applyDesign(d) {
   state.webbing = valid(WEBBING_COLORS, d.wb, state.webbing);
   state.biothane = valid(BIOTHANE_COLORS, d.bt, state.biothane);
   state.lining = valid(linings, d.li, state.lining);
+  state.liningGroup = liningGroupIndex(state.lining);
   state.fullGlitter = d.fg === 1;
   state.glitterColor = valid(TEXT_COLORS, d.gc, state.glitterColor);
   if (Array.isArray(d.tx) && d.tx.length) {
@@ -336,7 +343,18 @@ function swatchGrid(container, list, getSel, onPick, opts = {}) {
     const b = el('button', 'swatch' + (getSel() === c.id ? ' sel' : '') + (disabled ? ' dis' : ''));
     b.type = 'button';
     b.title = c.name + (c.note ? ` – ${c.note}` : '');
-    b.style.background = swatchBackground(c);
+    if (opts.image) {
+      // bildruta: fototextur som miniatyr, hex som fallback bakom
+      const url = opts.image(c);
+      b.style.backgroundColor = c.hex || '#cccccc';
+      if (url) {
+        b.style.backgroundImage = `url('${url}')`;
+        b.style.backgroundSize = 'cover';
+        b.style.backgroundPosition = 'center';
+      }
+    } else {
+      b.style.background = swatchBackground(c);
+    }
     if (c.special) b.classList.add('spec');
     b.disabled = disabled;
     b.addEventListener('click', () => { onPick(c.id); refresh(); });
@@ -403,24 +421,19 @@ function refresh() {
     swatchGrid($('#webbingSwatches'), available, () => state.webbing, id => { state.webbing = id; });
 
     // foder
-    const linSel = $('#liningSelect');
-    linSel.innerHTML = '';
-    const s = el('select');
-    for (const g of LINING_GROUPS) {
-      const og = el('optgroup'); og.label = g.group;
-      for (const item of g.items) {
-        const o = el('option', null, item.name);
-        o.value = item.id;
-        if (state.lining === item.id) o.selected = true;
-        og.appendChild(o);
-      }
-      s.appendChild(og);
-    }
-    s.addEventListener('change', () => { state.lining = s.value; refresh(); });
-    linSel.appendChild(s);
+    // materialgrupp-flikar + bildrutor (fototexturen som miniatyr)
+    if (state.liningGroup == null || state.liningGroup < 0) state.liningGroup = liningGroupIndex(state.lining);
+    const groupTabs = LINING_GROUPS.map((g, i) => ({ id: i, name: g.group.replace(/ \(.*\)/, '') }));
+    segmented($('#liningGroupSeg'), groupTabs, () => state.liningGroup, i => { state.liningGroup = i; });
+    swatchGrid($('#liningSwatches'), LINING_GROUPS[state.liningGroup].items, () => state.lining,
+      id => { state.lining = id; }, { image: c => (PHOTO_LININGS[c.id] ? `textures/${c.id}.webp` : null) });
     const lin = byId(linings, state.lining);
-    $('#liningChip').style.background = lin.hex2
-      ? `linear-gradient(135deg, ${lin.hex} 55%, ${lin.hex2} 55%)` : lin.hex;
+    const linGroup = LINING_GROUPS[liningGroupIndex(state.lining)].group.replace(/ \(.*\)/, '');
+    const chip = $('#liningChip');
+    chip.style.backgroundColor = lin.hex;
+    chip.style.backgroundImage = PHOTO_LININGS[lin.id] ? `url('textures/${lin.id}.webp')` : '';
+    chip.style.backgroundSize = 'cover'; chip.style.backgroundPosition = 'center';
+    $('#liningName').textContent = `${lin.name} · ${linGroup}`;
     $('#leatherNote').style.display = lin.leather ? '' : 'none';
   } else {
     segmented($('#bioModelSeg'), BIOTHANE.models, () => state.bioModel, id => { state.bioModel = id; },
