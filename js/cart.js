@@ -109,7 +109,15 @@ function pickOption(desired, options) {
 }
 
 // Storleksdropdown på ställbara: matcha halsmåttet mot ett intervall "30-45 cm".
-function pickSizeRange(cm, options) {
+export function pickSizeRange(cm, options, selectedRange = null) {
+  // An explicit range must match exactly: overlapping intervals have different prices.
+  if (selectedRange === 'custom') return options.find(o => /egen/i.test(nm(o.name))) || null;
+  if (selectedRange) {
+    return options.find(o => {
+      const m = nm(o.name).match(/(\d+)\s*[-–—]\s*(\d+)/);
+      return m && `${+m[1]}-${+m[2]}` === selectedRange;
+    }) || null;
+  }
   for (const o of options) {
     const m = nm(o.name).match(/(\d+)\s*[-–]\s*(\d+)/);
     if (m && cm >= +m[1] && cm <= +m[2]) return o;
@@ -128,6 +136,7 @@ export async function resolveOrder(articleUid, design) {
   const params = {};
   const problems = [];
   let commentUid = null;
+  let matchedSizeChoice = false;
 
   const setEnum = (ch, desired, label, opts = {}) => {
     const options = ch.options || [];
@@ -170,13 +179,14 @@ export async function resolveOrder(articleUid, design) {
       case 'strypType': isEnum ? setEnum(ch, 'Vanligt i bomull', 'Strypdel', { defaultMatch: /vanlig|bomull/, fallbackFirst: true }) : setStr(ch, 'Vanligt i bomull'); break;
       case 'strypLength': isEnum ? setEnum(ch, '8 cm', 'Längd på strypdel', { defaultMatch: /8\s*cm/, fallbackFirst: true }) : setStr(ch, '8 cm'); break;
       case 'sizeClosed':
-        if (isEnum) { const o = pickSizeRange(design.sizeCm, ch.options || []); if (o) params[ch.uid] = String(o.uid); else if (ch.mandatory) problems.push('Storlek kunde inte matchas mot ett intervall.'); }
-        else setStr(ch, `${design.sizeCm} cm`);
+        matchedSizeChoice = true;
+        if (isEnum) { const o = pickSizeRange(design.sizeCm, ch.options || [], design.sizeRange); if (o) params[ch.uid] = String(o.uid); else problems.push('Den valda storleken finns inte bland artikelns storleksalternativ.'); }
+        else setStr(ch, design.sizeRange === 'custom' ? 'Egen storlek – se Övrig info' : design.sizeRange ? `${design.sizeRange} cm` : `${design.sizeCm} cm`);
         break;
       case 'sizeTight':
         // åtdraget mått finns inte i verktyget – hänvisa till övrig info
         if (isEnum) setEnum(ch, null, 'Storlek (åtdraget)', { fallbackFirst: true });
-        else setStr(ch, `Se stängt mått (${design.sizeCm} cm) / övrig info`);
+        else setStr(ch, design.sizeRange ? 'Se valt storleksintervall och Övrig info' : `Se stängt mått (${design.sizeCm} cm) / övrig info`);
         break;
       case 'glitterColor': setStr(ch, design.glitterColor); break;
       default:
@@ -188,6 +198,7 @@ export async function resolveOrder(articleUid, design) {
     }
   }
 
+  if (design.sizeRange && !matchedSizeChoice) problems.push('Artikelns storleksval kunde inte hittas. Vald storlek måste kunna skickas till butiken.');
   if (commentUid) params[commentUid] = design.comment || '';
   return { params, problems };
 }

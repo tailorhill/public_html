@@ -20,6 +20,7 @@ export function encodeDesign(state) {
     bm: state.bioModel,
     bw: state.bioWidth,
     c: state.circumference,
+    sr: state.sizeRange,
     wb: state.webbing,
     bt: state.biothane,
     li: state.lining,
@@ -33,6 +34,7 @@ export function encodeDesign(state) {
     sc: state.symbolColor,
     sh: state.shadow ? 1 : 0,
     shc: state.shadowColor,
+    shs: state.shadowSymbols === false ? 0 : 1,
     hw: state.hardware,
     oi: (state.extraInfo || '').slice(0, 200),
   };

@@ -156,7 +156,7 @@ function collectInkPolys(L, cfg) {
     }
     polys.push(...tp);
   }
-  for (const s of L.placedSymbols) {
+  for (const s of (cfg.shadowSymbols === false ? [] : L.placedSymbols)) {
     const data = symbolExportData(cfg.symbol);
     if (!data) continue;
     if (data.flag) {
@@ -184,6 +184,7 @@ async function buildShadowPolys(L, cfg) {
   const subj = collectInkPolys(L, cfg)
     .filter(p => p.length > 2)
     .map(poly => poly.map(([x, y]) => ({ X: Math.round(x * SC), Y: Math.round(y * SC) })));
+  if (!subj.length) return null;
   const clip = new CL.Clipper();
   clip.AddPaths(subj, CL.PolyType.ptSubject, true);
   const united = new CL.Paths();

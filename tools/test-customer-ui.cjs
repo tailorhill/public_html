@@ -1,0 +1,42 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+(async()=>{const b=await chromium.launch({headless:true,...(process.env.BROWSER_EXECUTABLE ? {executablePath:process.env.BROWSER_EXECUTABLE} : {})});try{
+const p=await b.newPage({viewport:{width:1400,height:1050}});const errors=[];p.on('pageerror',e=>errors.push(e.message));
+await p.goto((process.env.TEST_URL || 'http://127.0.0.1:8748/') + '?supplier=1');await p.waitForFunction(()=>window.viewer?._lastCfg);await p.evaluate(()=>viewer.hardwareReady);await p.locator('#infoDialogOk').click();
+const button=(selector,label)=>p.locator(selector+' button').filter({hasText:new RegExp('^'+label+'$')});
+await button('#modelSeg','Ställbart halsband').click();
+assert.equal(await p.locator('#rangeSizeSelect option').count(),4);assert.ok(await p.locator('#exactSizeRow').isHidden());
+await p.locator('#rangeSizeSelect select').selectOption('45-55');
+assert.match(await p.locator('#priceRows').textContent(),/20 kr/);
+await p.waitForFunction(()=>viewer._lastCfg.circumference===50);
+await p.locator('#showOrderBtn').click();assert.match(await p.locator('#orderPreview').textContent(),/45–55 cm/);await p.locator('#closeDialog').click();
+await p.locator('#textInputT').fill('ABCDEFGHIJ');assert.ok(await p.locator('#cartBtn').isDisabled());
+await p.locator('#textInputT').fill('LUNA');assert.ok(await p.locator('#cartBtn').isEnabled());
+await p.locator('#rangeSizeSelect select').selectOption('custom');assert.ok(await p.locator('#cartBtn').isDisabled());
+await p.locator('#extraInfo').fill('Önskar 32–38 cm');assert.ok(await p.locator('#cartBtn').isEnabled());
+await p.locator('#shadowToggle').check();await button('#shadowScope','Bara text').click();
+await p.waitForFunction(()=>viewer._lastCfg.shadowColor && viewer._lastCfg.shadowSymbols===false);
+assert.equal(await p.locator('#sizeSegT').count(),0);assert.equal(await p.evaluate(()=>viewer._lastCfg.texts[0].sizeK),1.25);
+await p.locator('#shadowSwatches button[title="Guldglitter"]').click();
+assert.ok(await p.locator('#colorSwT button[title="Vit"]').isDisabled());
+const shared=p.url();await p.goto(shared);await p.waitForFunction(()=>viewer?._lastCfg?.shadowSymbols===false);
+assert.equal(await p.locator('#rangeSizeSelect select').inputValue(),'custom');assert.equal(await p.locator('#extraInfo').inputValue(),'Önskar 32–38 cm');
+await p.locator('[data-family="biothane"]').click();assert.ok(await p.locator('#shadowRow').isHidden());await p.waitForFunction(()=>viewer._lastCfg.family==='biothane'&&!viewer._lastCfg.shadowColor);
+assert.ok(await p.locator('#colorSwT button[title="Dimmig"]').isEnabled());assert.ok(await p.locator('#colorSwT button[title="Regnbåge"]').isDisabled());
+await p.locator('#colorSwT button[title="Vit"]').click();await button('#textTabs','\\+').click();await button('#layoutSeg','Dubbeltext \\(ovanpå\\)').click();
+assert.ok(await p.locator('#colorSwT button[title="Guldglitter"]').isDisabled());assert.ok(await p.locator('#colorSwT button[title="Vit"]').isEnabled());
+assert.deepEqual(errors,[]);console.log('PASS: browser size selection, pricing, cart validation, order summary, color restrictions, fixed large text, shadow scope and saved-design roundtrip.');
+const exportCheck = await p.evaluate(async () => {
+  const { buildCutSvg, buildCutDxf } = await import('/js/export.js');
+  const { FONTS, TEXT_COLORS } = await import('/js/data.js');
+  const cfg = { texts:[{text:'LUNA', font:FONTS[0], color:TEXT_COLORS[0],sizeK:1.25}], bandHmm:30,
+    layout:'rad',symbol:'tass',symbolPlacement:'bada',shadowColor:TEXT_COLORS[0] };
+  const all = await buildCutSvg({...cfg,shadowSymbols:true}), text = await buildCutSvg({...cfg,shadowSymbols:false});
+  const dxf = await buildCutDxf({...cfg,shadowSymbols:false});
+  const symbolOnly = await buildCutSvg({...cfg,texts:[],shadowSymbols:false});
+  return {different:all!==text, shadow:text.includes('id="skugga"'), symbols:text.includes('id="symbol"'), dxf:dxf.includes('SKUGGA'), noTextShadow:!symbolOnly.includes('id="skugga"')};
+});
+assert.deepEqual(exportCheck,{different:true,shadow:true,symbols:true,dxf:true,noTextShadow:true});
+assert.deepEqual(errors,[]);
+console.log('PASS: text-only shadow also applies to SVG/DXF; symbols remain in the export.');
+}finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});

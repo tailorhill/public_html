@@ -204,7 +204,7 @@ export const TEXT_COLORS = [
   { id: 'orangeglitter',    name: 'Orangeglitter',    hex: '#f58a54', glitter: true },
   { id: 'vitglitter',       name: 'Vitglitter',       hex: '#eeeeee', glitter: true },
   { id: 'silverglitter',    name: 'Silverglitter',    hex: '#bcbcc4', glitter: true },
-  // Special – kan ej användas vid dubbeltext, som skugga eller på BioThane
+  // Special – ej vid dubbeltext eller som skugga. Dimmig tillåts ensam på BioThane.
   { id: 'regnbage',        name: 'Regnbåge',         hex: '#e0407a', special: 'rainbow' },
   { id: 'dimmig',          name: 'Dimmig',           hex: '#c9a7c4', special: 'pastelrainbow' },
   { id: 'guldmetallic',    name: 'Guldmetallic',     hex: '#d4bf90', special: 'metal' },

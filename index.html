@@ -100,13 +100,18 @@
 
     <section class="card">
       <h2>5 · Storlek</h2>
+      <div id="rangeSizeRow" hidden><label>Storleksintervall</label><div id="rangeSizeSelect"></div></div>
+      <p class="note" id="customSizeNote" hidden>Skriv önskat storleksintervall under Övrig info. Egen storlek kostar 30 kr extra.</p>
+      <div id="exactSizeRow">
       <label>Halsmått i stängt läge: <strong id="circVal">45 cm</strong></label>
       <input type="range" id="circ" min="25" max="70" step="1" value="45">
+      </div>
       <p class="note">Mät en gång extra – halsbanden går inte att sy om! Se <a href="https://www.valleydogs.se/storleksguide" target="_blank" rel="noopener">storleksguiden</a>.</p>
     </section>
 
     <section class="card">
       <h2>6 · Text</h2>
+      <p class="note warn" id="designErrors" role="alert" hidden></p>
       <div class="seg-row" id="textTabs"></div>
 
       <div id="textPane">
@@ -114,10 +119,10 @@
         <label>Typsnitt</label>
         <div class="fontgrid" id="fontGridT"></div>
         <p class="note" id="capsNoteT" style="display:none">Detta typsnitt finns endast med versaler.</p>
-        <label>Textstorlek</label>
-        <div class="seg-row" id="sizeSegT"></div>
+        <p class="note" id="textLimitNote"></p>
         <label>Textfärg</label>
         <div class="swatches" id="colorSwT"></div>
+        <p class="note" id="ruleChanges" role="status"></p>
         <button type="button" class="btn ghost small" id="removeTextBtn" style="display:none">Ta bort denna text</button>
       </div>
 
@@ -128,16 +133,17 @@
           <label>Position på främre texten</label>
           <div class="seg-row" id="dubbelPosSeg"></div>
         </div>
-        <p class="note warn" id="dubbelWarn" style="display:none"></p>
       </div>
 
-      <p class="note">Regnbåge, Dimmig, metallic och Reflex kan inte användas på BioThane, som skugga eller vid dubbeltext.</p>
+      <p class="note">Specialfärger kan inte användas som skugga eller vid dubbeltext. På BioThane kan Dimmig användas ensam; övriga specialfärger är inte tillgängliga.</p>
       <div id="shadowRow">
         <label class="switch-row">
           <input type="checkbox" id="shadowToggle">
-          <span>Skugga bakom text och symbol</span>
+          <span>Skugga</span>
         </label>
         <div id="shadowColorRow" style="display:none">
+          <label>Skugga på</label>
+          <div class="seg-row" id="shadowScope"></div>
           <label>Skuggfärg</label>
           <div class="swatches" id="shadowSwatches"></div>
         </div>

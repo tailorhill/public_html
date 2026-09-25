@@ -637,7 +637,7 @@ export class CollarViewer {
           x += bw + gap;
         } else {
           const symCol = colorOverride || cfg.symbolColor || (texts[0] ? texts[0].color : { hex: '#111' });
-          drawSymbol(targetOverride || ctx, cfg.symbol, x + symW / 2, symCy, symSize, symCol.hex);
+          if (!colorOverride || cfg.shadowSymbols !== false) drawSymbol(targetOverride || ctx, cfg.symbol, x + symW / 2, symCy, symSize, symCol.hex);
           x += symW + gap;
         }
       }

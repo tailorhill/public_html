@@ -8,6 +8,11 @@ import { RealisticCollarViewer, ensureTexturesFor } from './foder-realism.js';
 import { drawSymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
+import {
+  sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
+  validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
+  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount,
+} from './design-rules.js';
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -24,6 +29,7 @@ const state = {
   bioModel: 'fast',
   bioWidth: '25',
   circumference: 45,
+  sizeRange: null,
   webbing: 'rod',
   biothane: 'sverigebla',
   lining: 'ss-svart',
@@ -31,7 +37,7 @@ const state = {
   fullGlitter: false,
   glitterColor: 'guldglitter',
   texts: [
-    { text: 'LUNA', font: 'built', color: 'vit', size: 'mellan' },
+    { text: 'LUNA', font: 'built', color: 'vit', size: 'stor' },
   ],
   activeText: 0,               // vilken textflik som visas
   textLayout: 'rad',           // 'rad' | 'rader' | 'dubbel'
@@ -41,6 +47,7 @@ const state = {
   symbolColor: '',             // '' = samma som texten
   shadow: false,
   shadowColor: 'svart',
+  shadowSymbols: true,
   hardware: 'stal',
   showHardware: true,
   extraInfo: '',
@@ -116,37 +123,17 @@ function glitterAvailable() {
   return !!byId(COTTON_MODELS, state.cottonModel).glitterPrices;
 }
 
-function textColorAllowed(c) {
-  if (state.family === 'biothane' && c.special) return false; // specialfärger ej på biothane
-  return true;
-}
-
-function shadowColorAllowed(c) {
-  return !c.special; // special ej som skugga
-}
+function textColorAllowed(c) { return allowedTextColor(state, c, state.activeText); }
 
 const MAX_TEXTS = 3;
 const NEW_TEXT_DEFAULTS = [
   null,
-  { text: 'Sparky', font: 'magnolia', color: 'guldglitter', size: 'mellan' },
-  { text: '070-123 45 67', font: 'avenir', color: 'vit', size: 'liten' },
+  { text: 'Sparky', font: 'magnolia', color: 'guldglitter', size: 'stor' },
+  { text: '070-123 45 67', font: 'avenir', color: 'vit', size: 'stor' },
 ];
 
 function isDouble() {
   return state.texts.length === 2 && state.textLayout === 'dubbel';
-}
-
-// Butikens regel för dubbeltext: glitter på glitter, eller slät under och
-// glitter över. Specialfärger går inte alls. Returnerar varningstext eller ''.
-function doubleTextWarning() {
-  if (!isDouble()) return '';
-  const c1 = byId(TEXT_COLORS, state.texts[0].color);
-  const c2 = byId(TEXT_COLORS, state.texts[1].color);
-  if (c1.special || c2.special) {
-    return 'Specialfärger (Regnbåge, Dimmig, metallic, Reflex) kan inte användas vid dubbeltext.';
-  }
-  const ok = (c1.glitter && c2.glitter) || (!c1.glitter && c2.glitter);
-  return ok ? '' : 'Vid dubbeltext måste det vara glitter på glitter, eller slät färg under och glitter över (välj en glitterfärg på text 2).';
 }
 
 // ------------------------------------------------ designlänk (#d=...)
@@ -194,7 +181,9 @@ function applyDesign(d) {
   if (COTTON_WIDTHS.some(w => w.id === d.cw)) state.cottonWidth = d.cw;
   state.bioModel = valid(BIOTHANE.models, d.bm, state.bioModel);
   if (BIOTHANE.widths.some(w => w.id === d.bw)) state.bioWidth = d.bw;
-  const c = parseInt(d.c, 10);
+  state.sizeRange = typeof d.sr === 'string' ? d.sr : null;
+  state.shadowSymbols = d.shs !== 0;
+  const c = Number(d.c);
   if (c >= 25 && c <= 70) state.circumference = c;
   state.webbing = valid(WEBBING_COLORS, d.wb, state.webbing);
   state.biothane = valid(BIOTHANE_COLORS, d.bt, state.biothane);
@@ -203,11 +192,11 @@ function applyDesign(d) {
   state.fullGlitter = d.fg === 1;
   state.glitterColor = valid(TEXT_COLORS, d.gc, state.glitterColor);
   if (Array.isArray(d.tx) && d.tx.length) {
-    state.texts = d.tx.slice(0, MAX_TEXTS).map(([text, font, color, size]) => ({
+    state.texts = d.tx.slice(0, MAX_TEXTS).map(([text, font, color]) => ({
       text: String(text || '').slice(0, 24),
       font: valid(FONTS, font, 'built'),
       color: valid(TEXT_COLORS, color, 'vit'),
-      size: valid(TEXT_SIZES, size, 'mellan'),
+      size: 'stor',
     }));
     state.activeText = 0;
   }
@@ -233,6 +222,8 @@ function computePrice() {
     const base = table[w];
     rows.push([`${useGlitter ? 'Helglittrigt ' : ''}${model.name} ${byId(COTTON_WIDTHS, w).name}`, base]);
     total += base;
+    const size = selectedSize(state);
+    if (size?.surcharge) { rows.push([`Storlek: ${size.name}`, size.surcharge]); total += size.surcharge; }
     const lin = byId(linings, state.lining);
     if (lin && lin.leather) {
       const ls = LEATHER_SURCHARGE[w];
@@ -269,7 +260,7 @@ function rebuild3D() {
       family: state.family,
       width: widthCm,
       bandWidthCm: isCotton ? widthCm - 1 : widthCm,
-      circumference: state.circumference,
+      circumference: previewCircumference(state),
       bandColor: isCotton ? byId(WEBBING_COLORS, state.webbing).hex : byId(BIOTHANE_COLORS, state.biothane).hex,
       webbingId: isCotton ? state.webbing : null,
       lining: isCotton ? lin : null,
@@ -286,7 +277,8 @@ function rebuild3D() {
       symbol: state.symbol,
       symbolPlacement: state.symbolPlacement,
       symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
-      shadowColor: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor) : null,
+      shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
+      shadowSymbols: state.shadowSymbols,
       hardware: byId(HARDWARE_FINISHES, state.hardware),
       showHardware: state.showHardware,
       modelKind: modelKind(),
@@ -389,6 +381,18 @@ function selectBox(container, list, getSel, onPick, nameFn = x => x.name) {
 }
 
 function refresh() {
+  const changes = normalizeDesign(state);
+  $('#ruleChanges').textContent = changes.join(' ');
+  const sizes = sizeOptions(state);
+  $('#rangeSizeRow').hidden = !sizes.length;
+  $('#exactSizeRow').hidden = !!sizes.length;
+  if (sizes.length) {
+    selectBox($('#rangeSizeSelect'), sizes, () => state.sizeRange, id => { state.sizeRange = id; },
+      o => o.name + (o.surcharge ? ` (+${o.surcharge} kr)` : ''));
+  }
+  $('#customSizeNote').hidden = selectedSize(state)?.id !== 'custom';
+  $('#extraInfo').required = selectedSize(state)?.id === 'custom';
+
   // familj
   document.querySelectorAll('[data-family]').forEach(b => {
     b.classList.toggle('sel', b.dataset.family === state.family);
@@ -504,7 +508,7 @@ function refresh() {
     fontWrapT.appendChild(b);
   }
   $('#capsNoteT').style.display = byId(FONTS, at.font).caps ? '' : 'none';
-  segmented($('#sizeSegT'), TEXT_SIZES, () => at.size, id => { at.size = id; });
+
   swatchGrid($('#colorSwT'), TEXT_COLORS, () => at.color,
     id => { at.color = id; },
     { isDisabled: c => !textColorAllowed(c) });
@@ -526,9 +530,7 @@ function refresh() {
       segmented($('#dubbelPosSeg'), DUBBEL_POSITIONS, () => state.dubbelPos,
         id => { state.dubbelPos = id; });
     }
-    const warn = doubleTextWarning();
-    $('#dubbelWarn').style.display = warn ? '' : 'none';
-    $('#dubbelWarn').textContent = warn;
+
   }
 
   // symboler: rutnät med renderade förhandsvisningar
@@ -557,7 +559,7 @@ function refresh() {
     segmented($('#placementSeg'), SYMBOL_PLACEMENTS, () => state.symbolPlacement,
       id => { state.symbolPlacement = id; });
     const symColorList = [{ id: '', name: 'Samma som texten', hex: '#888' },
-      ...TEXT_COLORS.filter(c => textColorAllowed(c))];
+      ...TEXT_COLORS.filter(c => symbolColorAllowed(state, c))];
     selectBox($('#symbolColorSelect'), symColorList, () => state.symbolColor,
       id => { state.symbolColor = id; });
     const isFlag = !!byId(SYMBOLS, state.symbol).flag;
@@ -565,15 +567,19 @@ function refresh() {
     $('#symbolColorRow').style.display = isFlag ? 'none' : '';
   }
 
-  // skugga (går ej med dubbeltext)
-  const dbl = isDouble();
-  $('#shadowRow').style.display = dbl ? 'none' : '';
-  $('#noShadowNote').style.display = dbl ? '' : 'none';
+  // Skugga finns bara på bomull och kan inte kombineras med dubbeltext.
+  const shadowAvailable = state.family === 'cotton' && !isDouble();
+  $('#shadowRow').style.display = shadowAvailable ? '' : 'none';
+  $('#noShadowNote').style.display = shadowAvailable ? 'none' : '';
+  $('#noShadowNote').textContent = state.family === 'biothane'
+    ? 'Skugga finns inte på BioThane.' : 'Skugga går inte att kombinera med dubbeltext.';
   $('#shadowToggle').checked = state.shadow;
-  $('#shadowColorRow').style.display = state.shadow && !dbl ? '' : 'none';
-  if (state.shadow && !dbl) {
+  $('#shadowColorRow').style.display = shadowEnabled(state) ? '' : 'none';
+  if (shadowEnabled(state)) {
     swatchGrid($('#shadowSwatches'), TEXT_COLORS.filter(shadowColorAllowed),
       () => state.shadowColor, id => { state.shadowColor = id; });
+    segmented($('#shadowScope'), [{ id: 'text', name: 'Bara text' }, { id: 'all', name: 'Text och symboler' }],
+      () => state.shadowSymbols ? 'all' : 'text', id => { state.shadowSymbols = id === 'all'; });
   }
 
   // beslag
@@ -590,7 +596,19 @@ function refresh() {
   rebuild3D();
 }
 
+function renderValidation() {
+  const errors = validationErrors(state), size = selectedSize(state);
+  $('#designErrors').textContent = errors.join(' ');
+  $('#designErrors').hidden = !errors.length;
+  $('#textLimitNote').textContent = size
+    ? `Max ${size.limit} tecken inklusive symboler. Text: ${characterCounts(state).join(' / ')}. Symboler: ${symbolCount(state)}. Gäller även dubbeltext. Mellanslag räknas.`
+    : 'Texten görs alltid i stor storlek, anpassad till bandet.';
+  $('#textInputT').setAttribute('aria-invalid', String(errors.some(e => e.includes('tecken'))));
+  for (const id of ['cartBtn', 'copyBtn', 'mailBtn', 'svgBtn', 'dxfBtn']) $('#' + id).disabled = !!errors.length;
+}
+
 function renderSummary() {
+  renderValidation();
   const { rows, total } = computePrice();
   const tbody = $('#priceRows');
   tbody.innerHTML = '';
@@ -629,7 +647,7 @@ function orderText() {
     const model = byId(COTTON_MODELS, state.cottonModel);
     const w = byId(COTTON_WIDTHS, state.cottonWidth);
     L.push(`Produkt: ${state.fullGlitter ? 'Helglittrigt ' : ''}${model.name} ${w.name}`);
-    L.push(`Storlek i stängt läge: ${state.circumference} cm`);
+    L.push(`Storlek: ${sizeDescription(state)}`);
     L.push(`Färg på bomullsband: ${byId(WEBBING_COLORS, state.webbing).name}`);
     L.push(`Äkta läder på fodret: ${lin.leather ? `Ja (+${LEATHER_SURCHARGE[state.cottonWidth]} kr)` : 'Nej'}`);
     L.push(`Foder: ${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`);
@@ -639,7 +657,7 @@ function orderText() {
     L.push(`Produkt: ${state.fullGlitter ? 'Helglittrigt ' : ''}Halsband i BioThane Beta®`);
     L.push(`Halsbandsmodell: ${model.name}`);
     L.push(`Bredd: ${w.name}`);
-    L.push(`Storlek i stängt läge: ${state.circumference} cm`);
+    L.push(`Storlek: ${sizeDescription(state)}`);
     L.push(`Färg på biothane: ${byId(BIOTHANE_COLORS, state.biothane).name}`);
   }
   if (state.fullGlitter) L.push(`Glitterfärg (helglitter): ${byId(TEXT_COLORS, state.glitterColor).name}`);
@@ -673,7 +691,7 @@ function orderText() {
   } else {
     L.push('Symbol: Ingen symbol');
   }
-  if (state.shadow && !isDouble()) L.push(`Skugga bakom text/symbol: Ja – ${byId(TEXT_COLORS, state.shadowColor).name}`);
+  if (shadowEnabled(state)) L.push(`Skugga bakom ${state.shadowSymbols ? 'text och symboler' : 'enbart text'}: ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
   L.push('Frakt: väljs i kassan hos Valley Dogs');
@@ -710,6 +728,8 @@ function cartComment(supplierLink) {
   } else if (activeTexts.length === 1) {
     L.push(`Textstorlek: ${sname(activeTexts[0])}`);
   }
+  if (selectedSize(state)) L.push(`Storlek: ${sizeDescription(state)}`);
+  if (shadowEnabled(state)) L.push(`Skugga: ${state.shadowSymbols ? 'text och symboler' : 'enbart text'}`);
   if (state.extraInfo.trim()) L.push(`Kundens övriga info: ${state.extraInfo.trim()}`);
   L.push(`Design (öppnas i leverantörsvyn): ${supplierLink || designUrl(true)}`);
   return L.join('\n');
@@ -732,19 +752,22 @@ function cartDesign(supplierLink) {
     glitterColor: (state.fullGlitter && glitterAvailable()) ? byId(TEXT_COLORS, state.glitterColor).name : null,
     foder: `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`,
     sizeCm: state.circumference,
+    sizeRange: selectedSize(state)?.id || null,
     text: t1 ? t1.text.trim() : '',
     font: t1 ? byId(FONTS, t1.font).name : null,
     textColor: byId(TEXT_COLORS, (t1 ? t1.color : 'svart')).name,
     symbol: hasSymbol ? byId(SYMBOLS, state.symbol).name : 'Ingen symbol',
     placement: hasSymbol ? byId(SYMBOL_PLACEMENTS, state.symbolPlacement).name : 'Ingen symbol',
     symbolColor: hasSymbol ? byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name : '-',
-    shadow: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
+    shadow: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
     hardware: byId(HARDWARE_FINISHES, state.hardware).name,
     comment: cartComment(supplierLink),
   };
 }
 
 async function handleAddToCart() {
+  const errors = validationErrors(state);
+  if (errors.length) { renderValidation(); return; }
   const glitter = state.fullGlitter && glitterAvailable();
   const uid = cart.articleUidFor(state, glitter);
   if (!uid) {
@@ -823,7 +846,7 @@ document.querySelectorAll('#viewBtns .view-btn').forEach(b => {
     viewer.setView(b.dataset.view);
   });
 });
-$('#extraInfo').addEventListener('input', e => { state.extraInfo = e.target.value; });
+$('#extraInfo').addEventListener('input', e => { state.extraInfo = e.target.value; renderSummary(); });
 
 $('#copyBtn').addEventListener('click', async () => {
   const t = orderText();
@@ -905,7 +928,8 @@ function exportCfg() {
     symbol: state.symbol,
     symbolPlacement: state.symbolPlacement,
     symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
-    shadowColor: (state.shadow && !isDouble()) ? byId(TEXT_COLORS, state.shadowColor) : null,
+    shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
+    shadowSymbols: state.shadowSymbols,
     bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
   };
 }
