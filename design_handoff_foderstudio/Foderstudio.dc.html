@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo+Black&family=Baloo+2:wght@800&family=Dancing+Script:wght@600&family=Great+Vibes&family=Josefin+Sans:wght@600&family=Libre+Baskerville&family=Mr+Dafoe&family=Nunito+Sans:wght@800&family=Oswald:wght@600&family=Pacifico&family=Permanent+Marker&family=Special+Elite&family=Titan+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: 'Inter', system-ui, sans-serif; color: #2b2620; background: #f4f1ec; }
+a { color: #7a5c3e; }
+a:hover { color: #5e4630; }
+</style>
+</helmet>
+<div style="height:100vh; display:flex; flex-direction:column; background:radial-gradient(1200px 600px at 70% -10%, #fdfbf7 0%, #f4f1ec 60%);">
+  <header style="display:flex; align-items:center; justify-content:space-between; padding:14px 22px; background:#ffffff; border-bottom:1px solid #e6e0d6; flex-shrink:0;">
+    <div style="display:flex; gap:12px; align-items:center;">
+      <span style="font-size:30px;">🐕</span>
+      <div>
+        <h1 style="margin:0; font-size:19px; letter-spacing:0.2px;">Designa ditt halsband</h1>
+        <p style="margin:2px 0 0; font-size:12.5px; color:#8a8177;">3D-designverktyg för måttbeställda halsband från <a href="https://www.valleydogs.se" target="_blank" rel="noopener">Valley Dogs</a></p>
+      </div>
+    </div>
+    <span style="font-size:10px; background:#f0e9df; border-radius:20px; padding:4px 10px; color:#8a8177; letter-spacing:0.5px; text-transform:uppercase;">Foderstudio · fotorealistiska foder</span>
+  </header>
+
+  <main style="flex:1; min-height:0; display:grid; grid-template-columns:390px minmax(0,1fr);">
+    <aside style="overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; scrollbar-width:thin;">
+
+      <section style="background:#ffffff; border:1px solid #e6e0d6; border-radius:14px; box-shadow:0 2px 14px rgba(60,45,25,0.08); padding:14px 16px;">
+        <h2 style="margin:0 0 10px; font-size:13.5px; text-transform:uppercase; letter-spacing:0.8px; color:#7a5c3e;">4 · Foder</h2>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+            <button type="button" onClick="{{ g.onClick }}" style="flex:1 1 45%; min-width:0; border:1.5px solid {{ g.border }}; background:{{ g.bg }}; color:{{ g.color }}; font-weight:{{ g.weight }}; border-radius:10px; padding:8px 10px; font-family:inherit; font-size:12.5px; cursor:pointer;">{{ g.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(48px, 1fr)); gap:7px; margin-top:12px;">
+          <sc-for list="{{ items }}" as="it" hint-placeholder-count="12">
+            <button type="button" title="{{ it.name }}" onClick="{{ it.onClick }}" style="aspect-ratio:1; border-radius:8px; padding:0; cursor:pointer; overflow:hidden; border:2px solid {{ it.border }}; box-shadow:{{ it.shadow }}; background-color:{{ it.hex }}; background-image:{{ it.bgImg }}; background-size:cover; background-position:center;"></button>
+          </sc-for>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:12px;">
+          <span style="width:34px; height:34px; border-radius:9px; border:1px solid rgba(0,0,0,0.15); flex-shrink:0; overflow:hidden; background-color:{{ sel.hex }}; background-image:{{ sel.bgImg }}; background-size:cover; background-position:center;"></span>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:13.5px; font-weight:600;">{{ sel.name }}</div>
+            <div style="font-size:12px; color:#8a8177;">{{ sel.group }}</div>
+          </div>
+        </div>
+        <sc-if value="{{ sel.leather }}" hint-placeholder-val="{{ false }}">
+          <p style="font-size:12px; color:#3d7a45; font-weight:600; margin:8px 0 0;">Äkta läder: +{{ leatherPrice }} kr</p>
+        </sc-if>
+        <p style="font-size:12px; color:#8a8177; margin:8px 0 0; line-height:1.45;">Fodret syns som kanten över och under bomullsbandet samt på insidan.</p>
+      </section>
+
+      <section style="background:#ffffff; border:1px solid #e6e0d6; border-radius:14px; box-shadow:0 2px 14px rgba(60,45,25,0.08); padding:14px 16px;">
+        <h2 style="margin:0 0 10px; font-size:13.5px; text-transform:uppercase; letter-spacing:0.8px; color:#7a5c3e;">2 · Modell</h2>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <sc-for list="{{ models }}" as="md" hint-placeholder-count="6">
+            <button type="button" onClick="{{ md.onClick }}" style="flex:1 1 45%; min-width:0; border:1.5px solid {{ md.border }}; background:{{ md.bg }}; color:{{ md.color }}; font-weight:{{ md.weight }}; border-radius:10px; padding:8px 10px; font-family:inherit; font-size:12.5px; cursor:pointer;">{{ md.name }}</button>
+          </sc-for>
+        </div>
+        <p style="font-size:12px; color:#8a8177; margin:8px 0 0; line-height:1.45;">{{ modelNote }}</p>
+      </section>
+
+
+      <section style="background:#ffffff; border:1px solid #e6e0d6; border-radius:14px; box-shadow:0 2px 14px rgba(60,45,25,0.08); padding:14px 16px;">
+        <h2 style="margin:0 0 10px; font-size:13.5px; text-transform:uppercase; letter-spacing:0.8px; color:#7a5c3e;">Färdig bredd</h2>
+        <div style="display:flex; gap:6px;">
+          <sc-for list="{{ widths }}" as="w" hint-placeholder-count="4">
+            <button type="button" onClick="{{ w.onClick }}" style="flex:1; min-width:0; border:1.5px solid {{ w.border }}; background:{{ w.bg }}; color:{{ w.color }}; font-weight:{{ w.weight }}; border-radius:10px; padding:8px 10px; font-family:inherit; font-size:12.5px; cursor:pointer;">{{ w.name }}</button>
+          </sc-for>
+        </div>
+        <p style="font-size:12px; color:#8a8177; margin:8px 0 0;">Bomullsband {{ bandWidth }}</p>
+      </section>
+
+      <section style="background:#ffffff; border:1px solid #e6e0d6; border-radius:14px; box-shadow:0 2px 14px rgba(60,45,25,0.08); padding:14px 16px;">
+        <h2 style="margin:0 0 10px; font-size:13.5px; text-transform:uppercase; letter-spacing:0.8px; color:#7a5c3e;">3 · Färg på bomullsband</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(30px, 1fr)); gap:6px;">
+          <sc-for list="{{ webbings }}" as="wb" hint-placeholder-count="14">
+            <button type="button" title="{{ wb.name }}" onClick="{{ wb.onClick }}" style="aspect-ratio:1; border-radius:8px; padding:0; cursor:pointer; background-color:{{ wb.hex }}; background-image:{{ wb.bgImg }}; background-size:auto 100%; background-position:center; border:2px solid {{ wb.border }}; box-shadow:{{ wb.shadow }};"></button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="background:#ffffff; border:1px solid #e6e0d6; border-radius:14px; box-shadow:0 2px 14px rgba(60,45,25,0.08); padding:14px 16px;">
+        <h2 style="margin:0 0 10px; font-size:13.5px; text-transform:uppercase; letter-spacing:0.8px; color:#7a5c3e;">6 · Text</h2>
+        <input type="text" value="{{ text }}" onChange="{{ onText }}" maxlength="24" placeholder="T.ex. hundens namn" style="width:100%; font-family:inherit; font-size:14px; padding:9px 11px; border:1.5px solid #e6e0d6; border-radius:10px; background:#faf8f4; color:#2b2620;">
+      </section>
+    </aside>
+
+    <section style="position:relative; overflow:hidden; min-height:0;">
+      <canvas ref="{{ canvasRef }}" style="width:100%; height:100%; display:block; touch-action:none;"></canvas>
+
+      <div style="position:absolute; top:16px; left:16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; gap:4px; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); border:1px solid #e6e0d6; border-radius:12px; padding:4px;">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="3">
+            <button type="button" onClick="{{ v.onClick }}" style="border:0; border-radius:9px; padding:7px 12px; font-family:inherit; font-size:12.5px; cursor:pointer; background:{{ v.bg }}; color:{{ v.color }}; font-weight:{{ v.weight }};">{{ v.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <pre style="position:absolute; bottom:50px; left:16px; right:16px; font-size:11px; color:#b03a2e; white-space:pre-wrap;">{{ err }}</pre>
+      <sc-if value="{{ busy }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; top:16px; right:16px; font-size:12px; color:#8a8177; background:rgba(255,255,255,0.85); border:1px solid #e6e0d6; padding:6px 12px; border-radius:20px;">Genererar materialkartor …</div>
+      </sc-if>
+
+      <div style="position:absolute; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; color:#8a8177; background:rgba(255,255,255,0.75); backdrop-filter:blur(4px); padding:5px 14px; border-radius:20px; pointer-events:none; white-space:nowrap;">Dra för att rotera · scrolla för att zooma</div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { model: 'fast', hw: 'stal', showHw: true, ready: false, groupIdx: 0, liningId: 'lader-brun', width: '4', webbing: 'marinbla', text: 'Bamse', realistic: true, view: 'oversikt', thumbs: {}, busy: true };
+  canvasRef = React.createRef();
+
+  componentDidMount() {
+    this.init().catch(e => { console.error('init', e && (e.stack || e.message || String(e))); this.setState({ err: String(e && (e.stack || e.message) || e) }); });
+  }
+
+  async init() {
+    const url = p => new URL(p, document.baseURI).href;
+    const [data, fr] = await Promise.all([import(url('./js/data.js')), import(url('./js/foder-realism.js'))]);
+    this.D = data; this.FR = fr;
+    await fr.loadPhotoLinings();
+    this.viewer = new fr.RealisticCollarViewer(this.canvasRef.current);
+    window.__viewer = this.viewer; window.__comp = this;
+    this.setState({ ready: true }, () => this.rebuild());
+    // provbitar i små omgångar så att sidan inte fryser
+    const all = data.LINING_GROUPS.flatMap(g => g.items.map(i => ({ ...i, leather: g.leather })));
+    const order = [...all].sort((a, b) => (a.id === this.state.liningId ? -1 : 0));
+    const thumbs = {};
+    for (const l of order) {
+      const ph = fr.PHOTO_LININGS[l.id];
+      if (ph) { thumbs[l.id] = ph.src.replace('textures/', 'src/'); continue; }
+      try { const du = fr.liningSwatch(l, 112, ph ? ph.cm * 0.45 : 1.6); const bin = atob(du.split(',')[1]); const u8 = new Uint8Array(bin.length); for (let q = 0; q < bin.length; q++) u8[q] = bin.charCodeAt(q); thumbs[l.id] = URL.createObjectURL(new Blob([u8], { type: 'image/png' })); } catch (e) { console.warn('swatch', l.id, e.message); }
+    }
+    this.setState({ thumbs });
+    if (document.fonts) document.fonts.ready.then(() => this.rebuild());
+  }
+
+  componentDidUpdate() {
+    const s = this.state;
+    if (!s.ready || !this.viewer) return;
+    const keys = ['liningId', 'width', 'webbing', 'text', 'realistic', 'model', 'hw', 'showHw'];
+    const prev = this._prev || {};
+    const changed = keys.some(k => prev[k] !== s[k]);
+    const viewChanged = prev.view !== undefined && prev.view !== s.view;
+    this._prev = { model: s.model, hw: s.hw, showHw: s.showHw, liningId: s.liningId, width: s.width, webbing: s.webbing, text: s.text, realistic: s.realistic, view: s.view };
+    if (changed && prev.liningId !== undefined) this.rebuild();
+    if (viewChanged) this.viewer.setView(s.view);
+  }
+
+  lining() {
+    for (const g of this.D.LINING_GROUPS) for (const it of g.items) if (it.id === this.state.liningId) return { ...it, group: g.group, leather: g.leather };
+  }
+
+  rebuild() {
+    if (!this.viewer) return;
+    clearTimeout(this._rb);
+    this.setState({ busy: true });
+    this._rb = setTimeout(() => {
+      const D = this.D, s = this.state;
+      const w = D.COTTON_WIDTHS.find(x => x.id === s.width);
+      const web = D.WEBBING_COLORS.find(x => x.id === s.webbing) || D.WEBBING_COLORS[0];
+      this.viewer.realistic = s.realistic;
+      try { this.viewer.build({
+        family: 'cotton', width: w.cm, bandWidthCm: w.cm - 1, circumference: 45,
+        bandColor: web.hex, webbingId: web.id, lining: this.lining(), fullGlitter: false, glitterColor: null,
+        texts: [{ text: s.text, font: D.FONTS[0], color: D.TEXT_COLORS.find(c => c.id === 'vit'), sizeK: 1 }],
+        textLayout: 'rad', dubbelPos: 'mitten', symbol: 'ingen', symbolPlacement: 'efter',
+        symbolColor: null, shadowColor: null, hardware: D.HARDWARE_FINISHES.find(h => h.id === s.hw), showHardware: false, modelKind: this.kind(s.model), modelId: s.model,
+      }); } catch (e) { console.error('build', e); this.setState({ err: String(e.stack || e) }); }
+      this.setState({ busy: false });
+    }, 30);
+  }
+
+  kind(id) {
+    if (id.includes('halvstryp') || id === 'justerbart') return 'halvstryp';
+    if (id === 'stallbart') return 'stallbart';
+    return 'fast';
+  }
+
+  seg(sel) {
+    return sel
+      ? { bg: '#7a5c3e', color: '#ffffff', border: '#7a5c3e', weight: 600 }
+      : { bg: '#faf8f4', color: '#2b2620', border: '#e6e0d6', weight: 400 };
+  }
+
+  renderVals() {
+    const s = this.state, D = this.D;
+    const canvasRef = this.canvasRef;
+    const onText = e => this.setState({ text: e.target.value });
+    if (!D) return { models: [], finishes: [], modelNote: '', finishName: '', showHw: true, onHw: () => {}, err: s.err || '', canvasRef, onText, text: s.text, busy: true, groups: [], items: [], widths: [], webbings: [], modes: [], views: [], sel: { name: '', group: '', hex: '#f0e9df', bgImg: 'none', leather: false }, leatherPrice: '', bandWidth: '' };
+    const img = id => s.thumbs[id] ? 'url(' + s.thumbs[id] + ')' : 'none';
+    const lin = this.lining();
+    const groups = D.LINING_GROUPS.map((g, i) => ({
+      label: g.group.replace(/ \(.*\)/, ''), ...this.seg(i === s.groupIdx), onClick: () => this.setState({ groupIdx: i }),
+    }));
+    const items = D.LINING_GROUPS[s.groupIdx].items.map(it => {
+      const on = it.id === s.liningId;
+      return { name: it.name, hex: it.hex, bgImg: img(it.id), border: on ? '#2b2620' : 'rgba(0,0,0,0.12)', shadow: on ? '0 0 0 2px #fff inset, 0 0 0 2px #2b2620' : 'none', onClick: () => this.setState({ liningId: it.id }) };
+    });
+    const w = D.COTTON_WIDTHS.find(x => x.id === s.width);
+    const widths = D.COTTON_WIDTHS.filter(x => D.COTTON_MODELS.find(m => m.id === s.model).prices[x.id]).map(x => ({
+      name: x.name, ...this.seg(x.id === s.width),
+      onClick: () => this.setState(st => {
+        const ok = D.WEBBING_COLORS.find(c => c.id === st.webbing).widths.includes(x.id);
+        return { width: x.id, webbing: ok ? st.webbing : D.WEBBING_COLORS.find(c => c.widths.includes(x.id)).id };
+      }),
+    }));
+    const webbings = D.WEBBING_COLORS.filter(c => c.widths.includes(s.width)).map(c => {
+      const on = c.id === s.webbing;
+      return { name: c.name, hex: c.hex, bgImg: 'url(wtex/' + c.id + '.png)', border: on ? '#2b2620' : 'rgba(0,0,0,0.12)', shadow: on ? '0 0 0 2px #fff inset, 0 0 0 2px #2b2620' : 'none', onClick: () => this.setState({ webbing: c.id }) };
+    });
+    const modes = [];
+    const views = [['Översikt', 'oversikt'], ['Närbild kant', 'kant'], ['Insida', 'insida']].map(([label, v]) => ({ label, ...this.seg(s.view === v), onClick: () => this.setState({ view: v }) }));
+    const models = D.COTTON_MODELS.map(m => ({
+      name: m.name, ...this.seg(m.id === s.model),
+      onClick: () => this.setState(st => ({ model: m.id, width: m.prices[st.width] ? st.width : '4' })),
+    }));
+    const k = this.kind(s.model);
+    const modelNote = k === 'halvstryp' ? 'Fodrad huvuddel med ofodrad strypdel på baksidan.' : 'Fodrat runt hela halsen.';
+    const finishes = D.HARDWARE_FINISHES.map(h => {
+      const on = h.id === s.hw;
+      return { name: h.name, bg: 'radial-gradient(circle at 35% 30%, #ffffff 0%, ' + h.hex + ' 45%, #000000 140%)', border: on ? '#2b2620' : 'rgba(0,0,0,0.12)', shadow: on ? '0 0 0 2px #fff inset, 0 0 0 2px #2b2620' : 'none', onClick: () => this.setState({ hw: h.id }) };
+    });
+    const hf = D.HARDWARE_FINISHES.find(h => h.id === s.hw);
+    const finishName = hf.name + (hf.surcharge ? ' (+' + hf.surcharge.cotton + ' kr)' : '');
+    return {
+      models, finishes, modelNote, finishName, showHw: s.showHw, onHw: e => this.setState({ showHw: e.target.checked }),
+      err: s.err || '', canvasRef, onText, text: s.text, busy: s.busy, groups, items, widths, webbings, modes, views,
+      sel: { name: lin.name, group: lin.group.replace(/ \(.*\)/, ''), hex: lin.hex, bgImg: img(lin.id), leather: !!lin.leather },
+      leatherPrice: D.LEATHER_SURCHARGE[s.width], bandWidth: w.bandWidth,
+    };
+  }
+}
+</script>
+</body>
+</html>
