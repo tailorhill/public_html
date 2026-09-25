@@ -29,7 +29,7 @@ export function textColorAllowed(s, c, index = 0) {
   if (s.family === 'biothane' && c.special && c.id !== 'dimmig') return false;
   if (doubleText(s) && c.special) return false;
   if (s.family === 'biothane' && s.texts.length > 1 && c.id === 'dimmig') return false;
-  if (index > 0) {
+  if (doubleText(s) && index > 0) {
     const first = color(s.texts[0].color);
     if (first?.glitter && !c.glitter) return false;
     if (s.family === 'biothane' && doubleText(s) && !!first?.glitter !== !!c.glitter) return false;

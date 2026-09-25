@@ -6,10 +6,12 @@ Implementerat på `feature/customer-size-text-rules` enligt kundens meddelande.
 - Egen storlek kräver ifylld Övrig info. Måttet skickas som kundens text, inte som ett påhittat numeriskt mått. 3D-vyn är illustrativ; standardintervall visas vid mittmåttet.
 - Standardstorlekar har max 7 respektive 10 tecken inklusive symboler. Justerbart 4 cm i 40–50 cm har max 10. Egen storlek har ingen teckengräns, även i inmatningen och sparade designlänkar. Symbol på båda sidor räknas två gånger. Mellanslag räknas. Textfältet begränsar inmatning och inklistring efter utrymmet som återstår när symboler och eventuell text efter varandra räknats bort. Befintlig text som blir för lång vid byte av storlek eller symbol raderas inte; beställning och produktionsfiler spärras med ett meddelande.
 - Textstorlek är alltid stor, även i gamla designlänkar och skärfiler.
-- Bomull: slät första text tillåter slät/glitter på nästa; glitter kräver glitter. Glitter i skuggan kräver glittertext, och glittersymbol om symbolskugga valts.
+- Bomull vid dubbeltext: slät första text tillåter slät/glitter på nästa; glitter kräver glitter. Texter efter varandra eller på separata rader har oberoende färgval. Glitter i skuggan kräver glittertext, och glittersymbol om symbolskugga valts.
 - Specialfärger är spärrade i dubbeltext och som skugga. BioThane har ingen skugga, dubbeltext kräver samma färgtyp och Dimmig får endast användas ensam (symbolen får följa samma färg).
 - Skugga kan väljas för bara text eller text och symboler; valet sparas i designlänken, orderkommentaren, 3D-vyn och SVG/DXF.
 - Varukorgen matchar valt intervall exakt; överlappande intervall får inte ersätta varandra. Saknat alternativ stoppar överföringen.
+
+Storleksvalet visar aktuell teckengräns och hur mycket utrymme valda symboler tar. Textfärgsvalet förklarar begränsningen för överlappande material: slätt material fäster inte ovanpå glitter.
 
 ## Förtydliganden
 

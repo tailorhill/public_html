@@ -5,10 +5,13 @@ const p=await b.newPage({viewport:{width:1400,height:1050}});const errors=[];p.o
 await p.goto((process.env.TEST_URL || 'http://127.0.0.1:8748/') + '?supplier=1');await p.waitForFunction(()=>window.viewer?._lastCfg);await p.evaluate(()=>viewer.hardwareReady);await p.locator('#infoDialogOk').click();
 const button=(selector,label)=>p.locator(selector+' button').filter({hasText:new RegExp('^'+label+'$')});
 await button('#modelSeg','Ställbart halsband').click();
+assert.match(await p.locator('#sizeTextNote').textContent(),/max 7 tecken/);
 assert.equal(await p.locator('#rangeSizeSelect option').count(),4);assert.ok(await p.locator('#exactSizeRow').isHidden());
 await p.locator('#rangeSizeSelect select').selectOption('45-55');
 assert.match(await p.locator('#priceRows').textContent(),/20 kr/);
 await p.waitForFunction(()=>viewer._lastCfg.circumference===50);
+assert.match(await p.locator('#sizeTextNote').textContent(),/max 10 tecken/);
+assert.match(await p.locator('#sizeTextNote').textContent(),/9 texttecken/);
 await p.locator('#showOrderBtn').click();assert.match(await p.locator('#orderPreview').textContent(),/45–55 cm/);await p.locator('#closeDialog').click();
 await p.locator('#textInputT').fill('ABCDEFGHIJ');
 assert.equal(await p.locator('#textInputT').inputValue(),'ABCDEFGHI');
@@ -49,6 +52,18 @@ await p.locator('[data-family="biothane"]').click();assert.ok(await p.locator('#
 assert.ok(await p.locator('#colorSwT button[title="Dimmig"]').isEnabled());assert.ok(await p.locator('#colorSwT button[title="Regnbåge"]').isDisabled());
 await p.locator('#colorSwT button[title="Vit"]').click();await button('#textTabs','\\+').click();await button('#layoutSeg','Dubbeltext \\(ovanpå\\)').click();
 assert.ok(await p.locator('#colorSwT button[title="Guldglitter"]').isDisabled());assert.ok(await p.locator('#colorSwT button[title="Vit"]').isEnabled());
+await p.locator('[data-family="cotton"]').click();
+await button('#textTabs','Text 1').click();
+await p.locator('#colorSwT button[title="Guldglitter"]').click();
+await button('#textTabs','Text 2').click();
+assert.ok(await p.locator('#colorSwT button[title="Vit"]').isDisabled());
+assert.match(await p.locator('#textColorNote').textContent(),/slätt material fäster inte/i);
+await button('#layoutSeg','Efter varandra').click();
+assert.ok(await p.locator('#colorSwT button[title="Vit"]').isEnabled());
+assert.ok(await p.locator('#colorSwT button[title="Regnbåge"]').isEnabled());
+await p.locator('#colorSwT button[title="Vit"]').click();
+await button('#layoutSeg','Två rader').click();
+assert.ok(await p.locator('#colorSwT button[title="Vit"]').isEnabled());
 assert.deepEqual(errors,[]);console.log('PASS: browser size selection, pricing, cart validation, order summary, color restrictions, fixed large text, shadow scope and saved-design roundtrip.');
 const exportCheck = await p.evaluate(async () => {
   const { buildCutSvg, buildCutDxf } = await import('/js/export.js');

@@ -64,6 +64,11 @@ const assert = require('node:assert/strict');
   assert.equal(r.symbolChoiceAllowed(input,'tass'),false);
   input.sizeRange='custom';
   assert.equal(r.symbolChoiceAllowed(input,'tass'),true);assert.equal(r.textInputLimit(input),null);
+  for (const layout of ['rad','rader']) {
+    const separate={...base(),textLayout:layout,texts:[{text:'LUNA',color:'guldglitter'},{text:'DOG',color:'vit'}]};
+    for (const c of TEXT_COLORS) assert.equal(r.textColorAllowed(separate,c,1),true);
+    r.normalizeDesign(separate);assert.equal(separate.texts[1].color,'vit');
+  }
   const shadow={...base(),shadow:true,shadowColor:'guldglitter'};
   assert.equal(r.textColorAllowed(shadow,col('vit')),false);
   assert.equal(r.textColorAllowed(shadow,col('guldglitter')),true);

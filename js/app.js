@@ -516,6 +516,17 @@ function refresh() {
     id => { at.color = id; },
     { isDisabled: c => !textColorAllowed(c) });
 
+  const firstColor = byId(TEXT_COLORS, state.texts[0].color);
+  $('#textColorNote').textContent = isDouble()
+    ? (firstColor.glitter
+      ? 'Text 2 ligger ovanpå text 1. Eftersom text 1 är i glitter kan text 2 bara vara i glitter – slätt material fäster inte på glittrigt material.'
+      : state.family === 'biothane'
+        ? 'På BioThane görs dubbeltext med slätt på slätt eller glitter på glitter. Slätt material fäster inte ovanpå glitter.'
+        : 'Text 2 ligger ovanpå text 1. Med slät text 1 kan text 2 vara slät eller glittrig. Med glittrig text 1 måste även text 2 vara glittrig, eftersom slätt material inte fäster på glitter.')
+    : shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter
+      ? 'Texten ligger ovanpå en glittrig skugga och måste därför också vara i glitter. Slätt material fäster inte på glittrigt material.'
+      : 'Texterna överlappar inte, så du kan välja färg oberoende för varje text. Materialets vanliga färgval gäller.';
+
   const rmBtn = $('#removeTextBtn');
   rmBtn.style.display = state.activeText > 0 ? '' : 'none';
   rmBtn.textContent = `Ta bort text ${state.activeText + 1}`;
@@ -607,6 +618,13 @@ function refresh() {
 
 function renderValidation() {
   const errors = validationErrors(state), size = selectedSize(state);
+  const reservedSymbols = state.symbol === 'ingen' ? 0 : state.symbolPlacement === 'bada' ? 2 : 1;
+  const layoutLimit = isDouble() ? 'per textlager' : state.textLayout === 'rader' ? 'per textrad' : 'sammanlagt';
+  $('#sizeTextNote').textContent = size?.id === 'custom'
+    ? 'Egen storlek har ingen teckengräns. Skriv önskat storleksintervall under Övrig info.'
+    : size
+      ? `${size.name}: max ${size.limit} tecken ${layoutLimit}, inklusive symboler. Varje symbol räknas som ett tecken. Med ${reservedSymbols} vald${reservedSymbols === 1 ? '' : 'a'} symbol${reservedSymbols === 1 ? '' : 'er'} finns plats för ${Math.max(0, size.limit - reservedSymbols)} texttecken ${layoutLimit}. Mellanslag räknas också.`
+      : 'För denna modell finns ingen storleksberoende teckengräns. Textfältet tillåter upp till 24 tecken per text. Text och symboler anpassas till bandet i förhandsvisningen.';
   $('#designErrors').textContent = errors.join(' ');
   $('#designErrors').hidden = !errors.length;
   $('#textLimitNote').textContent = size?.id === 'custom'
