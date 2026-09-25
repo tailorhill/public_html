@@ -164,11 +164,7 @@
       <h2>8 · Beslag</h2>
       <div class="swatches metal" id="hwSwatches"></div>
       <p class="note" id="buckleNote"></p>
-      <label class="switch-row">
-        <input type="checkbox" id="hwToggle" checked>
-        <span>Visa beslag i 3D-vyn</span>
-      </label>
-      <p class="note">Beslagen i 3D-vyn är förenklade – dölj dem om du hellre ser bandet rent.</p>
+      <p class="note">Beslaget ingår i beställningen. 3D-vyn visar själva halsbandet.</p>
     </section>
 
     <section class="card">
@@ -181,6 +177,11 @@
   <!-- Mitten: 3D -->
   <section class="stage">
     <canvas id="c3d"></canvas>
+    <div class="view-btns" id="viewBtns">
+      <button type="button" class="view-btn sel" data-view="oversikt">Översikt</button>
+      <button type="button" class="view-btn" data-view="kant">Närbild kant</button>
+      <button type="button" class="view-btn" data-view="insida">Insida</button>
+    </div>
     <div class="stage-hint">Dra för att rotera · scrolla för att zooma</div>
 
     <!-- Sammanfattning -->

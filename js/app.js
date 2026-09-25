@@ -813,8 +813,15 @@ $('#removeTextBtn').addEventListener('click', () => {
 });
 
 $('#glitterToggle').addEventListener('change', e => { state.fullGlitter = e.target.checked; refresh(); });
-$('#hwToggle').addEventListener('change', e => { state.showHardware = e.target.checked; rebuild3D(); });
 $('#shadowToggle').addEventListener('change', e => { state.shadow = e.target.checked; refresh(); });
+
+// vy-knappar (Översikt / Närbild kant / Insida) styr kameran
+document.querySelectorAll('#viewBtns .view-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#viewBtns .view-btn').forEach(x => x.classList.toggle('sel', x === b));
+    viewer.setView(b.dataset.view);
+  });
+});
 $('#extraInfo').addEventListener('input', e => { state.extraInfo = e.target.value; });
 
 $('#copyBtn').addEventListener('click', async () => {
