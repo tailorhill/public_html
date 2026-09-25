@@ -4,7 +4,7 @@ import {
   LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
   DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
 } from './data.js';
-import { RealisticCollarViewer, ensureTexturesFor, PHOTO_LININGS } from './foder-realism.js';
+import { RealisticCollarViewer, ensureTexturesFor } from './foder-realism.js';
 import { drawSymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
@@ -418,7 +418,8 @@ function refresh() {
     $('#bandWidthNote').textContent =
       `Bomullsbandet är ${byId(COTTON_WIDTHS, state.cottonWidth).bandWidth} brett – fodret utgör resten av bredden. ` +
       `${available.length} färger finns i denna bredd.`;
-    swatchGrid($('#webbingSwatches'), available, () => state.webbing, id => { state.webbing = id; });
+    swatchGrid($('#webbingSwatches'), available, () => state.webbing, id => { state.webbing = id; },
+      { image: c => `band-thumb/${c.id}.webp` });
 
     // foder
     // materialgrupp-flikar + bildrutor (fototexturen som miniatyr)
@@ -426,12 +427,12 @@ function refresh() {
     const groupTabs = LINING_GROUPS.map((g, i) => ({ id: i, name: g.group.replace(/ \(.*\)/, '') }));
     segmented($('#liningGroupSeg'), groupTabs, () => state.liningGroup, i => { state.liningGroup = i; });
     swatchGrid($('#liningSwatches'), LINING_GROUPS[state.liningGroup].items, () => state.lining,
-      id => { state.lining = id; }, { image: c => (PHOTO_LININGS[c.id] ? `textures/${c.id}.webp` : null) });
+      id => { state.lining = id; }, { image: c => `foder-thumb/${c.id}.webp` });
     const lin = byId(linings, state.lining);
     const linGroup = LINING_GROUPS[liningGroupIndex(state.lining)].group.replace(/ \(.*\)/, '');
     const chip = $('#liningChip');
     chip.style.backgroundColor = lin.hex;
-    chip.style.backgroundImage = PHOTO_LININGS[lin.id] ? `url('textures/${lin.id}.webp')` : '';
+    chip.style.backgroundImage = `url('foder-thumb/${lin.id}.webp')`;
     chip.style.backgroundSize = 'cover'; chip.style.backgroundPosition = 'center';
     $('#liningName').textContent = `${lin.name} · ${linGroup}`;
     $('#leatherNote').style.display = lin.leather ? '' : 'none';
