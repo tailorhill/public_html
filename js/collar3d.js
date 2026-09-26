@@ -106,6 +106,17 @@ export class CollarViewer {
     requestAnimationFrame(this._animate);
   }
 
+  // Zooma stegvis via knappar. factor < 1 = närmare, > 1 = längre bort;
+  // avståndet klamras mot OrbitControls min/max så det matchar scroll-zoomen.
+  zoom(factor) {
+    const t = this.controls.target;
+    const dir = this.camera.position.clone().sub(t);
+    const dist = Math.max(this.controls.minDistance,
+      Math.min(this.controls.maxDistance, dir.length() * factor));
+    this.camera.position.copy(t).add(dir.setLength(dist));
+    this.controls.update();
+  }
+
   // PNG-bild av aktuell vy (med bakgrundsfärg i stället för transparens)
   snapshot() {
     const prevBg = this.scene.background;
@@ -495,156 +506,110 @@ export class CollarViewer {
     return colorObj.hex; // reflex m.m.
   }
 
-  // Ritar 1–2 texter + symbol. cfg.texts = [{text, font, color}], cfg.textLayout:
-  //   'rad'    – texterna efter varandra på samma rad
-  //   'rader'  – två rader ovanför varandra
-  //   'dubbel' – dubbeltext: text 2 läggs ovanpå text 1
+  // Ritar innehållet: rader av element (textbitar + symboler) i ordning.
+  // cfg.content = { rows:[{els:[{t:'text',text,font,color}|{t:'sym',id}]}], layout, overlayPos }
   paintTextBlock(ctx, W, H, bandTop, bandBottom, cfg) {
-    const texts = (cfg.texts || []).filter(t => t.text && t.text.trim());
-    const hasSymbol = cfg.symbol && cfg.symbol !== 'ingen';
-    if (!texts.length && !hasSymbol) return;
+    const content = cfg.content;
+    if (!content || !content.rows) return;
+    const rows = content.rows.filter(r => r.els.some(e => e.t === 'sym' || (e.text && e.text.trim())));
+    if (!rows.length) return;
 
     const bandH = bandBottom - bandTop;
     const cyMid = bandTop + bandH / 2;
-    const layout = texts.length > 1 ? (cfg.textLayout || 'rad') : 'rad';
+    const nRows = rows.length;
+    const overlay = content.layout === 'overlay' && nRows === 2;
 
     const scratch = document.createElement('canvas');
     scratch.width = W; scratch.height = H;
     const sctx = scratch.getContext('2d');
 
     const fontStr = (f, size) => `${f.italic ? 'italic ' : ''}${f.weight} ${size}px ${f.css}`;
-    const disp = t => (t.font.caps ? t.text.trim().toUpperCase() : t.text.trim());
-    const measure = (t, size) => {
-      sctx.font = fontStr(t.font, size);
-      return sctx.measureText(disp(t)).width;
+    const disp = e => (e.font.caps ? e.text.trim().toUpperCase() : e.text.trim());
+    const measureText = (e, size) => { sctx.font = fontStr(e.font, size); return sctx.measureText(disp(e)).width; };
+    const symSizeFor = size => size * 0.94;
+    const gapFor = size => size * 0.22;
+
+    // grundstorlek per rad (staplat/overlay skalar ned)
+    const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.62 * 0.8)
+      : nRows === 3 ? bandH * 0.29 : nRows === 2 ? bandH * 0.4 : bandH * 0.54;
+    const rowSizes = rows.map((r, ri) => Math.min(rowBase(ri), bandH * 0.82));
+
+    // bygg radens element med bredder, i ordning
+    const buildRow = (row, size) => {
+      const items = row.els.filter(e => e.t === 'sym' || e.text.trim()).map(e => e.t === 'sym'
+        ? { kind: 'sym', id: e.id, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
+        : { kind: 'text', el: e, w: measureText(e, size) });
+      const gap = gapFor(size);
+      const totW = items.reduce((a, it) => a + it.w, 0) + gap * Math.max(0, items.length - 1);
+      return { items, gap, totW };
     };
 
-    // grundstorlekar per layout, skalade med vald textstorlek (max = bandhöjden)
-    let sizes;
-    if (layout === 'rader' && texts.length > 1) {
-      const base = texts.length === 3 ? 0.29 : 0.4;
-      sizes = texts.map(() => bandH * base);
-    } else if (layout === 'dubbel' && texts.length > 1) {
-      sizes = texts.map((t, i) => bandH * (i === 0 ? 0.62 : 0.46));
-    } else {
-      sizes = texts.map(() => bandH * (texts.length === 3 ? 0.46 : 0.54));
-    }
-    sizes = sizes.map((s, i) => Math.min(s * (texts[i].sizeK || 1), bandH * 0.82));
-
-    // blockbredd (utan symbol)
-    const blockWidth = () => {
-      const ws = texts.map((t, i) => measure(t, sizes[i]));
-      if (layout === 'rad' && texts.length > 1) {
-        return ws.reduce((a, b) => a + b, 0) + sizes[0] * 0.5 * (texts.length - 1);
-      }
-      return Math.max(...ws, 0);
-    };
-
-    // krymp om texten blir för bred för framsidan
+    // krymp rader som blir för breda för framsidan
     const maxW = W * 0.42;
-    let bw = blockWidth();
-    if (bw > maxW) {
-      const k = maxW / bw;
-      sizes = sizes.map(s => s * k);
-      bw = blockWidth();
-    }
+    let layouts = rows.map((r, ri) => buildRow(r, rowSizes[ri]));
+    layouts.forEach((L, ri) => {
+      if (L.totW > maxW && L.totW > 0) { rowSizes[ri] *= maxW / L.totW; layouts[ri] = buildRow(rows[ri], rowSizes[ri]); }
+    });
 
-    const symSize = bandH * 0.5;
-    const symW = hasSymbol ? symSize * symbolAspect(cfg.symbol) : 0;
-    const gap = (texts.length && hasSymbol) ? bandH * 0.24 : 0;
+    const rowY = ri => {
+      if (overlay) {
+        if (ri === 0) return cyMid;
+        const p = content.overlayPos || 'mitten';
+        return p === 'topp' ? cyMid - bandH * 0.19 : p === 'botten' ? cyMid + bandH * 0.19 : cyMid;
+      }
+      if (nRows === 3) return bandTop + bandH * [0.19, 0.5, 0.81][ri];
+      if (nRows === 2) return bandTop + bandH * [0.29, 0.72][ri];
+      return cyMid;
+    };
+    const rowSymColor = ri => { const t = rows[ri].els.find(e => e.t === 'text'); return t ? t.color : null; };
 
-    let items = []; // [kind]
-    if (hasSymbol && !texts.length) items = [['sym']];
-    else if (hasSymbol && cfg.symbolPlacement === 'fore') items = [['sym'], ['blk']];
-    else if (hasSymbol && cfg.symbolPlacement === 'bada') items = [['sym'], ['blk'], ['sym']];
-    else if (hasSymbol) items = [['blk'], ['sym']];
-    else items = [['blk']];
-
-    let total = 0;
-    for (const [k] of items) total += (k === 'blk' ? bw : symW);
-    total += gap * (items.length - 1);
-
-    // en text med ev. glitter/reflex begränsat till tecknen
-    const drawUnit = (t, size, cx, cy, colorOverride, targetOverride) => {
-      const w = measure(t, size);
+    // ett textelement med ev. glitter/reflex begränsat till tecknen
+    const drawText = (e, size, cx, cy, colorOverride, targetOverride) => {
+      const w = measureText(e, size);
       const x = cx - w / 2;
-      const wantsFx = !colorOverride && (t.color.glitter || t.color.special === 'reflex');
+      const wantsFx = !colorOverride && (e.color.glitter || e.color.special === 'reflex');
       const target = targetOverride || (wantsFx ? sctx : ctx);
       if (target === sctx && !targetOverride) sctx.clearRect(0, 0, W, H);
-      target.font = fontStr(t.font, size);
+      target.font = fontStr(e.font, size);
       target.textBaseline = 'middle';
-      const col = colorOverride || t.color;
+      const col = colorOverride || e.color;
       target.fillStyle = this.fillStyleFor(target, col, x, cy - size / 2, w, size);
-      target.fillText(disp(t), x, cy);
+      target.fillText(disp(e), x, cy);
       if (target === sctx && !targetOverride) {
         sctx.save();
         sctx.globalCompositeOperation = 'source-atop';
-        if (t.color.glitter) {
-          this.sprinkle(sctx, x - 8, cy - size * 0.75, w + 16, size * 1.5, new THREE.Color(t.color.hex), 2.2);
-        } else { // reflex
+        if (e.color.glitter) {
+          this.sprinkle(sctx, x - 8, cy - size * 0.75, w + 16, size * 1.5, new THREE.Color(e.color.hex), 2.2);
+        } else {
           sctx.fillStyle = 'rgba(255,255,255,0.5)';
-          for (let i = 0; i < 300; i++) {
-            sctx.fillRect(x + Math.random() * w, cy - size * 0.6 + Math.random() * size * 1.2, 1.5, 1.5);
-          }
+          for (let i = 0; i < 300; i++) sctx.fillRect(x + Math.random() * w, cy - size * 0.6 + Math.random() * size * 1.2, 1.5, 1.5);
         }
         sctx.restore();
         ctx.drawImage(scratch, 0, 0);
       }
     };
 
-    // ritar textblocket centrerat kring (cx, cyMid)
-    const drawBlock = (cx, colorOverride, targetOverride) => {
-      if (!texts.length) return;
-      if (layout === 'rader' && texts.length > 1) {
-        const ys = texts.length === 3 ? [0.19, 0.5, 0.81] : [0.28, 0.73];
-        texts.forEach((t, i) =>
-          drawUnit(t, sizes[i], cx, bandTop + bandH * ys[i], colorOverride, targetOverride));
-      } else if (layout === 'dubbel' && texts.length > 1) {
-        drawUnit(texts[0], sizes[0], cx, cyMid, colorOverride, targetOverride);
-        const pos = cfg.dubbelPos || 'mitten';
-        const frontY = pos === 'topp' ? cyMid - bandH * 0.19
-          : pos === 'botten' ? cyMid + bandH * 0.19
-          : cyMid;
-        drawUnit(texts[1], sizes[1], cx, frontY, colorOverride, targetOverride);
-      } else if (texts.length > 1) {
-        const ws = texts.map((t, i) => measure(t, sizes[i]));
-        const g2 = sizes[0] * 0.5;
-        const totW = ws.reduce((a, b) => a + b, 0) + g2 * (texts.length - 1);
-        let tx = cx - totW / 2;
-        texts.forEach((t, i) => {
-          drawUnit(t, sizes[i], tx + ws[i] / 2, cyMid, colorOverride, targetOverride);
-          tx += ws[i] + g2;
-        });
-      } else {
-        drawUnit(texts[0], sizes[0], cx, cyMid, colorOverride, targetOverride);
+    // rita en rad (element i sekvens) centrerad kring W/2
+    const drawRow = (ri, colorOverride, targetOverride) => {
+      const L = layouts[ri], size = rowSizes[ri], cy = rowY(ri);
+      const symCol = colorOverride || cfg.symbolColor || rowSymColor(ri) || { hex: '#111' };
+      let x = W / 2 - L.totW / 2;
+      for (const it of L.items) {
+        if (it.kind === 'text') {
+          drawText(it.el, size, x + it.w / 2, cy, colorOverride, targetOverride);
+        } else if (!colorOverride || cfg.shadowSymbols !== false) {
+          drawSymbol(targetOverride || ctx, it.id, x + it.w / 2, cy, it.sz, symCol.hex);
+        }
+        x += it.w + L.gap;
       }
     };
-
-    // symbolen centreras mot textens visuella mitt (inte bandets mitt)
-    let symCy = cyMid;
-    if (texts.length && layout !== 'rader') {
-      sctx.font = fontStr(texts[0].font, sizes[0]);
-      sctx.textBaseline = 'middle';
-      const m = sctx.measureText(disp(texts[0]));
-      symCy = cyMid + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2;
-    }
 
     const drawAll = (colorOverride, targetOverride) => {
-      let x = W / 2 - total / 2;
-      for (const [k] of items) {
-        if (k === 'blk') {
-          drawBlock(x + bw / 2, colorOverride, targetOverride);
-          x += bw + gap;
-        } else {
-          const symCol = colorOverride || cfg.symbolColor || (texts[0] ? texts[0].color : { hex: '#111' });
-          drawSymbol(targetOverride || ctx, cfg.symbol, x + symW / 2, symCy, symSize, symCol.hex);
-          x += symW + gap;
-        }
-      }
+      // overlay: bakre raden (0) först, sen främre (1); annars uppifrån och ned
+      for (let ri = 0; ri < rows.length; ri++) drawRow(ri, colorOverride, targetOverride);
     };
 
-    // skugga: jämn kontur runt text och symbol (rendera i skuggfärg,
-    // stämpla sedan i en ring av riktningar)
+    // skugga: jämn kontur runt text och symbol
     if (cfg.shadowColor) {
       const sc = document.createElement('canvas');
       sc.width = W; sc.height = H;

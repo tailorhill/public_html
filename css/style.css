@@ -86,6 +86,7 @@ a { color: var(--accent); }
 
 label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 6px; }
 .note { font-size: 12px; color: var(--muted); margin: 8px 0 0; line-height: 1.45; }
+#sizeTextNote, #textLimitNote, #textColorNote, #customSizeNote { font-weight: 700; }
 .note.ok { color: var(--ok); font-weight: 600; }
 .note.warn { color: #b03a2e; font-weight: 600; }
 
@@ -208,6 +209,27 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .symopt.sel { border-color: var(--accent); background: #f3ead9; }
 .symopt canvas { width: 100%; height: 100%; display: block; }
 
+/* ---------- innehållseditor (chip-remsa) ---------- */
+.chip-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px; margin-bottom: 6px;
+  background: #faf8f4; border: 1.5px solid var(--line); border-radius: 12px;
+}
+.el-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 40px; padding: 4px 12px;
+  border: 1.5px solid var(--line); border-radius: 10px;
+  background: #fff; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--ink); transition: all 0.12s;
+}
+.el-chip.sym { padding: 2px; }
+.el-chip.sym canvas { width: 34px; height: 34px; display: block; }
+.el-chip:hover { border-color: var(--accent); }
+.el-chip.sel { border-color: var(--accent); box-shadow: 0 0 0 2px #fff inset, 0 0 0 2px var(--accent); }
+.chip-count { margin-left: auto; font-size: 12px; color: var(--muted); align-self: center; }
+.chip-count.over { color: #c0392b; font-weight: 700; }
+#elEditor { margin-top: 4px; }
+
 /* ---------- fonts ---------- */
 .fontgrid {
   display: grid;
@@ -252,6 +274,25 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 .view-btn:hover { color: var(--ink); }
 .view-btn.sel { background: var(--ink); color: #fff; }
+.zoom-btns {
+  position: absolute;
+  bottom: 14px; right: 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(4px);
+  padding: 4px; border-radius: 22px;
+  z-index: 3;
+}
+.zoom-btn {
+  border: none; background: transparent;
+  font: inherit; font-size: 20px; font-weight: 600; line-height: 1;
+  color: var(--ink);
+  width: 34px; height: 34px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.zoom-btn:hover { background: rgba(0,0,0,0.08); }
+.zoom-btn:active { background: rgba(0,0,0,0.16); }
 .stage-hint {
   position: absolute;
   bottom: 14px; left: 50%;
