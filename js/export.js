@@ -41,97 +41,73 @@ async function loadFont(ttf) {
 }
 
 // ------------------------------------------------------------- layout
-// Gemensam placeringsberäkning för båda formaten.
-// Returnerar { W, H, M, bandH, total, texts:[{...,cx,cy,size,font}], symbols:[{cx,cy}] }
+// Gemensam placeringsberäkning för båda formaten (speglar paintTextBlock).
+// Returnerar { W, H, M, bandH, total, placedTexts:[{t,font,size,cx,cy,idx}],
+//              placedSymbols:[{cx,cy,id,size}] }
 async function computeLayout(cfg) {
   const bandH = cfg.bandHmm;
-  const texts = (cfg.texts || []).filter(t => t.text && t.text.trim());
-  const hasSymbol = cfg.symbol && cfg.symbol !== 'ingen';
-  if (!texts.length && !hasSymbol) throw new Error('Ingen text eller symbol att exportera.');
-  const layout = texts.length > 1 ? (cfg.layout || 'rad') : 'rad';
-
-  const fonts = await Promise.all(texts.map(t => loadFont(t.font.ttf)));
-
-  let sizes;
-  if (layout === 'rader' && texts.length > 1) {
-    const base = texts.length === 3 ? 0.29 : 0.4;
-    sizes = texts.map(() => bandH * base);
-  } else if (layout === 'dubbel' && texts.length > 1) {
-    sizes = texts.map((t, i) => bandH * (i === 0 ? 0.62 : 0.46));
-  } else {
-    sizes = texts.map(() => bandH * (texts.length === 3 ? 0.46 : 0.54));
-  }
-  sizes = sizes.map((s, i) => Math.min(s * (texts[i].sizeK || 1), bandH * 0.82));
-
-  const disp = t => (t.font.caps ? t.text.trim().toUpperCase() : t.text.trim());
-  const widthOf = (i, size) => fonts[i].getAdvanceWidth(disp(texts[i]), size);
-
-  let bw = 0;
-  if (layout === 'rad' && texts.length > 1) {
-    bw = texts.reduce((a, t, i) => a + widthOf(i, sizes[i]), 0) + sizes[0] * 0.5 * (texts.length - 1);
-  } else {
-    bw = Math.max(...texts.map((t, i) => widthOf(i, sizes[i])), 0);
-  }
-
-  const symSize = bandH * 0.5;
-  const symW = hasSymbol ? symSize * symbolAspect(cfg.symbol) : 0;
-  const gap = (texts.length && hasSymbol) ? bandH * 0.24 : 0;
-
-  let items = [];
-  if (hasSymbol && !texts.length) items = ['sym'];
-  else if (hasSymbol && cfg.symbolPlacement === 'fore') items = ['sym', 'blk'];
-  else if (hasSymbol && cfg.symbolPlacement === 'bada') items = ['sym', 'blk', 'sym'];
-  else if (hasSymbol) items = ['blk', 'sym'];
-  else items = ['blk'];
-
-  let total = 0;
-  for (const k of items) total += (k === 'blk' ? bw : symW);
-  total += gap * (items.length - 1);
-
+  const content = cfg.content;
+  const rows = (content && content.rows || []).filter(r => r.els.some(e => e.t === 'sym' || (e.text && e.text.trim())));
+  if (!rows.length) throw new Error('Ingen text eller symbol att exportera.');
+  const nRows = rows.length;
+  const overlay = content.layout === 'overlay' && nRows === 2;
   const M = 5;
+
+  // ladda alla unika typsnitt
+  const textElsFlat = rows.flatMap(r => r.els.filter(e => e.t === 'text' && e.text.trim()));
+  const fontCache = {};
+  await Promise.all([...new Set(textElsFlat.map(e => e.font.ttf))].map(async ttf => { fontCache[ttf] = await loadFont(ttf); }));
+  const otFont = e => fontCache[e.font.ttf];
+
+  const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.46)
+    : nRows === 3 ? bandH * 0.29 : nRows === 2 ? bandH * 0.4 : bandH * 0.54;
+  const rowSizes = rows.map((r, ri) => Math.min(rowBase(ri), bandH * 0.82));
+  const symSizeFor = size => size * 0.94;
+  const gapFor = size => size * 0.22;
+  const disp = e => (e.font.caps ? e.text.trim().toUpperCase() : e.text.trim());
+  const textW = (e, size) => otFont(e).getAdvanceWidth(disp(e), size);
+
+  const buildRow = (row, size) => {
+    const items = row.els.filter(e => e.t === 'sym' || e.text.trim()).map(e => e.t === 'sym'
+      ? { kind: 'sym', id: e.id, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
+      : { kind: 'text', el: e, w: textW(e, size) });
+    const gap = gapFor(size);
+    const totW = items.reduce((a, it) => a + it.w, 0) + gap * Math.max(0, items.length - 1);
+    return { items, gap, totW };
+  };
+  const layouts = rows.map((r, ri) => buildRow(r, rowSizes[ri]));
+
+  const total = Math.max(...layouts.map(L => L.totW), 0);
   const W = total + M * 2, H = bandH + M * 2;
   const cyMid = M + bandH / 2;
-
-  const placedTexts = [];
-  const placedSymbols = [];
-
-  const placeBlock = (cx) => {
-    if (layout === 'rader' && texts.length > 1) {
-      const ys = texts.length === 3 ? [0.19, 0.5, 0.81] : [0.28, 0.73];
-      texts.forEach((t, i) =>
-        placedTexts.push({ t, font: fonts[i], size: sizes[i], cx, cy: M + bandH * ys[i], idx: i }));
-    } else if (layout === 'dubbel' && texts.length > 1) {
-      placedTexts.push({ t: texts[0], font: fonts[0], size: sizes[0], cx, cy: cyMid, idx: 0 });
-      const pos = cfg.dubbelPos || 'mitten';
-      const fy = pos === 'topp' ? cyMid - bandH * 0.19 : pos === 'botten' ? cyMid + bandH * 0.19 : cyMid;
-      placedTexts.push({ t: texts[1], font: fonts[1], size: sizes[1], cx, cy: fy, idx: 1 });
-    } else if (texts.length > 1) {
-      const ws = texts.map((t, i) => widthOf(i, sizes[i]));
-      const g2 = sizes[0] * 0.5;
-      const totW = ws.reduce((a, b) => a + b, 0) + g2 * (texts.length - 1);
-      let tx = cx - totW / 2;
-      texts.forEach((t, i) => {
-        placedTexts.push({ t, font: fonts[i], size: sizes[i], cx: tx + ws[i] / 2, cy: cyMid, idx: i });
-        tx += ws[i] + g2;
-      });
-    } else if (texts.length) {
-      placedTexts.push({ t: texts[0], font: fonts[0], size: sizes[0], cx, cy: cyMid, idx: 0 });
+  const rowY = ri => {
+    if (overlay) {
+      if (ri === 0) return cyMid;
+      const p = content.overlayPos || 'mitten';
+      return p === 'topp' ? cyMid - bandH * 0.19 : p === 'botten' ? cyMid + bandH * 0.19 : cyMid;
     }
+    if (nRows === 3) return M + bandH * [0.19, 0.5, 0.81][ri];
+    if (nRows === 2) return M + bandH * [0.29, 0.72][ri];
+    return cyMid;
   };
 
-  let x = M;
-  for (const k of items) {
-    if (k === 'blk') {
-      placeBlock(x + bw / 2);
-      x += bw + gap;
-    } else {
-      placedSymbols.push({ cx: x + symW / 2, cy: cyMid });
-      x += symW + gap;
+  const placedTexts = [], placedSymbols = [];
+  let textIdx = 0;
+  rows.forEach((row, ri) => {
+    const L = layouts[ri], size = rowSizes[ri], cy = rowY(ri);
+    let x = M + (total - L.totW) / 2;
+    for (const it of L.items) {
+      if (it.kind === 'text') {
+        placedTexts.push({ t: { text: it.el.text, font: it.el.font, color: it.el.color }, font: otFont(it.el), size, cx: x + it.w / 2, cy, idx: textIdx++ });
+      } else {
+        placedSymbols.push({ cx: x + it.w / 2, cy, id: it.id, size: it.sz });
+      }
+      x += it.w + L.gap;
     }
-  }
+  });
 
   const widthOfPlaced = p => p.font.getAdvanceWidth(disp(p.t), p.size);
-  return { W, H, M, bandH, total, symSize, placedTexts, placedSymbols, disp, widthOfPlaced };
+  return { W, H, M, bandH, total, placedTexts, placedSymbols, disp, widthOfPlaced };
 }
 
 // text → opentype-path, centrerad som canvas textBaseline 'middle'
@@ -157,16 +133,16 @@ function collectInkPolys(L, cfg) {
     polys.push(...tp);
   }
   for (const s of (cfg.shadowSymbols === false ? [] : L.placedSymbols)) {
-    const data = symbolExportData(cfg.symbol);
+    const data = symbolExportData(s.id);
     if (!data) continue;
     if (data.flag) {
-      polys.push(...flagRects(s.cx, s.cy, L.symSize, data.flag)
+      polys.push(...flagRects(s.cx, s.cy, s.size, data.flag)
         .map(r => [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]));
     } else {
       const b = data.bounds;
-      const k = L.symSize / b.h;
+      const k = s.size / b.h;
       const tx = s.cx - (b.w * k) / 2 - b.x * k;
-      const ty = s.cy - L.symSize / 2 - b.y * k;
+      const ty = s.cy - s.size / 2 - b.y * k;
       const subs = data.d.split(/(?=M)/).filter(v => v.trim());
       polys.push(...subs.map(sd =>
         sampleSubpath(sd, k).map(([px, py]) => [px * k + tx, py * k + ty])));
@@ -221,17 +197,17 @@ export async function buildCutSvg(cfg) {
   }
 
   for (const s of L.placedSymbols) {
-    const data = symbolExportData(cfg.symbol);
+    const data = symbolExportData(s.id);
     if (!data) continue;
     if (data.flag) {
-      parts.push(`<g id="symbol">${flagRects(s.cx, s.cy, L.symSize, data.flag)
+      parts.push(`<g id="symbol">${flagRects(s.cx, s.cy, s.size, data.flag)
         .map(r => `<rect x="${r.x.toFixed(2)}" y="${r.y.toFixed(2)}" width="${r.w.toFixed(2)}" height="${r.h.toFixed(2)}" fill="${r.fill}"/>`)
         .join('')}</g>`);
     } else {
       const b = data.bounds;
-      const k = L.symSize / b.h;
+      const k = s.size / b.h;
       const tx = s.cx - (b.w * k) / 2 - b.x * k;
-      const ty = s.cy - L.symSize / 2 - b.y * k;
+      const ty = s.cy - s.size / 2 - b.y * k;
       const col = cfg.symbolColor ? cfg.symbolColor.hex
         : (L.placedTexts[0] ? L.placedTexts[0].t.color.hex : '#000');
       parts.push(`<g id="symbol" transform="translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${k.toFixed(5)})">` +
@@ -357,17 +333,17 @@ export async function buildCutDxf(cfg) {
   }
 
   for (const s of L.placedSymbols) {
-    const data = symbolExportData(cfg.symbol);
+    const data = symbolExportData(s.id);
     if (!data) continue;
     if (data.flag) {
-      const polys = flagRects(s.cx, s.cy, L.symSize, data.flag)
+      const polys = flagRects(s.cx, s.cy, s.size, data.flag)
         .map(r => [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h], [r.x, r.y]]);
       layers.push({ name: 'SYMBOL', polys });
     } else {
       const b = data.bounds;
-      const k = L.symSize / b.h;
+      const k = s.size / b.h;
       const tx = s.cx - (b.w * k) / 2 - b.x * k;
-      const ty = s.cy - L.symSize / 2 - b.y * k;
+      const ty = s.cy - s.size / 2 - b.y * k;
       // dela d-strängen i subpaths (alla börjar med absolut M)
       const subs = data.d.split(/(?=M)/).filter(v => v.trim());
       const polys = subs.map(sd =>

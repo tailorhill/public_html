@@ -14,7 +14,7 @@ const b64decode = s =>
     Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)));
 
 // element -> kompakt array: text ['t',text,font,color] | symbol ['s',id]
-const encEl = e => e.t === 'sym' ? ['s', e.id] : ['t', (e.text || '').slice(0, 40), e.font, e.color];
+const encEl = e => e.t === 'sym' ? ['s', e.id] : ['t', (e.text || '').slice(0, 80), e.font, e.color];
 const decEl = a => a[0] === 's' ? { t: 'sym', id: a[1] } : { t: 'text', text: a[1] || '', font: a[2], color: a[3] };
 
 // state (app.js) -> kompakt sträng
