@@ -11,7 +11,7 @@ import {
   sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
   validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
   symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit,
-  canAddToRow, doubleText, rows as contentRows, textEls, symEls, rowUsed,
+  canAddToRow, doubleText, rows as contentRows, textEls, symEls, rowUsed, rowLimit,
 } from './design-rules.js';
 
 const $ = sel => document.querySelector(sel);
@@ -428,8 +428,9 @@ function renderContentEditor() {
   $('#addTextBtn').disabled = !canAdd;
   $('#addSymbolBtn').disabled = !canAdd;
   $('#addRowBtn').style.display = rowsOf().length < MAX_ROWS ? '' : 'none';
-  $('#rowLimitNote').textContent = (!canAdd && size && size.limit !== null)
-    ? `Raden är full (max ${size.limit} tecken inkl. symboler). Ta bort något för att lägga till mer.` : '';
+  const activeRowLimit = rowLimit(state, state.activeEl?.row ?? 0);
+  $('#rowLimitNote').textContent = (!canAdd && activeRowLimit !== null)
+    ? `Raden är full (max ${activeRowLimit} tecken inkl. symboler). Ta bort något för att lägga till mer.` : '';
 
   const active = activeElement();
   const ed = $('#elEditor');
@@ -470,7 +471,9 @@ function renderContentEditor() {
       ? (first.glitter
         ? 'Främre raden ligger ovanpå den bakre. Eftersom bakre raden är glitter måste den främre också vara glitter – slätt material fäster inte på glitter.'
         : 'Vid dubbeltext (ovanpå) fäster inte slätt material på glitter. Håll raderna slätt-på-slätt eller glitter-på-glitter.')
-      : (shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter
+      : (state.fullGlitter && glitterAvailable()
+        ? 'Hela bandet är i glittermaterial, så texten måste också väljas i en glittrig färg.'
+        : shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter
         ? 'Texten ligger ovanpå en glittrig skugga och måste därför också vara i glitter.'
         : 'Materialets vanliga färgval gäller.');
   } else {

@@ -40,6 +40,11 @@ export const doubleText = s => s.content?.layout === 'overlay' && rows(s).length
 export const shadowEnabled = s => s.family === 'cotton' && s.shadow && !doubleText(s);
 export const shadowColorAllowed = c => !c.special;
 
+// Helglitter = hela bandet i glittermaterial → texten (och symboler) måste också
+// vara glitter, precis som den främre overlay-texten måste följa en glittrig bakre.
+export const glitterAvailable = s => s.family === 'biothane' || !!COTTON_MODELS.find(m => m.id === s.cottonModel)?.glitterPrices;
+const fullGlitterOn = s => !!s.fullGlitter && glitterAvailable(s);
+
 // c = färgobjekt, el = { row, i } för elementet (row-index avgör overlay-regeln)
 export function textColorAllowed(s, c, el = { row: 0 }) {
   if (!c) return false;
@@ -47,6 +52,7 @@ export function textColorAllowed(s, c, el = { row: 0 }) {
   if (doubleText(s) && c.special) return false;
   const nText = rows(s).reduce((n, r) => n + textEls(r).length, 0);
   if (s.family === 'biothane' && nText > 1 && c.id === 'dimmig') return false;
+  if (fullGlitterOn(s) && !c.glitter) return false;
   // overlay: främre raden (row 1) ligger ovanpå bakre (row 0) – glitter fäster
   // bara på glitter
   if (doubleText(s) && el.row > 0) {
@@ -59,6 +65,7 @@ export function textColorAllowed(s, c, el = { row: 0 }) {
 }
 export function symbolColorAllowed(s, c) {
   if (doubleText(s) && c.special) return false;
+  if (fullGlitterOn(s) && !c.glitter) return false;
   if (s.family === 'biothane') {
     if (c.special && c.id !== 'dimmig') return false;
     const first = color(textEls(rows(s)[0] || { els: [] })[0]?.color);
@@ -96,38 +103,48 @@ export function normalizeDesign(s) {
 export const symbolCount = s => rows(s).reduce((n, r) => n + rowSymbolCount(r), 0);
 export const characterCounts = s => rows(s).map(rowTextChars);
 
+// Teckengräns för en rad. Overlay-textens främre rad (den som ligger ovanpå)
+// får vara längre – minst 10 tecken – eftersom den ändå är mindre.
+const OVERLAY_FRONT_LIMIT = 10;
+export function rowLimit(s, rowIndex) {
+  const size = selectedSize(s);
+  if (!size || size.limit === null) return null;
+  if (doubleText(s) && rowIndex === 1) return Math.max(size.limit, OVERLAY_FRONT_LIMIT);
+  return size.limit;
+}
+
 // Hur många tecken till som får skrivas i ett givet textelement.
 export function textInputLimit(s, el = s.activeEl || { row: 0, i: 0 }) {
-  const size = selectedSize(s);
-  if (!size) return 24;
-  if (size.limit === null) return null;
+  if (!selectedSize(s)) return 24;
+  const limit = rowLimit(s, el.row);
+  if (limit === null) return null;
   const row = rows(s)[el.row];
-  if (!row) return size.limit;
+  if (!row) return limit;
   const target = row.els[el.i];
   const thisChars = target && target.t === 'text' ? strLen(target.text) : 0;
-  return Math.max(0, size.limit - (rowUsed(row) - thisChars));
+  return Math.max(0, limit - (rowUsed(row) - thisChars));
 }
 
 // Får man lägga till ett element (symbol eller text) i en rad?
 export function canAddToRow(s, rowIndex = (s.activeEl?.row ?? 0)) {
-  const size = selectedSize(s);
-  if (!size || size.limit === null) return true;
+  const limit = rowLimit(s, rowIndex);
+  if (limit === null) return true;
   const row = rows(s)[rowIndex];
   if (!row) return true;
-  return rowUsed(row) < size.limit;
+  return rowUsed(row) < limit;
 }
 
 export function validationErrors(s) {
   const errors = [], size = selectedSize(s);
-  if (size && size.limit !== null) {
-    rows(s).forEach((row, i) => {
-      const used = rowUsed(row);
-      if (used > size.limit) {
-        const label = rows(s).length > 1 ? `Rad ${i + 1}: ` : '';
-        errors.push(`${label}Vald storlek tillåter max ${size.limit} tecken inklusive symboler (${used} valda). Korta texten eller ta bort symboler.`);
-      }
-    });
-  }
+  rows(s).forEach((row, i) => {
+    const limit = rowLimit(s, i);
+    if (limit === null) return;
+    const used = rowUsed(row);
+    if (used > limit) {
+      const label = rows(s).length > 1 ? `Rad ${i + 1}: ` : '';
+      errors.push(`${label}Vald storlek tillåter max ${limit} tecken inklusive symboler (${used} valda). Korta texten eller ta bort symboler.`);
+    }
+  });
   if (size?.id === 'custom' && !s.extraInfo.trim()) errors.push('Skriv önskat storleksintervall i Övrig info för egen storlek.');
   rows(s).forEach((row, ri) => textEls(row).forEach(e => {
     if (!textColorAllowed(s, color(e.color), { row: ri })) errors.push('Otillåten färg på en text.');

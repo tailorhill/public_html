@@ -519,7 +519,7 @@ export class CollarViewer {
     const gapFor = size => size * 0.22;
 
     // grundstorlek per rad (staplat/overlay skalar ned)
-    const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.46)
+    const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.23)
       : nRows === 3 ? bandH * 0.29 : nRows === 2 ? bandH * 0.4 : bandH * 0.54;
     const rowSizes = rows.map((r, ri) => Math.min(rowBase(ri), bandH * 0.82));
 

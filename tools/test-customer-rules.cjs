@@ -66,13 +66,41 @@ const assert = require('node:assert/strict');
     for (const c of TEXT_COLORS.filter(c => c.special)) assert.equal(r.textColorAllowed(d, c, { row: 1 }), false);
     assert.equal(r.validationErrors(d).filter(e => e.includes('tecken')).length, 0);
   }
-  // overlay: gränsen gäller per rad (bindande = bredaste raden)
-  for (const [range, limit] of [['30-35', 7], ['45-55', 10]]) {
-    const layered = { ...base(), sizeRange: range, content: content([[T('A'.repeat(limit))], [T('B'.repeat(limit))]], 'overlay') };
-    assert.equal(r.validationErrors(layered).length, 0);       // båda på gränsen = ok
-    layered.content.rows[1].els[0].text = 'B'.repeat(limit + 1);
-    assert.ok(r.validationErrors(layered).some(e => e.includes('tecken')));
+  // overlay: gränsen gäller per rad; främre raden (ovanpå) får minst 10 tecken
+  for (const [range, back] of [['30-35', 7], ['45-55', 10]]) {
+    const layered = { ...base(), sizeRange: range, content: content([[T('A'.repeat(back))], [T('B'.repeat(back))]], 'overlay') };
+    assert.equal(r.rowLimit(layered, 0), back);                // bakre raden = storlekens gräns
+    assert.equal(r.rowLimit(layered, 1), Math.max(back, 10));  // främre raden = minst 10
+    assert.equal(r.validationErrors(layered).length, 0);       // båda på sina gränser = ok
+    layered.content.rows[0].els[0].text = 'A'.repeat(back + 1);
+    assert.ok(r.validationErrors(layered).some(e => e.includes('tecken')));  // bakre över gränsen
+    layered.content.rows[0].els[0].text = 'A'.repeat(back);
+    layered.content.rows[1].els[0].text = 'B'.repeat(10);
+    assert.equal(r.validationErrors(layered).length, 0);       // 10 på främre = ok även för 30-35
+    layered.content.rows[1].els[0].text = 'B'.repeat(11);
+    assert.ok(r.validationErrors(layered).some(e => e.includes('tecken')));  // 11 på främre = fel
   }
+  // textInputLimit tar hänsyn till främre radens 10-gräns
+  const front = { ...base(), sizeRange: '30-35', content: content([[T('AB')], [T('CD')]], 'overlay'), activeEl: { row: 1, i: 0 } };
+  assert.equal(r.textInputLimit(front), 10);                   // 10 - (2 - 2)
+
+  // ---- helglitter: texten (och symboler) måste vara glitter ----
+  // (glitter finns bara på fast/halvstryp/agility – ej stallbart/justerbart)
+  const glit = { ...base(), family: 'cotton', cottonModel: 'fast', cottonWidth: '4', fullGlitter: true,
+    content: content([[T('LUNA', 'vit'), S('tass')]]) };
+  assert.equal(r.glitterAvailable(glit), true);
+  assert.equal(r.textColorAllowed(glit, col('vit')), false);         // slätt ej tillåtet
+  assert.equal(r.textColorAllowed(glit, col('guldglitter')), true);  // glitter ok
+  assert.equal(r.symbolColorAllowed(glit, col('vit')), false);
+  assert.equal(r.symbolColorAllowed(glit, col('guldglitter')), true);
+  r.normalizeDesign(glit);                                           // fixar färgen till glitter
+  assert.equal(col(glit.content.rows[0].els[0].color).glitter, true);
+  glit.fullGlitter = false;                                          // utan helglitter är slätt ok igen
+  assert.equal(r.textColorAllowed(glit, col('vit')), true);
+  // helglitter på biothane gäller också
+  const glitBio = { ...base(), family: 'biothane', fullGlitter: true, content: content([[T('LUNA', 'vit')]]) };
+  assert.equal(r.textColorAllowed(glitBio, col('vit')), false);
+  assert.equal(r.textColorAllowed(glitBio, col('guldglitter')), true);
 
   // ---- textInputLimit (plats kvar i det markerade textfältet) ----
   const inp = { ...base(), activeEl: { row: 0, i: 0 } };       // rad: LUNA + tass

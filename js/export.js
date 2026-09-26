@@ -59,7 +59,7 @@ async function computeLayout(cfg) {
   await Promise.all([...new Set(textElsFlat.map(e => e.font.ttf))].map(async ttf => { fontCache[ttf] = await loadFont(ttf); }));
   const otFont = e => fontCache[e.font.ttf];
 
-  const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.46)
+  const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.23)
     : nRows === 3 ? bandH * 0.29 : nRows === 2 ? bandH * 0.4 : bandH * 0.54;
   const rowSizes = rows.map((r, ri) => Math.min(rowBase(ri), bandH * 0.82));
   const symSizeFor = size => size * 0.94;
