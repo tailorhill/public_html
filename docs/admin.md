@@ -74,18 +74,38 @@ publicera** så att foto-kopplingen (`foto`/`texCm`) sparas i `data.json`.
 > det kan du i stället ladda upp färdiga `<id>.webp`-filer manuellt till mapparna
 > ovan och kryssa i **Foto** för hand.
 
-## Gränser (kräver mer än ett formulär)
+## Symboler (egna former)
 
-- **Nya symbol-*former*** kräver SVG-path i `js/vd-symbols.js`. Admin redigerar
-  symbolernas namn/ordning/flaggfärger, inte själva formen.
-- **Nya typsnitt** kräver att `.ttf`-filen laddas upp till `fonts/` (för
-  skärfilerna) plus en webbfont för förhandsvisningen. Befintliga typsnitts
-  metadata går att ändra.
-- **Storleks-/teckenregler** (`js/design-rules.js`) är logik, inte katalog, och
-  redigeras i koden.
+Symbolens form är katalogdata: fältet **`path`** (SVG-path i en kvadratisk
+koordinatrymd) och **`viewBox`** (kvadratens storlek, standard 2048). Inbyggda
+symboler har sina former i `js/vd-symbols.js`; admin-tillagda symboler bär sin
+path i `data.json`.
+
+**Lägg till en symbol:** lägg en ny rad i **Symboler**, sätt id + namn, och
+klicka **Ladda upp SVG** i kolumnen *SVG-form*. SVG:n läses in i webbläsaren
+(ingen server) och path:en extraheras. Klicka sedan **Spara & publicera**.
+
+Krav på SVG:n: **enfärgad siluett**, **utplattad** (inga `transform`-attribut –
+platta ut i t.ex. Inkscape: *Bana → Objekt till bana*, ta bort grupper), och
+`path`/`rect`/`circle`/`ellipse`/`polygon` (basformer omvandlas automatiskt).
+`viewBox` bör börja i 0,0. Symbolen fylls med *evenodd*, så hål fungerar.
+
+## Typsnitt (egna)
+
+**Lägg till ett typsnitt:** lägg en ny rad i **Typsnitt**, sätt id + namn, och
+klicka **Ladda upp TTF** i kolumnen *Fontfil*. Filen (`.ttf`/`.otf`) skrivs till
+`fonts/<id>.ttf` och typsnittet självhostas: `css` sätts automatiskt till
+`"vd-<id>", …` och används i både förhandsvisning (@font-face) och skärfiler
+(opentype.js). Klicka **Spara & publicera**. Woff/woff2 stöds inte – exportera
+som TTF/OTF. Befintliga (Google-)typsnitts metadata går också att ändra.
+
+## Kvar i koden (ej i admin)
+
+- **Storleks-/teckenregler** (`js/design-rules.js`) är logik, inte katalog.
 
 ## Filer att ladda upp till one.com
 
 `data.json`, `admin.html`, `admin.php`, `admin-upload.php`, `admin-config.php`,
-`js/admin.js`, `js/data.js`, `js/foder-realism.js`. Mapparna `data-backups/`,
-`textures/`, `wtex/`, `foder-thumb/`, `band-thumb/` skapas/fylls automatiskt.
+`js/admin.js`, `js/data.js`, `js/foder-realism.js`, `js/symbols.js`, `js/app.js`.
+Mapparna `data-backups/`, `textures/`, `wtex/`, `foder-thumb/`, `band-thumb/`
+och `fonts/` skapas/fylls automatiskt.

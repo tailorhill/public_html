@@ -1085,6 +1085,19 @@ function isBioColorDisabled(c) {
   return false;
 }
 
+// Självhostade typsnitt (admin-uppladdade): ett typsnitt vars css-familj heter
+// vd-<id> laddas från sin ttf-fil via @font-face, så nya typsnitt fungerar utan
+// Google Fonts. Inbyggda typsnitt (Google-familjer) rörs inte.
+for (const f of FONTS) {
+  const m = /vd-[a-z0-9-]+/.exec(f.css || '');
+  if (m && f.ttf && window.FontFace) {
+    try {
+      const face = new FontFace(m[0], `url('fonts/${f.ttf}')`, { weight: String(f.weight || 400), style: f.italic ? 'italic' : 'normal' });
+      face.load().then(ff => document.fonts.add(ff)).catch(() => {});
+    } catch { /* ignorera trasigt typsnitt */ }
+  }
+}
+
 refresh();
 // rendera om när typsnitten laddats (debouncat – loadingdone kan avfyras
 // många gånger i följd och varje refresh bygger om GPU-texturer)

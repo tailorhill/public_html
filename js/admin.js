@@ -4,6 +4,7 @@
 // Ingen ombyggnad av verktyget – appen läser samma data.json.
 
 import { factoryCatalog } from './data.js';
+import { drawSymbol } from './symbols.js';
 
 const $ = s => document.querySelector(s);
 const el = (t, cls, txt) => { const e = document.createElement(t); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -26,6 +27,8 @@ const col = {
   widths: (f, label) => ({ label, type: 'widths', get: r => r[f] || [], set: (r, v) => { r[f] = v; } }),
   price: (mapField, width) => ({ label: width, type: 'num', get: r => r[mapField]?.[width] ?? '', set: (r, v) => { if (!r[mapField]) r[mapField] = {}; if (v === '' || v == null) delete r[mapField][width]; else r[mapField][width] = Number(v); if (r[mapField] && !Object.keys(r[mapField]).length) delete r[mapField]; } }),
   image: kind => ({ label: 'Bild', type: 'image', kind, get: r => r.id, set: () => {} }),
+  svg: () => ({ label: 'SVG-form', type: 'svg', get: r => r.path || '', set: () => {} }),
+  fontfile: () => ({ label: 'Fontfil', type: 'fontfile', get: r => r.ttf || '', set: () => {} }),
 };
 
 const THUMB_DIR = { lining: 'foder-thumb', webbing: 'band-thumb' };
@@ -50,11 +53,11 @@ const CATS = [
       { label: 'Tillägg bomull', type: 'num', get: r => r.surcharge?.cotton ?? '', set: (r, v) => setSur(r, 'cotton', v) },
       { label: 'Tillägg biothane', type: 'num', get: r => r.surcharge?.biothane ?? '', set: (r, v) => setSur(r, 'biothane', v) }],
     blank: () => ({ id: '', name: '', hex: '#b8bcc2', metalness: 0.9, roughness: 0.3 }) },
-  { key: 'fonts', label: 'Typsnitt', hint: 'css = förhandsvisningens webbfont, ttf = fontfil i fonts/ för skärfilerna. Nya typsnitt kräver att .ttf-filen laddas upp separat.',
-    cols: () => [col.id(), col.text('name', 'Namn'), col.text('css', 'CSS-font'), col.num('weight', 'Vikt'), col.bool('caps', 'Versaler'), col.bool('italic', 'Kursiv'), col.text('ttf', 'TTF-fil')],
-    blank: () => ({ id: '', name: '', css: '"Nunito Sans", sans-serif', weight: 700, ttf: '' }) },
-  { key: 'symbols', label: 'Symboler', hint: 'Symbolernas namn och ordning. Flaggfärger = kommaseparerade hex. Nya symbol-FORMER kräver SVG-path i vd-symbols.js.',
-    cols: () => [col.id(), col.text('name', 'Namn'), col.hexlist('flag', 'Flaggfärger')],
+  { key: 'fonts', label: 'Typsnitt', hint: 'Ladda upp en TTF/OTF i kolumnen Fontfil för ett nytt typsnitt – det självhostas då (css sätts till vd-<id>) och används både i förhandsvisning och skärfiler. css/ttf kan även redigeras för hand.',
+    cols: () => [col.id(), col.text('name', 'Namn'), col.text('css', 'CSS-font'), col.num('weight', 'Vikt'), col.bool('caps', 'Versaler'), col.bool('italic', 'Kursiv'), col.text('ttf', 'TTF-fil'), col.fontfile()],
+    blank: () => ({ id: '', name: '', css: '', weight: 700, ttf: '' }) },
+  { key: 'symbols', label: 'Symboler', hint: 'Namn, ordning och form. Ladda upp en SVG i kolumnen SVG-form för en ny symbol (enfärgad, utplattad – path/rect/circle, inga transformeringar). Flaggfärger = kommaseparerade hex.',
+    cols: () => [col.id(), col.text('name', 'Namn'), col.hexlist('flag', 'Flaggfärger'), col.svg()],
     blank: () => ({ id: '', name: '' }) },
   { key: 'cottonModels', label: 'Bomullsmodeller', hint: 'Modeller och pris per färdig bredd. Glitterpris lämnas tomt för modeller utan helglitter.',
     cols: () => [col.id(), col.text('name', 'Namn'), ...WIDTHS.map(w => ({ ...col.price('prices', w), label: `Pris ${w}` })), ...WIDTHS.map(w => ({ ...col.price('glitterPrices', w), label: `Glitter ${w}` }))],
@@ -147,6 +150,24 @@ function buildCell(c, row) {
       lab.appendChild(cb); lab.appendChild(document.createTextNode(width)); w.appendChild(lab);
     });
     return w;
+  }
+  if (c.type === 'svg') {
+    const w = el('div', 'cell-img');
+    const cv = document.createElement('canvas'); cv.width = cv.height = 38; cv.className = 'thumb';
+    drawSymbolPreview(cv, row);
+    const btn = el('button', 'adm-btn', row.path ? 'Byt SVG' : 'Ladda upp SVG'); btn.type = 'button';
+    btn.addEventListener('click', () => uploadSvg(row));
+    w.appendChild(cv); w.appendChild(btn); return w;
+  }
+  if (c.type === 'fontfile') {
+    const w = el('div', 'cell-img');
+    const prev = el('span', 'font-prev', 'Aa');
+    if (row.css) prev.style.fontFamily = row.css;
+    prev.style.fontWeight = row.weight || 400;
+    if (row.italic) prev.style.fontStyle = 'italic';
+    const btn = el('button', 'adm-btn', row.ttf ? 'Byt TTF' : 'Ladda upp TTF'); btn.type = 'button';
+    btn.addEventListener('click', () => uploadFont(row));
+    w.appendChild(prev); w.appendChild(btn); return w;
   }
   if (c.type === 'image') {
     const w = el('div', 'cell-img');
@@ -331,12 +352,103 @@ async function save() {
   finally { $('#btnSave').disabled = validate().length > 0; }
 }
 
-function pickFile() {
+function pickFile(accept = 'image/webp,image/png,image/jpeg') {
   return new Promise(resolve => {
-    const inp = el('input'); inp.type = 'file'; inp.accept = 'image/webp,image/png,image/jpeg';
+    const inp = el('input'); inp.type = 'file'; inp.accept = accept;
     inp.addEventListener('change', () => resolve(inp.files[0] || null), { once: true });
     inp.click();
   });
+}
+
+// ---- symbol-SVG → path ---------------------------------------------------
+function drawSymbolPreview(cv, row) {
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  if (row.path) {
+    // Nyss inläst path (kanske ännu inte känd av symbols.js) – rita direkt.
+    try {
+      const p = new Path2D(row.path), vb = row.viewBox || 2048, pad = 4, size = cv.width - pad * 2;
+      ctx.save(); ctx.translate(pad, pad); ctx.scale(size / vb, size / vb);
+      ctx.fillStyle = '#3a332b'; ctx.fill(p, 'evenodd'); ctx.restore();
+    } catch { /* ogiltig path */ }
+    return;
+  }
+  // Inbyggd symbol (form i vd-symbols.js) eller flagga – rita via drawSymbol.
+  try { drawSymbol(ctx, row.id, cv.width / 2, cv.height / 2, cv.width * 0.78, '#3a332b'); } catch { /* okänd */ }
+}
+
+const svgNum = (e, a, d = 0) => { const v = parseFloat(e.getAttribute(a)); return isFinite(v) ? v : d; };
+function rectPath(e) { const x = svgNum(e, 'x'), y = svgNum(e, 'y'), w = svgNum(e, 'width'), h = svgNum(e, 'height'); return (w && h) ? `M${x} ${y}h${w}v${h}h${-w}Z` : ''; }
+function circlePath(e) { const cx = svgNum(e, 'cx'), cy = svgNum(e, 'cy'), r = svgNum(e, 'r'); return r ? `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z` : ''; }
+function ellipsePath(e) { const cx = svgNum(e, 'cx'), cy = svgNum(e, 'cy'), rx = svgNum(e, 'rx'), ry = svgNum(e, 'ry'); return (rx && ry) ? `M${cx - rx} ${cy}a${rx} ${ry} 0 1 0 ${2 * rx} 0a${rx} ${ry} 0 1 0 ${-2 * rx} 0Z` : ''; }
+function polyPath(e, close) { const p = (e.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number); if (p.length < 4) return ''; let d = `M${p[0]} ${p[1]}`; for (let i = 2; i < p.length - 1; i += 2) d += `L${p[i]} ${p[i + 1]}`; return d + (close ? 'Z' : ''); }
+
+function parseSvgToSymbol(text) {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  if (doc.querySelector('parsererror')) throw new Error('Ogiltig SVG-fil.');
+  const svg = doc.querySelector('svg');
+  if (!svg) throw new Error('Ingen <svg> hittades i filen.');
+  if (svg.querySelector('[transform]')) throw new Error('SVG:n innehåller transform-attribut. Platta ut den först (i Inkscape: markera allt, Bana → Objekt till bana, och ta bort grupper/transformeringar).');
+  const ds = [];
+  svg.querySelectorAll('path').forEach(p => { const d = p.getAttribute('d'); if (d) ds.push(d); });
+  svg.querySelectorAll('rect').forEach(e => ds.push(rectPath(e)));
+  svg.querySelectorAll('circle').forEach(e => ds.push(circlePath(e)));
+  svg.querySelectorAll('ellipse').forEach(e => ds.push(ellipsePath(e)));
+  svg.querySelectorAll('polygon').forEach(e => ds.push(polyPath(e, true)));
+  svg.querySelectorAll('polyline').forEach(e => ds.push(polyPath(e, false)));
+  const d = ds.filter(Boolean).join(' ').trim();
+  if (!d) throw new Error('Hittade ingen ritbar form (path/rect/circle/…) i SVG:n.');
+  let vb = 2048;
+  const vbAttr = svg.getAttribute('viewBox');
+  if (vbAttr) {
+    const [x, y, w, h] = vbAttr.trim().split(/[\s,]+/).map(Number);
+    if (![x, y, w, h].every(isFinite)) throw new Error('Ogiltig viewBox i SVG:n.');
+    if (x < 0 || y < 0) throw new Error('SVG:ns viewBox har negativt ursprung – flytta den till 0,0 först.');
+    vb = Math.ceil(Math.max(x + w, y + h));
+  } else {
+    const w = parseFloat(svg.getAttribute('width')) || 0, h = parseFloat(svg.getAttribute('height')) || 0;
+    if (w && h) vb = Math.ceil(Math.max(w, h));
+  }
+  return { path: d, viewBox: vb };
+}
+
+async function uploadSvg(row) {
+  if (!row.id || !/^[a-z0-9-]+$/.test(row.id)) { toast('Sätt ett giltigt id (a–z, 0–9, bindestreck) först.', 'err'); return; }
+  const file = await pickFile('image/svg+xml,.svg');
+  if (!file) return;
+  let text; try { text = await file.text(); } catch (e) { toast('Kunde inte läsa filen.', 'err'); return; }
+  try {
+    const { path, viewBox } = parseSvgToSymbol(text);
+    row.path = path;
+    if (viewBox && viewBox !== 2048) row.viewBox = viewBox; else delete row.viewBox;
+    touch(); toast('SVG inläst. Spara för att publicera symbolen.'); renderMain();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function uploadFont(row) {
+  if (!row.id || !/^[a-z0-9-]+$/.test(row.id)) { toast('Sätt ett giltigt id (a–z, 0–9, bindestreck) först.', 'err'); return; }
+  const file = await pickFile('.ttf,.otf,font/ttf,font/otf,application/octet-stream');
+  if (!file) return;
+  let pw = sessionStorage.getItem('vd_admin_pw');
+  if (!pw) { pw = prompt('Admin-lösenord:'); if (!pw) return; }
+  const fd = new FormData();
+  fd.append('password', pw); fd.append('kind', 'font'); fd.append('id', row.id); fd.append('image', file);
+  toast('Laddar upp typsnitt…');
+  try {
+    const res = await fetch('admin-upload.php', { method: 'POST', body: fd });
+    const j = await res.json().catch(() => ({}));
+    if (res.ok && j.ok) {
+      sessionStorage.setItem('vd_admin_pw', pw);
+      row.ttf = j.ttf; row.css = `"vd-${row.id}", sans-serif`;
+      try {
+        const face = new FontFace(`vd-${row.id}`, `url('fonts/${j.ttf}?t=${Date.now()}')`, { weight: String(row.weight || 400), style: row.italic ? 'italic' : 'normal' });
+        face.load().then(ff => { document.fonts.add(ff); renderMain(); }).catch(() => {});
+      } catch { /* preview ändå */ }
+      touch(); toast('Typsnitt uppladdat. Spara för att publicera.'); renderMain();
+    } else {
+      if (res.status === 401) sessionStorage.removeItem('vd_admin_pw');
+      toast(j.error || `Fel (${res.status})`, 'err');
+    }
+  } catch (e) { toast('Kunde inte ladda upp: ' + e.message, 'err'); }
 }
 
 async function uploadImage(kind, row, onDone) {

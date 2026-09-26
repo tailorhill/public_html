@@ -3,12 +3,19 @@
 //   leverantörens symbolark) – exakt samma former som sys på halsbanden.
 // - Flaggorna ritas exakt enligt sina geometrier, i riktiga färger.
 import { VD_SYMBOL_PATHS } from './vd-symbols.js';
+import { SYMBOLS } from './data.js';
 
 // Registret över path-siluetter (Valley Dogs ark har viewBox 2048).
 const SVG_SYMBOLS = {};
-for (const [id, d] of Object.entries(VD_SYMBOL_PATHS)) {
-  SVG_SYMBOLS[id] = { path: new Path2D(d), viewBox: 2048, bounds: null };
+function register(id, d, viewBox = 2048) {
+  if (!d) return;
+  try { SVG_SYMBOLS[id] = { path: new Path2D(d), viewBox: viewBox || 2048, bounds: null, d }; }
+  catch { /* ogiltig path – hoppa över */ }
 }
+for (const [id, d] of Object.entries(VD_SYMBOL_PATHS)) register(id, d, 2048);
+// Katalog-symboler (admin): egna SVG-paths lägger till nya eller ersätter en
+// inbyggd. `viewBox` = kvadratstorleken på symbolens koordinatrymd.
+for (const s of SYMBOLS) if (s.path) register(s.id, s.path, s.viewBox);
 
 function getBounds(entry) {
   if (entry.bounds) return entry.bounds;
@@ -93,7 +100,7 @@ export function symbolExportData(id) {
   if (FLAGS[id]) return { flag: FLAGS[id] };
   const entry = SVG_SYMBOLS[id];
   if (!entry) return null;
-  return { d: VD_SYMBOL_PATHS[id], bounds: getBounds(entry), viewBox: entry.viewBox };
+  return { d: entry.d, bounds: getBounds(entry), viewBox: entry.viewBox };
 }
 
 // Symbolens naturliga bredd i förhållande till höjden (för layout).
