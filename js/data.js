@@ -378,7 +378,24 @@ export function applyCatalog(j) {
   return true;
 }
 
-try {
-  const res = await fetch('/data.json', { cache: 'no-cache' });
-  if (res.ok) applyCatalog(await res.json());
-} catch { /* behåll inbyggda standardvärden */ }
+// Fabriksvärden fångas INNAN en ev. data.json läggs på, så admin alltid kan
+// återställa till koden ("standard"), inte till den senast sparade katalogen.
+const FACTORY_CATALOG = defaultCatalog();
+export function factoryCatalog() { return JSON.parse(JSON.stringify(FACTORY_CATALOG)); }
+
+async function loadCatalog() {
+  // Förhandsgranskning från admin: öppnas verktyget med ?preview i URL:en
+  // används katalogen som admin lagt i localStorage i stället för data.json.
+  // Påverkar aldrig vanliga kundbesök (inget ?preview → hoppas över).
+  try {
+    if (new URLSearchParams(location.search).has('preview')) {
+      const p = localStorage.getItem('vd_preview_catalog');
+      if (p) { applyCatalog(JSON.parse(p)); return; }
+    }
+  } catch { /* fortsätt med data.json */ }
+  try {
+    const res = await fetch('/data.json', { cache: 'no-cache' });
+    if (res.ok) applyCatalog(await res.json());
+  } catch { /* behåll inbyggda standardvärden */ }
+}
+await loadCatalog();

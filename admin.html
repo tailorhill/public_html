@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Katalog-admin · Valley Dogs</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display: block; background: var(--bg); }
+    .adm-top {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
+    }
+    .adm-top h1 { font-size: 16px; margin: 0; }
+    .adm-top .spacer { flex: 1; }
+    .adm-dirty { font-size: 12.5px; color: var(--muted); }
+    .adm-dirty.on { color: var(--accent); font-weight: 700; }
+    .adm-btn {
+      border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+      font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px;
+      border-radius: 10px; cursor: pointer;
+    }
+    .adm-btn:hover { border-color: var(--accent); }
+    .adm-btn.primary { background: var(--ok); color: #fff; border-color: var(--ok); }
+    .adm-btn.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .adm-btn.ghost { background: transparent; }
+    .adm-wrap { display: flex; align-items: flex-start; gap: 0; }
+    .adm-nav {
+      position: sticky; top: 57px; align-self: flex-start;
+      width: 210px; min-width: 210px; padding: 14px 10px;
+      max-height: calc(100vh - 57px); overflow-y: auto;
+    }
+    .adm-nav button {
+      display: block; width: 100%; text-align: left;
+      border: none; background: transparent; font: inherit; font-size: 13.5px;
+      color: var(--ink); padding: 8px 12px; border-radius: 9px; cursor: pointer;
+    }
+    .adm-nav button:hover { background: rgba(122,92,62,0.08); }
+    .adm-nav button.sel { background: var(--ink); color: #fff; font-weight: 600; }
+    .adm-nav .cnt { float: right; color: var(--muted); font-size: 12px; }
+    .adm-nav button.sel .cnt { color: rgba(255,255,255,0.7); }
+    .adm-main { flex: 1; padding: 20px 24px; max-width: 1000px; }
+    .adm-main h2 { font-size: 18px; margin: 0 0 4px; }
+    .adm-main .hint { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .adm-errors {
+      background: #fdecec; border: 1px solid #f0b8b8; color: #8a1f1f;
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px;
+    }
+    .adm-errors ul { margin: 6px 0 0; padding-left: 18px; }
+    table.adm { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.adm th {
+      text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em;
+      color: var(--muted); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--line);
+    }
+    table.adm td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    table.adm input[type=text], table.adm input[type=number], table.adm select {
+      font: inherit; font-size: 13px; padding: 5px 7px; border: 1px solid var(--line);
+      border-radius: 7px; background: #fff; width: 100%; box-sizing: border-box;
+    }
+    table.adm input[type=text].id { font-family: ui-monospace, monospace; font-size: 12px; }
+    table.adm input:focus, table.adm select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+    .cell-color { display: flex; align-items: center; gap: 6px; }
+    .cell-color input[type=color] { width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; }
+    .cell-color input[type=text] { width: 90px; font-family: ui-monospace, monospace; font-size: 12px; }
+    .rowbtns { display: flex; gap: 3px; white-space: nowrap; }
+    .rowbtns button {
+      border: 1px solid var(--line); background: #fff; border-radius: 6px;
+      width: 26px; height: 26px; cursor: pointer; font-size: 13px; line-height: 1; color: var(--muted);
+    }
+    .rowbtns button:hover { border-color: var(--accent); color: var(--ink); }
+    .rowbtns button.del:hover { border-color: #c0392b; color: #c0392b; }
+    .adm-add { margin-top: 12px; }
+    .subcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 12px 0; background: var(--panel); }
+    .subcard h3 { margin: 0 0 10px; font-size: 14px; }
+    .kv { display: grid; grid-template-columns: 180px 1fr; gap: 8px 14px; align-items: center; max-width: 520px; }
+    .kv label { font-size: 13px; color: var(--ink); }
+    .kv input { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
+    .cb { display: inline-flex; align-items: center; gap: 5px; }
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 22px;
+      font-size: 13px; z-index: 50; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.err { background: #b0342a; }
+    @media (max-width: 720px) {
+      .adm-wrap { flex-direction: column; }
+      .adm-nav { position: static; width: auto; max-height: none; display: flex; flex-wrap: wrap; gap: 4px; }
+      .adm-nav button { width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="adm-top">
+    <h1>🎛️ Katalog-admin</h1>
+    <span id="dirty" class="adm-dirty">Laddar…</span>
+    <span class="spacer"></span>
+    <button class="adm-btn ghost" id="btnReset">Återställ standard</button>
+    <button class="adm-btn" id="btnDownload">Ladda ner JSON</button>
+    <button class="adm-btn" id="btnPreview">Förhandsgranska ↗</button>
+    <button class="adm-btn primary" id="btnSave">Spara &amp; publicera</button>
+  </div>
+  <div class="adm-wrap">
+    <nav class="adm-nav" id="nav"></nav>
+    <main class="adm-main" id="main"></main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

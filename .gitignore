@@ -1,2 +1,5 @@
 .DS_Store
 .claude/
+# Skapas server-side av admin.php (säkerhetskopior av data.json)
+data-backups/
+data.json.tmp
