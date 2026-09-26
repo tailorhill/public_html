@@ -106,6 +106,17 @@ export class CollarViewer {
     requestAnimationFrame(this._animate);
   }
 
+  // Zooma stegvis via knappar. factor < 1 = närmare, > 1 = längre bort;
+  // avståndet klamras mot OrbitControls min/max så det matchar scroll-zoomen.
+  zoom(factor) {
+    const t = this.controls.target;
+    const dir = this.camera.position.clone().sub(t);
+    const dist = Math.max(this.controls.minDistance,
+      Math.min(this.controls.maxDistance, dir.length() * factor));
+    this.camera.position.copy(t).add(dir.setLength(dist));
+    this.controls.update();
+  }
+
   // PNG-bild av aktuell vy (med bakgrundsfärg i stället för transparens)
   snapshot() {
     const prevBg = this.scene.background;

@@ -920,6 +920,8 @@ document.querySelectorAll('#viewBtns .view-btn').forEach(b => {
     viewer.setView(b.dataset.view);
   });
 });
+$('#zoomIn').addEventListener('click', () => viewer.zoom(0.82));
+$('#zoomOut').addEventListener('click', () => viewer.zoom(1.22));
 $('#extraInfo').addEventListener('input', e => { state.extraInfo = e.target.value; renderSummary(); });
 
 $('#copyBtn').addEventListener('click', async () => {
