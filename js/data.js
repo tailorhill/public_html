@@ -378,6 +378,32 @@ export function applyCatalog(j) {
   return true;
 }
 
+// -------------------------------------------------- foto-koppling (frö)
+// Vilka material som har ett riktigt tygfoto och (för foder) texturens fysiska
+// rutstorlek i cm. Detta är BARA fabriksfröet – det bakas in som fälten
+// `foto`/`texCm` på materialen nedan och kan sedan redigeras i admin. Bilderna
+// själva ligger i textures/<id>.webp (foder), wtex/<id>.webp (band) och
+// miniatyrer i foder-thumb/ resp band-thumb/.
+const LINING_PHOTO_CM = {
+  'bb-blommig': 8, 'bb-citron': 8, 'bb-gultaggig': 7, 'bb-korsbarsblom': 8, 'bb-randig': 8,
+  'bb-rose': 10, 'bb-solfjaderbla': 5, 'bb-taggigbla': 7, 'lader-babyrosa': 5, 'lader-brun': 5,
+  'lader-brunflammig': 5, 'lader-cerise': 5, 'lader-kramvit': 5, 'lader-lila': 5, 'lader-ljusrosa': 5,
+  'lader-oldred': 5, 'lader-svart': 5, 'lader-sverigebla': 5, 'lader-turkos': 5, 'lader-vit': 5,
+  'met-bla': 5, 'met-gron': 5, 'met-guld': 5, 'met-rosa': 5, 'met-silver': 5,
+  'ss-appelgron': 4, 'ss-aqua': 4, 'ss-brun': 4, 'ss-cerise': 4, 'ss-gra': 4, 'ss-gul': 4,
+  'ss-jeans': 4, 'ss-khaki': 4, 'ss-leopard': 7, 'ss-lila': 4, 'ss-ljuslavendel': 4, 'ss-ljusrosa': 4,
+  'ss-lov': 8, 'ss-marinbla': 4, 'ss-marinblablommor': 6, 'ss-neongron': 4, 'ss-neonorange': 4,
+  'ss-oliv': 4, 'ss-pastellgron': 4, 'ss-petrol': 4, 'ss-rod': 4, 'ss-rosaleopard': 7,
+  'ss-skogsgron': 4, 'ss-storablommor': 9, 'ss-svart': 4, 'ss-sverigebla': 4, 'ss-turkos': 4, 'ss-vinrod': 4,
+};
+const WEBBING_PHOTO_IDS = new Set(['aqua', 'brun', 'cerise', 'gra', 'grasgron', 'gron', 'gul', 'khaki',
+  'korall', 'lavendel', 'lila', 'ljusbla', 'ljusrosa', 'marinbla', 'neongron', 'offwhite', 'oliv',
+  'orange', 'rod', 'skogsgron', 'svart', 'sverigebla', 'turkos', 'vinrod', 'vit']);
+for (const g of LINING_GROUPS) for (const it of g.items) {
+  if (LINING_PHOTO_CM[it.id] != null && it.foto == null) { it.foto = true; it.texCm = LINING_PHOTO_CM[it.id]; }
+}
+for (const c of WEBBING_COLORS) if (WEBBING_PHOTO_IDS.has(c.id) && c.foto == null) c.foto = true;
+
 // Fabriksvärden fångas INNAN en ev. data.json läggs på, så admin alltid kan
 // återställa till koden ("standard"), inte till den senast sparade katalogen.
 const FACTORY_CATALOG = defaultCatalog();

@@ -5,68 +5,21 @@
 import * as THREE from 'three';
 import { CollarViewer } from './collar3d.js';
 import { loadHardwareAssets, hardwareAsset } from './hardware-assets.js';
+import { allLinings, WEBBING_COLORS } from './data.js';
 
 export const TILE_CM = 4;
 
-// Riktiga tygfoton från Valley Dogs (sömlöst beskurna). cm = fysisk bredd på en ruta.
-export const PHOTO_LININGS = {
-  'bb-blommig': { src: 'textures/bb-blommig.png', cm: 8 },
-  'bb-citron': { src: 'textures/bb-citron.png', cm: 8 },
-  'bb-gultaggig': { src: 'textures/bb-gultaggig.png', cm: 7 },
-  'bb-korsbarsblom': { src: 'textures/bb-korsbarsblom.png', cm: 8 },
-  'bb-randig': { src: 'textures/bb-randig.png', cm: 8 },
-  'bb-rose': { src: 'textures/bb-rose.png', cm: 10 },
-  'bb-solfjaderbla': { src: 'textures/bb-solfjaderbla.png', cm: 5 },
-  'bb-taggigbla': { src: 'textures/bb-taggigbla.png', cm: 7 },
-  'lader-babyrosa': { src: 'textures/lader-babyrosa.png', cm: 5 },
-  'lader-brun': { src: 'textures/lader-brun.png', cm: 5 },
-  'lader-brunflammig': { src: 'textures/lader-brunflammig.png', cm: 5 },
-  'lader-cerise': { src: 'textures/lader-cerise.png', cm: 5 },
-  'lader-kramvit': { src: 'textures/lader-kramvit.png', cm: 5 },
-  'lader-lila': { src: 'textures/lader-lila.png', cm: 5 },
-  'lader-ljusrosa': { src: 'textures/lader-ljusrosa.png', cm: 5 },
-  'lader-oldred': { src: 'textures/lader-oldred.png', cm: 5 },
-  'lader-svart': { src: 'textures/lader-svart.png', cm: 5 },
-  'lader-sverigebla': { src: 'textures/lader-sverigebla.png', cm: 5 },
-  'lader-turkos': { src: 'textures/lader-turkos.png', cm: 5 },
-  'lader-vit': { src: 'textures/lader-vit.png', cm: 5 },
-  'met-bla': { src: 'textures/met-bla.png', cm: 5 },
-  'met-gron': { src: 'textures/met-gron.png', cm: 5 },
-  'met-guld': { src: 'textures/met-guld.png', cm: 5 },
-  'met-rosa': { src: 'textures/met-rosa.png', cm: 5 },
-  'met-silver': { src: 'textures/met-silver.png', cm: 5 },
-  'ss-appelgron': { src: 'textures/ss-appelgron.png', cm: 4 },
-  'ss-aqua': { src: 'textures/ss-aqua.png', cm: 4 },
-  'ss-brun': { src: 'textures/ss-brun.png', cm: 4 },
-  'ss-cerise': { src: 'textures/ss-cerise.png', cm: 4 },
-  'ss-gra': { src: 'textures/ss-gra.png', cm: 4 },
-  'ss-gul': { src: 'textures/ss-gul.png', cm: 4 },
-  'ss-jeans': { src: 'textures/ss-jeans.png', cm: 4 },
-  'ss-khaki': { src: 'textures/ss-khaki.png', cm: 4 },
-  'ss-leopard': { src: 'textures/ss-leopard.png', cm: 7 },
-  'ss-lila': { src: 'textures/ss-lila.png', cm: 4 },
-  'ss-ljuslavendel': { src: 'textures/ss-ljuslavendel.png', cm: 4 },
-  'ss-ljusrosa': { src: 'textures/ss-ljusrosa.png', cm: 4 },
-  'ss-lov': { src: 'textures/ss-lov.png', cm: 8 },
-  'ss-marinbla': { src: 'textures/ss-marinbla.png', cm: 4 },
-  'ss-marinblablommor': { src: 'textures/ss-marinblablommor.png', cm: 6 },
-  'ss-neongron': { src: 'textures/ss-neongron.png', cm: 4 },
-  'ss-neonorange': { src: 'textures/ss-neonorange.png', cm: 4 },
-  'ss-oliv': { src: 'textures/ss-oliv.png', cm: 4 },
-  'ss-pastellgron': { src: 'textures/ss-pastellgron.png', cm: 4 },
-  'ss-petrol': { src: 'textures/ss-petrol.png', cm: 4 },
-  'ss-rod': { src: 'textures/ss-rod.png', cm: 4 },
-  'ss-rosaleopard': { src: 'textures/ss-rosaleopard.png', cm: 7 },
-  'ss-skogsgron': { src: 'textures/ss-skogsgron.png', cm: 4 },
-  'ss-storablommor': { src: 'textures/ss-storablommor.png', cm: 9 },
-  'ss-svart': { src: 'textures/ss-svart.png', cm: 4 },
-  'ss-sverigebla': { src: 'textures/ss-sverigebla.png', cm: 4 },
-  'ss-turkos': { src: 'textures/ss-turkos.png', cm: 4 },
-  'ss-vinrod': { src: 'textures/ss-vinrod.png', cm: 4 },
-};
+// Foto-kopplingen härleds ur katalogen (data.js/data.json): foder- och band-
+// material med `foto: true`. För foder är `texCm` texturens fysiska rutstorlek.
+// Bilder: textures/<id>.webp (foder), wtex/<id>.webp (band). Lägg till/ta bort
+// foto genom att redigera materialet i admin – ingen kodändring behövs.
+export const PHOTO_LININGS = {};
+for (const l of allLinings()) {
+  if (l.foto) PHOTO_LININGS[l.id] = { src: `textures/${l.id}.webp`, cm: l.texCm || TILE_CM };
+}
 const photoImgs = {};
 // Bomullsbandsfoton (3 cm-band, sömlösa längs bandet; en ruta = 5 × bandbredden)
-export const WEBBING_PHOTOS = ['aqua','brun','cerise','gra','grasgron','gron','gul','khaki','korall','lavendel','lila','ljusbla','ljusrosa','marinbla','neongron','offwhite','oliv','orange','rod','skogsgron','svart','sverigebla','turkos','vinrod','vit'];
+export const WEBBING_PHOTOS = WEBBING_COLORS.filter(c => c.foto).map(c => c.id);
 export const webbingImgs = {};
 export const WEAVE_SCALE = 0.34; // maskstorlek relativt bandbredd
 

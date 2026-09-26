@@ -148,7 +148,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "marinbla",
@@ -159,7 +160,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "sverigebla",
@@ -170,7 +172,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "ljusbla",
@@ -180,7 +183,8 @@
         "2.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "turkos",
@@ -190,7 +194,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "aqua",
@@ -200,7 +205,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "oliv",
@@ -210,7 +216,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "skogsgron",
@@ -218,7 +225,8 @@
       "hex": "#17402c",
       "widths": [
         "4"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "grasgron",
@@ -226,7 +234,8 @@
       "hex": "#2f7d4a",
       "widths": [
         "3.5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "gron",
@@ -234,7 +243,8 @@
       "hex": "#22994d",
       "widths": [
         "2.5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "neongron",
@@ -244,7 +254,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "vinrod",
@@ -254,7 +265,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "rod",
@@ -265,7 +277,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "cerise",
@@ -276,7 +289,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "ljusrosa",
@@ -287,7 +301,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "lila",
@@ -298,7 +313,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "lavendel",
@@ -307,7 +323,8 @@
       "widths": [
         "2.5",
         "4"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "gul",
@@ -317,7 +334,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "orange",
@@ -328,7 +346,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "brun",
@@ -339,7 +358,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "khaki",
@@ -350,7 +370,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "gra",
@@ -359,7 +380,8 @@
       "widths": [
         "3.5",
         "4"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "vit",
@@ -369,7 +391,8 @@
         "3.5",
         "4",
         "5"
-      ]
+      ],
+      "foto": true
     },
     {
       "id": "offwhite",
@@ -377,7 +400,8 @@
       "hex": "#f0eee6",
       "widths": [
         "2.5"
-      ]
+      ],
+      "foto": true
     }
   ],
   "textLayouts": [
@@ -433,62 +457,86 @@
         {
           "id": "lader-svart",
           "name": "Svart",
-          "hex": "#232323"
+          "hex": "#232323",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-brun",
           "name": "Brun",
-          "hex": "#a9743f"
+          "hex": "#a9743f",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-sverigebla",
           "name": "Sverigeblå",
-          "hex": "#2456c4"
+          "hex": "#2456c4",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-cerise",
           "name": "Cerise",
-          "hex": "#d61d7d"
+          "hex": "#d61d7d",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-turkos",
           "name": "Turkos",
-          "hex": "#1e7d96"
+          "hex": "#1e7d96",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-lila",
           "name": "Lila",
-          "hex": "#4740a0"
+          "hex": "#4740a0",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-ljusrosa",
           "name": "Ljusrosa",
-          "hex": "#e3b7bd"
+          "hex": "#e3b7bd",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-vit",
           "name": "Vit",
-          "hex": "#ececec"
+          "hex": "#ececec",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-kramvit",
           "name": "Krämvit (limited)",
-          "hex": "#e8e2cf"
+          "hex": "#e8e2cf",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-oldred",
           "name": "Old red (limited)",
-          "hex": "#9e3a4a"
+          "hex": "#9e3a4a",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-brunflammig",
           "name": "Brun flammig (limited)",
-          "hex": "#4c3427"
+          "hex": "#4c3427",
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "lader-babyrosa",
           "name": "Babyrosa (limited)",
-          "hex": "#ee8fe4"
+          "hex": "#ee8fe4",
+          "foto": true,
+          "texCm": 5
         }
       ]
     },
@@ -500,31 +548,41 @@
           "id": "met-guld",
           "name": "Guldmetallic",
           "hex": "#c6a067",
-          "metallic": true
+          "metallic": true,
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "met-silver",
           "name": "Silvermetallic",
           "hex": "#a7a7ab",
-          "metallic": true
+          "metallic": true,
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "met-rosa",
           "name": "Rosametallic",
           "hex": "#e8c0bb",
-          "metallic": true
+          "metallic": true,
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "met-bla",
           "name": "Blåmetallic",
           "hex": "#40699e",
-          "metallic": true
+          "metallic": true,
+          "foto": true,
+          "texCm": 5
         },
         {
           "id": "met-gron",
           "name": "Grönmetallic",
           "hex": "#6d7d76",
-          "metallic": true
+          "metallic": true,
+          "foto": true,
+          "texCm": 5
         }
       ]
     },
@@ -537,56 +595,72 @@
           "name": "Körsbärsblom",
           "hex": "#c3d24a",
           "hex2": "#e585b6",
-          "pattern": "floral"
+          "pattern": "floral",
+          "foto": true,
+          "texCm": 8
         },
         {
           "id": "bb-citron",
           "name": "Citron",
           "hex": "#9adcdc",
           "hex2": "#f2e33c",
-          "pattern": "dots"
+          "pattern": "dots",
+          "foto": true,
+          "texCm": 8
         },
         {
           "id": "bb-randig",
           "name": "Randig",
           "hex": "#e0762c",
           "hex2": "#37b3ac",
-          "pattern": "stripes"
+          "pattern": "stripes",
+          "foto": true,
+          "texCm": 8
         },
         {
           "id": "bb-blommig",
           "name": "Blommig",
           "hex": "#ded7cc",
           "hex2": "#7c2437",
-          "pattern": "floral"
+          "pattern": "floral",
+          "foto": true,
+          "texCm": 8
         },
         {
           "id": "bb-rose",
           "name": "Rosé",
           "hex": "#f4c3d4",
           "hex2": "#c76a8e",
-          "pattern": "floral"
+          "pattern": "floral",
+          "foto": true,
+          "texCm": 10
         },
         {
           "id": "bb-taggigbla",
           "name": "Taggig blå",
           "hex": "#bfe3ea",
           "hex2": "#2a7f9e",
-          "pattern": "zigzag"
+          "pattern": "zigzag",
+          "foto": true,
+          "texCm": 7
         },
         {
           "id": "bb-gultaggig",
           "name": "Gul taggig",
           "hex": "#f6ecc2",
           "hex2": "#eebe3a",
-          "pattern": "zigzag"
+          "pattern": "zigzag",
+          "foto": true,
+          "texCm": 7
         },
         {
           "id": "bb-solfjaderbla",
           "name": "Solfjäder blå",
           "hex": "#e9f2ee",
           "hex2": "#2b9391",
-          "pattern": "fans"
+          "pattern": "fans",
+          "foto": true,
+          "texCm": 5
         }
       ]
     },
@@ -597,152 +671,208 @@
         {
           "id": "ss-svart",
           "name": "Svart",
-          "hex": "#1d1d1f"
+          "hex": "#1d1d1f",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-marinbla",
           "name": "Marinblå",
-          "hex": "#1c2440"
+          "hex": "#1c2440",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-sverigebla",
           "name": "Sverigeblå",
-          "hex": "#3327b8"
+          "hex": "#3327b8",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-petrol",
           "name": "Petrol",
-          "hex": "#155a63"
+          "hex": "#155a63",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-jeans",
           "name": "Jeans",
-          "hex": "#47799e"
+          "hex": "#47799e",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-turkos",
           "name": "Turkos",
-          "hex": "#12a5dc"
+          "hex": "#12a5dc",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-aqua",
           "name": "Aqua",
-          "hex": "#9ed3c8"
+          "hex": "#9ed3c8",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-pastellgron",
           "name": "Pastellgrön",
-          "hex": "#a9b3a4"
+          "hex": "#a9b3a4",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-appelgron",
           "name": "Äppelgrön",
-          "hex": "#8bc353"
+          "hex": "#8bc353",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-skogsgron",
           "name": "Skogsgrön",
-          "hex": "#2d3a24"
+          "hex": "#2d3a24",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-vinrod",
           "name": "Vinröd",
-          "hex": "#84353f"
+          "hex": "#84353f",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-rod",
           "name": "Röd",
-          "hex": "#d41a2a"
+          "hex": "#d41a2a",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-cerise",
           "name": "Cerise",
-          "hex": "#e82c94"
+          "hex": "#e82c94",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-ljusrosa",
           "name": "Ljusrosa",
-          "hex": "#f2ccd7"
+          "hex": "#f2ccd7",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-ljuslavendel",
           "name": "Ljus lavendel",
-          "hex": "#d9c8ce"
+          "hex": "#d9c8ce",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-gul",
           "name": "Gul",
-          "hex": "#f2cf33"
+          "hex": "#f2cf33",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-neonorange",
           "name": "Neonorange",
-          "hex": "#fc5a12"
+          "hex": "#fc5a12",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-lila",
           "name": "Lila",
-          "hex": "#83497e"
+          "hex": "#83497e",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-oliv",
           "name": "Oliv",
-          "hex": "#57503a"
+          "hex": "#57503a",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-neongron",
           "name": "Neongrön",
-          "hex": "#41c451"
+          "hex": "#41c451",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-gra",
           "name": "Grå",
-          "hex": "#9d9d9d"
+          "hex": "#9d9d9d",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-khaki",
           "name": "Khaki",
-          "hex": "#c3ac84"
+          "hex": "#c3ac84",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-brun",
           "name": "Brun",
-          "hex": "#5b4436"
+          "hex": "#5b4436",
+          "foto": true,
+          "texCm": 4
         },
         {
           "id": "ss-marinblablommor",
           "name": "Marinblå blommor",
           "hex": "#232c42",
           "hex2": "#e9a1b4",
-          "pattern": "floral"
+          "pattern": "floral",
+          "foto": true,
+          "texCm": 6
         },
         {
           "id": "ss-storablommor",
           "name": "Stora blommor",
           "hex": "#20191f",
           "hex2": "#a05f9e",
-          "pattern": "floral"
+          "pattern": "floral",
+          "foto": true,
+          "texCm": 9
         },
         {
           "id": "ss-rosaleopard",
           "name": "Rosa leopard",
           "hex": "#ecd5d4",
           "hex2": "#231a1c",
-          "pattern": "leopard"
+          "pattern": "leopard",
+          "foto": true,
+          "texCm": 7
         },
         {
           "id": "ss-leopard",
           "name": "Leopard",
           "hex": "#c49a62",
           "hex2": "#241a12",
-          "pattern": "leopard"
+          "pattern": "leopard",
+          "foto": true,
+          "texCm": 7
         },
         {
           "id": "ss-lov",
           "name": "Löv",
           "hex": "#28415c",
           "hex2": "#e0653c",
-          "pattern": "floral"
+          "pattern": "floral",
+          "foto": true,
+          "texCm": 8
         }
       ]
     }
