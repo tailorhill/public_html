@@ -111,28 +111,53 @@
     </section>
 
     <section class="card">
-      <h2>6 · Text</h2>
+      <h2>6 · Text &amp; symboler</h2>
+      <p class="note">Bygg raden fritt: lägg till text och symboler i valfri ordning (t.ex. kvist – namn – kvist). Klicka på ett element för att ändra det.</p>
       <p class="note warn" id="designErrors" role="alert" hidden></p>
-      <div class="seg-row" id="textTabs"></div>
 
-      <div id="textPane">
-        <input type="text" id="textInputT" maxlength="24" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="T.ex. hundens namn">
-        <label>Typsnitt</label>
-        <div class="fontgrid" id="fontGridT"></div>
-        <p class="note" id="capsNoteT" style="display:none">Detta typsnitt finns endast med versaler.</p>
-        <p class="note" id="textLimitNote"></p>
-        <label>Textfärg</label>
-        <p class="note" id="textColorNote"></p>
-        <div class="swatches" id="colorSwT"></div>
+      <div id="rowList"></div>
+
+      <div class="row" id="addBar" style="gap:6px; flex-wrap:wrap; margin-top:8px">
+        <button type="button" class="btn ghost small" id="addTextBtn">+ Text</button>
+        <button type="button" class="btn ghost small" id="addSymbolBtn">+ Symbol</button>
+        <button type="button" class="btn ghost small" id="addRowBtn">+ Rad</button>
+      </div>
+      <p class="note" id="rowLimitNote"></p>
+
+      <div id="elEditor" style="display:none">
+        <div class="row" id="elBar" style="gap:6px; margin-top:6px">
+          <button type="button" class="btn ghost small" id="elMoveLeft" title="Flytta åt vänster">◀</button>
+          <button type="button" class="btn ghost small" id="elMoveRight" title="Flytta åt höger">▶</button>
+          <button type="button" class="btn ghost small" id="elRemove">Ta bort</button>
+        </div>
+
+        <div id="elTextControls">
+          <input type="text" id="elTextInput" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="T.ex. hundens namn">
+          <label>Typsnitt</label>
+          <div class="fontgrid" id="fontGridT"></div>
+          <p class="note" id="capsNoteT" style="display:none">Detta typsnitt finns endast med versaler.</p>
+          <p class="note" id="textLimitNote"></p>
+          <label>Textfärg</label>
+          <p class="note" id="textColorNote"></p>
+          <div class="swatches" id="colorSwT"></div>
+        </div>
+
+        <div id="elSymbolControls">
+          <label>Symbol</label>
+          <div class="symgrid" id="symbolGrid"></div>
+          <label>Färg på symbol</label>
+          <div id="symbolColorSelect"></div>
+          <p class="note" id="flagNote" style="display:none">Flaggor sys alltid i sina riktiga färger.</p>
+        </div>
+
         <p class="note" id="ruleChanges" role="status"></p>
-        <button type="button" class="btn ghost small" id="removeTextBtn" style="display:none">Ta bort denna text</button>
       </div>
 
       <div id="layoutBlock" style="display:none">
-        <label>Placering av texterna</label>
+        <label>Flera rader</label>
         <div class="seg-row" id="layoutSeg"></div>
         <div id="dubbelPosRow" style="display:none">
-          <label>Position på främre texten</label>
+          <label>Position på främre raden</label>
           <div class="seg-row" id="dubbelPosSeg"></div>
         </div>
       </div>
@@ -151,32 +176,18 @@
         </div>
       </div>
       <p class="note" id="noShadowNote" style="display:none">Skugga går inte att kombinera med dubbeltext.</p>
-    </section>
-
-    <section class="card">
-      <h2>7 · Symbol</h2>
-      <div class="symgrid" id="symbolGrid"></div>
-      <div id="symbolExtra">
-        <label>Placering</label>
-        <div class="seg-row" id="placementSeg"></div>
-        <div id="symbolColorRow">
-          <label>Färg på symbol</label>
-          <div id="symbolColorSelect"></div>
-        </div>
-        <p class="note" id="flagNote" style="display:none">Flaggor sys alltid i sina riktiga färger.</p>
-      </div>
       <p class="note">Egen symbol? Mejla den till <a href="mailto:info@valleydogs.se">info@valleydogs.se</a> och skriv det i övrig info.</p>
     </section>
 
     <section class="card">
-      <h2>8 · Beslag</h2>
+      <h2>7 · Beslag</h2>
       <div class="swatches metal" id="hwSwatches"></div>
       <p class="note" id="buckleNote"></p>
       <p class="note">Beslaget ingår i beställningen. 3D-vyn visar själva halsbandet.</p>
     </section>
 
     <section class="card">
-      <h2>9 · Övrig info</h2>
+      <h2>8 · Övrig info</h2>
       <textarea id="extraInfo" rows="3" placeholder="T.ex. dubbeltext: bakre texten i typsnitt … färg …, främre texten i typsnitt … färg …"></textarea>
     </section>
 

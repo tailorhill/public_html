@@ -1,8 +1,7 @@
 import {
   BIOTHANE_COLORS, WEBBING_COLORS, LINING_GROUPS, TEXT_COLORS, FONTS, SYMBOLS,
-  HARDWARE_FINISHES, SYMBOL_PLACEMENTS, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
-  LEATHER_SURCHARGE, PRODUCT_URLS, TEXT_LAYOUTS,
-  DUBBEL_POSITIONS, TEXT_SIZES, allLinings,
+  HARDWARE_FINISHES, COTTON_MODELS, COTTON_WIDTHS, BIOTHANE,
+  LEATHER_SURCHARGE, PRODUCT_URLS, DUBBEL_POSITIONS, allLinings,
 } from './data.js';
 import { RealisticCollarViewer, ensureTexturesFor } from './foder-realism.js';
 import { drawSymbol } from './symbols.js';
@@ -11,7 +10,8 @@ import * as cart from './cart.js';
 import {
   sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
   validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
-  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit, symbolChoiceAllowed,
+  symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit,
+  canAddToRow, doubleText, rows as contentRows, textEls, symEls, rowUsed,
 } from './design-rules.js';
 
 const $ = sel => document.querySelector(sel);
@@ -36,14 +36,13 @@ const state = {
   liningGroup: null,   // vald materialgrupp-flik (index); härleds ur lining
   fullGlitter: false,
   glitterColor: 'guldglitter',
-  texts: [
-    { text: 'LUNA', font: 'built', color: 'vit', size: 'stor' },
-  ],
-  activeText: 0,               // vilken textflik som visas
-  textLayout: 'rad',           // 'rad' | 'rader' | 'dubbel'
-  dubbelPos: 'mitten',         // 'topp' | 'mitten' | 'botten'
-  symbol: 'tass',
-  symbolPlacement: 'efter',
+  // Innehåll = rader av element (textbitar + symboler) i valfri ordning.
+  content: {
+    rows: [{ els: [{ t: 'text', text: 'LUNA', font: 'built', color: 'vit' }, { t: 'sym', id: 'tass' }] }],
+    layout: 'stack',           // 'stack' (staplade rader) | 'overlay' (dubbeltext)
+    overlayPos: 'mitten',      // 'topp' | 'mitten' | 'botten' (overlay)
+  },
+  activeEl: { row: 0, i: 0 },  // markerat element (rad-index + element-index)
   symbolColor: '',             // '' = samma som texten
   shadow: false,
   shadowColor: 'svart',
@@ -123,18 +122,26 @@ function glitterAvailable() {
   return !!byId(COTTON_MODELS, state.cottonModel).glitterPrices;
 }
 
-function textColorAllowed(c) { return allowedTextColor(state, c, state.activeText); }
+function textColorAllowed(c) { return allowedTextColor(state, c, { row: state.activeEl.row }); }
 
-const MAX_TEXTS = 3;
-const NEW_TEXT_DEFAULTS = [
-  null,
-  { text: 'Sparky', font: 'magnolia', color: 'guldglitter', size: 'stor' },
-  { text: '070-123 45 67', font: 'avenir', color: 'vit', size: 'stor' },
-];
+const MAX_ROWS = 3;
+const isDouble = () => doubleText(state);
 
-function isDouble() {
-  return state.texts.length === 2 && state.textLayout === 'dubbel';
+// -------- innehåll: rader av element (text/symbol) --------
+const rowsOf = () => state.content.rows;
+function clampActive() {
+  const rs = rowsOf();
+  if (!rs.length) { rs.push({ els: [] }); }
+  if (state.activeEl.row >= rs.length) state.activeEl.row = rs.length - 1;
+  if (state.activeEl.row < 0) state.activeEl.row = 0;
+  const r = rs[state.activeEl.row];
+  if (state.activeEl.i >= r.els.length) state.activeEl.i = r.els.length - 1;
+  if (state.activeEl.i < 0) state.activeEl.i = 0;
 }
+const activeRow = () => rowsOf()[state.activeEl.row] || rowsOf()[0];
+const activeElement = () => { clampActive(); return activeRow().els[state.activeEl.i] || null; };
+const firstAllowedTextColor = row => (TEXT_COLORS.find(c => allowedTextColor(state, c, { row })) || TEXT_COLORS[0]).id;
+const newTextEl = row => ({ t: 'text', text: '', font: 'avenir', color: firstAllowedTextColor(row) });
 
 // ------------------------------------------------ designlänk (#d=...)
 function designUrl(forSupplier) {
@@ -191,20 +198,21 @@ function applyDesign(d) {
   state.liningGroup = liningGroupIndex(state.lining);
   state.fullGlitter = d.fg === 1;
   state.glitterColor = valid(TEXT_COLORS, d.gc, state.glitterColor);
-  if (Array.isArray(d.tx) && d.tx.length) {
-    state.texts = d.tx.slice(0, MAX_TEXTS).map(([text, font, color]) => ({
-      text: String(text || ''),
-      font: valid(FONTS, font, 'built'),
-      color: valid(TEXT_COLORS, color, 'vit'),
-      size: 'stor',
-    }));
-    state.activeText = 0;
+  if (d.content && Array.isArray(d.content.rows)) {
+    const rows = d.content.rows.map(r => ({
+      els: (r.els || []).map(e => e.t === 'sym'
+        ? (byId(SYMBOLS, e.id) ? { t: 'sym', id: e.id } : null)
+        : { t: 'text', text: String(e.text || ''), font: valid(FONTS, e.font, 'avenir'), color: valid(TEXT_COLORS, e.color, 'svart') })
+        .filter(Boolean),
+    })).filter(r => r.els.length);
+    state.content = {
+      rows: rows.length ? rows.slice(0, MAX_ROWS) : [{ els: [{ t: 'text', text: '', font: 'avenir', color: 'svart' }] }],
+      layout: d.content.layout === 'overlay' ? 'overlay' : 'stack',
+      overlayPos: DUBBEL_POSITIONS.some(p => p.id === d.content.overlayPos) ? d.content.overlayPos : 'mitten',
+    };
+    state.activeEl = { row: 0, i: 0 };
   }
-  if (TEXT_LAYOUTS.some(l => l.id === d.tl)) state.textLayout = d.tl;
-  if (DUBBEL_POSITIONS.some(p => p.id === d.dp)) state.dubbelPos = d.dp;
-  state.symbol = valid(SYMBOLS, d.sy, state.symbol);
-  if (SYMBOL_PLACEMENTS.some(p => p.id === d.sp)) state.symbolPlacement = d.sp;
-  state.symbolColor = d.sc ? valid(TEXT_COLORS, d.sc, '') : '';
+  state.symbolColor = d.symbolColor ? valid(TEXT_COLORS, d.symbolColor, '') : '';
   state.shadow = d.sh === 1;
   state.shadowColor = valid(TEXT_COLORS, d.shc, state.shadowColor);
   state.hardware = valid(HARDWARE_FINISHES, d.hw, state.hardware);
@@ -266,16 +274,15 @@ function rebuild3D() {
       lining: isCotton ? lin : null,
       fullGlitter: state.fullGlitter && glitterAvailable(),
       glitterColor: byId(TEXT_COLORS, state.glitterColor)?.hex,
-      texts: state.texts.map(t => ({
-        text: t.text,
-        font: byId(FONTS, t.font),
-        color: byId(TEXT_COLORS, t.color),
-        sizeK: byId(TEXT_SIZES, t.size).k,
-      })),
-      textLayout: state.textLayout,
-      dubbelPos: state.dubbelPos,
-      symbol: state.symbol,
-      symbolPlacement: state.symbolPlacement,
+      content: {
+        rows: state.content.rows.map(r => ({
+          els: r.els.map(e => e.t === 'sym'
+            ? { t: 'sym', id: e.id }
+            : { t: 'text', text: e.text, font: byId(FONTS, e.font), color: byId(TEXT_COLORS, e.color) }),
+        })),
+        layout: state.content.layout,
+        overlayPos: state.content.overlayPos,
+      },
       symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
       shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
       shadowSymbols: state.shadowSymbols,
@@ -380,6 +387,123 @@ function selectBox(container, list, getSel, onPick, nameFn = x => x.name) {
   return s;
 }
 
+// Chip-remsan (rader av element) – lätt att rendera om utan att röra textfältet.
+function renderContentChips() {
+  const size = selectedSize(state);
+  const rlist = $('#rowList');
+  rlist.innerHTML = '';
+  rowsOf().forEach((row, ri) => {
+    const strip = el('div', 'chip-strip');
+    row.els.forEach((e, i) => {
+      const isSel = state.activeEl.row === ri && state.activeEl.i === i;
+      const chip = el('button', 'el-chip ' + (e.t === 'sym' ? 'sym' : 'text') + (isSel ? ' sel' : ''));
+      chip.type = 'button';
+      if (e.t === 'sym') {
+        const cv = document.createElement('canvas'); cv.width = cv.height = 40;
+        const sy = byId(SYMBOLS, e.id);
+        drawSymbol(cv.getContext('2d'), e.id, 20, 20, sy && sy.flag ? 22 : 30, '#3a332b');
+        chip.appendChild(cv);
+        chip.title = sy ? sy.name : e.id;
+      } else {
+        chip.textContent = e.text.trim() || 'text…';
+      }
+      chip.addEventListener('click', () => { state.activeEl = { row: ri, i }; refresh(); });
+      strip.appendChild(chip);
+    });
+    if (size && size.limit !== null) {
+      const cc = el('span', 'chip-count' + (rowUsed(row) > size.limit ? ' over' : ''), `${rowUsed(row)}/${size.limit}`);
+      strip.appendChild(cc);
+    }
+    rlist.appendChild(strip);
+  });
+}
+
+// -------- innehållseditor: rader av element (text + symboler) --------
+function renderContentEditor() {
+  clampActive();
+  const size = selectedSize(state);
+  renderContentChips();
+
+  const canAdd = canAddToRow(state);
+  $('#addTextBtn').disabled = !canAdd;
+  $('#addSymbolBtn').disabled = !canAdd;
+  $('#addRowBtn').style.display = rowsOf().length < MAX_ROWS ? '' : 'none';
+  $('#rowLimitNote').textContent = (!canAdd && size && size.limit !== null)
+    ? `Raden är full (max ${size.limit} tecken inkl. symboler). Ta bort något för att lägga till mer.` : '';
+
+  const active = activeElement();
+  const ed = $('#elEditor');
+  if (!active) { ed.style.display = 'none'; return; }
+  ed.style.display = '';
+  const isText = active.t === 'text';
+  $('#elTextControls').style.display = isText ? '' : 'none';
+  $('#elSymbolControls').style.display = isText ? 'none' : '';
+  const row = activeRow();
+  $('#elMoveLeft').disabled = state.activeEl.i === 0;
+  $('#elMoveRight').disabled = state.activeEl.i >= row.els.length - 1;
+  $('#elRemove').disabled = rowsOf().length === 1 && row.els.length === 1;
+
+  if (isText) {
+    const inpT = $('#elTextInput');
+    const lim = textInputLimit(state);
+    if (lim === null) inpT.removeAttribute('maxlength'); else inpT.maxLength = lim;
+    if (inpT.value !== active.text) inpT.value = active.text;
+
+    const fg = $('#fontGridT');
+    fg.innerHTML = '';
+    for (const f of FONTS) {
+      const b = el('button', 'fontopt' + (active.font === f.id ? ' sel' : ''));
+      b.type = 'button';
+      const prev = el('span', 'font-preview', f.caps ? f.name.toUpperCase() : f.name);
+      prev.style.fontFamily = f.css; prev.style.fontWeight = f.weight;
+      if (f.italic) prev.style.fontStyle = 'italic';
+      b.appendChild(prev);
+      b.title = f.name + (f.caps ? ' (endast versaler)' : '');
+      b.addEventListener('click', () => { active.font = f.id; refresh(); });
+      fg.appendChild(b);
+    }
+    $('#capsNoteT').style.display = byId(FONTS, active.font).caps ? '' : 'none';
+    swatchGrid($('#colorSwT'), TEXT_COLORS, () => active.color,
+      id => { active.color = id; }, { isDisabled: c => !textColorAllowed(c) });
+    const first = byId(TEXT_COLORS, textEls(rowsOf()[0])[0]?.color || 'svart');
+    $('#textColorNote').textContent = doubleText(state)
+      ? (first.glitter
+        ? 'Främre raden ligger ovanpå den bakre. Eftersom bakre raden är glitter måste den främre också vara glitter – slätt material fäster inte på glitter.'
+        : 'Vid dubbeltext (ovanpå) fäster inte slätt material på glitter. Håll raderna slätt-på-slätt eller glitter-på-glitter.')
+      : (shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter
+        ? 'Texten ligger ovanpå en glittrig skugga och måste därför också vara i glitter.'
+        : 'Materialets vanliga färgval gäller.');
+  } else {
+    const symWrap = $('#symbolGrid');
+    symWrap.innerHTML = '';
+    for (const s of SYMBOLS) {
+      const b = el('button', 'symopt' + (active.id === s.id ? ' sel' : ''));
+      b.type = 'button'; b.title = s.name;
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+      drawSymbol(cv.getContext('2d'), s.id, 32, 32, s.flag ? 34 : 42, '#3a332b');
+      b.appendChild(cv);
+      b.addEventListener('click', () => { active.id = s.id; refresh(); });
+      symWrap.appendChild(b);
+    }
+    const symColorList = [{ id: '', name: 'Samma som texten', hex: '#888' },
+      ...TEXT_COLORS.filter(c => symbolColorAllowed(state, c))];
+    selectBox($('#symbolColorSelect'), symColorList, () => state.symbolColor, id => { state.symbolColor = id; });
+    const isFlag = !!byId(SYMBOLS, active.id).flag;
+    $('#flagNote').style.display = isFlag ? '' : 'none';
+  }
+
+  const many = rowsOf().length > 1;
+  $('#layoutBlock').style.display = many ? '' : 'none';
+  if (many) {
+    const layouts = [{ id: 'stack', name: 'Staplade rader' }]
+      .concat(rowsOf().length === 2 ? [{ id: 'overlay', name: 'Ovanpå (dubbeltext)' }] : []);
+    if (!layouts.some(l => l.id === state.content.layout)) state.content.layout = 'stack';
+    segmented($('#layoutSeg'), layouts, () => state.content.layout, id => { state.content.layout = id; });
+    $('#dubbelPosRow').style.display = doubleText(state) ? '' : 'none';
+    if (doubleText(state)) segmented($('#dubbelPosSeg'), DUBBEL_POSITIONS, () => state.content.overlayPos, id => { state.content.overlayPos = id; });
+  }
+}
+
 function refresh() {
   const changes = normalizeDesign(state);
   $('#ruleChanges').textContent = changes.join(' ');
@@ -463,129 +587,7 @@ function refresh() {
       () => state.glitterColor, id => { state.glitterColor = id; });
   }
 
-  // -------- texter: flikar + panel för aktiv text --------
-  if (state.activeText >= state.texts.length) state.activeText = state.texts.length - 1;
-  const tabs = $('#textTabs');
-  tabs.innerHTML = '';
-  state.texts.forEach((t, i) => {
-    const b = el('button', 'seg' + (state.activeText === i ? ' sel' : ''),
-      `Text ${i + 1}`);
-    b.type = 'button';
-    b.title = t.text.trim() ? `"${t.text.trim()}"` : '(tom)';
-    b.addEventListener('click', () => { state.activeText = i; refresh(); });
-    tabs.appendChild(b);
-  });
-  if (state.texts.length < MAX_TEXTS) {
-    const add = el('button', 'seg add', '+');
-    add.type = 'button';
-    add.title = 'Lägg till en text till';
-    add.addEventListener('click', () => {
-      state.texts.push({ ...NEW_TEXT_DEFAULTS[state.texts.length] });
-      state.activeText = state.texts.length - 1;
-      if (state.texts.length === 3 && state.textLayout === 'dubbel') state.textLayout = 'rad';
-      refresh();
-    });
-    tabs.appendChild(add);
-  }
-
-  const at = state.texts[state.activeText];
-  const inpT = $('#textInputT');
-  const inputLimit = textInputLimit(state);
-  if (inputLimit === null) inpT.removeAttribute('maxlength');
-  else inpT.maxLength = inputLimit;
-  if (inpT.value !== at.text) inpT.value = at.text;
-  inpT.placeholder = state.activeText === 0 ? 'T.ex. hundens namn' : 'T.ex. smeknamn eller telefonnummer';
-
-  const fontWrapT = $('#fontGridT');
-  fontWrapT.innerHTML = '';
-  for (const f of FONTS) {
-    const b = el('button', 'fontopt' + (at.font === f.id ? ' sel' : ''));
-    b.type = 'button';
-    const prev = el('span', 'font-preview', f.caps ? f.name.toUpperCase() : f.name);
-    prev.style.fontFamily = f.css;
-    prev.style.fontWeight = f.weight;
-    if (f.italic) prev.style.fontStyle = 'italic';
-    b.appendChild(prev);
-    b.title = f.name + (f.caps ? ' (endast versaler)' : '');
-    b.addEventListener('click', () => { at.font = f.id; refresh(); });
-    fontWrapT.appendChild(b);
-  }
-  $('#capsNoteT').style.display = byId(FONTS, at.font).caps ? '' : 'none';
-
-  swatchGrid($('#colorSwT'), TEXT_COLORS, () => at.color,
-    id => { at.color = id; },
-    { isDisabled: c => !textColorAllowed(c) });
-
-  const firstColor = byId(TEXT_COLORS, state.texts[0].color);
-  $('#textColorNote').textContent = isDouble()
-    ? (firstColor.glitter
-      ? 'Text 2 ligger ovanpå text 1. Eftersom text 1 är i glitter kan text 2 bara vara i glitter – slätt material fäster inte på glittrigt material.'
-      : state.family === 'biothane'
-        ? 'På BioThane görs dubbeltext med slätt på slätt eller glitter på glitter. Slätt material fäster inte ovanpå glitter.'
-        : 'Text 2 ligger ovanpå text 1. Med slät text 1 kan text 2 vara slät eller glittrig. Med glittrig text 1 måste även text 2 vara glittrig, eftersom slätt material inte fäster på glitter.')
-    : shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter
-      ? 'Texten ligger ovanpå en glittrig skugga och måste därför också vara i glitter. Slätt material fäster inte på glittrigt material.'
-      : 'Texterna överlappar inte, så du kan välja färg oberoende för varje text. Materialets vanliga färgval gäller.';
-
-  const rmBtn = $('#removeTextBtn');
-  rmBtn.style.display = state.activeText > 0 ? '' : 'none';
-  rmBtn.textContent = `Ta bort text ${state.activeText + 1}`;
-
-  // placering av texterna
-  const many = state.texts.length > 1;
-  $('#layoutBlock').style.display = many ? '' : 'none';
-  if (many) {
-    const layouts = TEXT_LAYOUTS.filter(l => l.id !== 'dubbel' || state.texts.length === 2);
-    if (!layouts.some(l => l.id === state.textLayout)) state.textLayout = 'rad';
-    segmented($('#layoutSeg'), layouts, () => state.textLayout,
-      id => { state.textLayout = id; });
-    $('#dubbelPosRow').style.display = isDouble() ? '' : 'none';
-    if (isDouble()) {
-      segmented($('#dubbelPosSeg'), DUBBEL_POSITIONS, () => state.dubbelPos,
-        id => { state.dubbelPos = id; });
-    }
-
-  }
-
-  // symboler: rutnät med renderade förhandsvisningar
-  const symWrap = $('#symbolGrid');
-  symWrap.innerHTML = '';
-  for (const s of SYMBOLS) {
-    const b = el('button', 'symopt' + (state.symbol === s.id ? ' sel' : ''));
-    b.type = 'button';
-    b.title = s.name;
-    b.disabled = !symbolChoiceAllowed(state, s.id);
-    if (b.disabled) b.title += ' – korta texten för att få plats med symbolen';
-    if (s.id === 'ingen') {
-      b.textContent = '∅';
-    } else if (s.id === 'egen') {
-      b.textContent = '?';
-    } else {
-      const c = document.createElement('canvas');
-      c.width = c.height = 64;
-      drawSymbol(c.getContext('2d'), s.id, 32, 32, s.flag ? 34 : 42, '#3a332b');
-      b.appendChild(c);
-    }
-    b.addEventListener('click', () => { state.symbol = s.id; refresh(); });
-    symWrap.appendChild(b);
-  }
-  const hasSym = state.symbol !== 'ingen';
-  $('#symbolExtra').style.display = hasSym ? '' : 'none';
-  if (hasSym) {
-    segmented($('#placementSeg'), SYMBOL_PLACEMENTS, () => state.symbolPlacement,
-      id => { state.symbolPlacement = id; });
-    $('#placementSeg').querySelectorAll('button').forEach((button, i) => {
-      button.disabled = !symbolChoiceAllowed(state, state.symbol, SYMBOL_PLACEMENTS[i].id);
-      if (button.disabled) button.title = 'Korta texten för att få plats med två symboler';
-    });
-    const symColorList = [{ id: '', name: 'Samma som texten', hex: '#888' },
-      ...TEXT_COLORS.filter(c => symbolColorAllowed(state, c))];
-    selectBox($('#symbolColorSelect'), symColorList, () => state.symbolColor,
-      id => { state.symbolColor = id; });
-    const isFlag = !!byId(SYMBOLS, state.symbol).flag;
-    $('#flagNote').style.display = isFlag ? '' : 'none';
-    $('#symbolColorRow').style.display = isFlag ? 'none' : '';
-  }
+  renderContentEditor();
 
   // Skugga finns bara på bomull och kan inte kombineras med dubbeltext.
   const shadowAvailable = state.family === 'cotton' && !isDouble();
@@ -618,22 +620,23 @@ function refresh() {
 
 function renderValidation() {
   const errors = validationErrors(state), size = selectedSize(state);
-  const reservedSymbols = state.symbol === 'ingen' ? 0 : state.symbolPlacement === 'bada' ? 2 : 1;
-  const layoutLimit = isDouble() ? 'per textlager' : state.textLayout === 'rader' ? 'per textrad' : 'sammanlagt';
+  const perRow = rowsOf().length > 1 ? ' per rad' : '';
   $('#sizeTextNote').textContent = size?.id === 'custom'
     ? 'Egen storlek har ingen teckengräns. Skriv önskat storleksintervall under Övrig info.'
     : size
-      ? `${size.name}: max ${size.limit} tecken ${layoutLimit}, inklusive symboler. Varje symbol räknas som ett tecken. Med ${reservedSymbols} vald${reservedSymbols === 1 ? '' : 'a'} symbol${reservedSymbols === 1 ? '' : 'er'} finns plats för ${Math.max(0, size.limit - reservedSymbols)} texttecken ${layoutLimit}. Mellanslag räknas också.`
-      : 'För denna modell finns ingen storleksberoende teckengräns. Textfältet tillåter upp till 24 tecken per text. Text och symboler anpassas till bandet i förhandsvisningen.';
+      ? `${size.name}: max ${size.limit} tecken${perRow}, inklusive symboler. Varje symbol räknas som ett tecken. Mellanslag räknas också.`
+      : 'För denna modell finns ingen storleksberoende teckengräns. Text och symboler anpassas till bandet i förhandsvisningen.';
   $('#designErrors').textContent = errors.join(' ');
   $('#designErrors').hidden = !errors.length;
+  const lim = textInputLimit(state);
   $('#textLimitNote').textContent = size?.id === 'custom'
     ? 'Egen storlek har ingen teckengräns. Ange önskat storleksintervall under Övrig info.'
     : size
-    ? `Max ${size.limit} tecken inklusive symboler. Text: ${characterCounts(state).join(' / ')}. Symboler: ${symbolCount(state)}. Du kan skriva högst ${textInputLimit(state)} tecken i detta textfält. Gäller även dubbeltext. Mellanslag räknas.`
+    ? `Max ${size.limit} tecken inklusive symboler${perRow}. Rader (tecken+symboler): ${rowsOf().map(rowUsed).join(' / ')}. Du kan skriva högst ${lim} tecken till i detta fält.`
     : 'Texten görs alltid i stor storlek, anpassad till bandet.';
-  $('#textInputT').setAttribute('aria-invalid', String(errors.some(e => e.includes('tecken'))));
-  for (const id of ['cartBtn', 'copyBtn', 'mailBtn', 'svgBtn', 'dxfBtn']) $('#' + id).disabled = !!errors.length;
+  const inp = $('#elTextInput');
+  if (inp) inp.setAttribute('aria-invalid', String(errors.some(e => e.includes('tecken'))));
+  for (const id of ['cartBtn', 'copyBtn', 'mailBtn', 'svgBtn', 'dxfBtn']) { const b = $('#' + id); if (b) b.disabled = !!errors.length; }
 }
 
 function renderSummary() {
@@ -657,18 +660,25 @@ function renderSummary() {
   updateHash();
 }
 
+// -------- innehållsbeskrivning (för beställningstext/varukorg) --------
+const allTextEls = () => rowsOf().flatMap(r => textEls(r));
+const allSymEls = () => rowsOf().flatMap(r => symEls(r));
+const symName = id => (byId(SYMBOLS, id)?.name || id);
+const fontName = id => byId(FONTS, id).name;
+const colorName = id => byId(TEXT_COLORS, id).name;
+const contentPlainText = () => allTextEls().map(e => e.text.trim()).filter(Boolean).join(' ');
+// "[Kvist vänster] BELLA [Hjärta]" per rad, i ordning
+function contentSequence() {
+  return rowsOf().map(r => r.els
+    .map(e => e.t === 'sym' ? `[${symName(e.id)}]` : (e.text.trim() || '(tom)')).join(' '));
+}
+const symbolColorText = () => state.symbolColor ? colorName(state.symbolColor) : 'Samma som texten';
+
 function orderText() {
   const { total } = computePrice();
   const L = [];
   const lin = byId(linings, state.lining);
-  const sym = byId(SYMBOLS, state.symbol);
-  const place = byId(SYMBOL_PLACEMENTS, state.symbolPlacement);
   const hwf = byId(HARDWARE_FINISHES, state.hardware);
-  const sc = state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null;
-  const activeTexts = state.texts.filter(t => t.text.trim());
-  const t1 = state.texts[0], t2 = state.texts[1];
-  const fname = t => byId(FONTS, t.font).name;
-  const cname = t => byId(TEXT_COLORS, t.color).name;
 
   L.push('BESTÄLLNING – designad i 3D-verktyget');
   L.push('======================================');
@@ -690,36 +700,16 @@ function orderText() {
     L.push(`Färg på biothane: ${byId(BIOTHANE_COLORS, state.biothane).name}`);
   }
   if (state.fullGlitter) L.push(`Glitterfärg (helglitter): ${byId(TEXT_COLORS, state.glitterColor).name}`);
-  const sname = t => byId(TEXT_SIZES, t.size).name.toLowerCase();
-  if (!activeTexts.length) {
-    L.push('Text på halsbandet: (ingen text)');
-  } else if (activeTexts.length === 1) {
-    const t = activeTexts[0];
-    L.push(`Text på halsbandet: ${t.text.trim()}`);
-    L.push(`Typsnitt: ${fname(t)}`);
-    L.push(`Textstorlek: ${sname(t)}`);
-    L.push(`Textfärg: ${cname(t)}`);
-  } else if (isDouble()) {
-    L.push(`Text på halsbandet: Dubbeltext – "${t1.text.trim()}" med "${t2.text.trim()}" ovanpå`);
-    L.push(`Dubbeltext: bakre texten i typsnitt ${fname(t1)} i färgen ${cname(t1)} (${sname(t1)} storlek), ` +
-      `främre texten i typsnitt ${fname(t2)} i färgen ${cname(t2)} (${sname(t2)} storlek)`);
-    L.push(`Främre textens position: ${byId(DUBBEL_POSITIONS, state.dubbelPos).name}`);
-  } else {
-    const layoutName = state.textLayout === 'rader'
-      ? `${activeTexts.length === 3 ? 'tre' : 'två'} rader`
-      : 'efter varandra';
-    L.push(`Text på halsbandet: ${activeTexts.map(t => `"${t.text.trim()}"`).join(' och ')} (${layoutName})`);
-    activeTexts.forEach((t, i) => {
-      L.push(`Text ${i + 1}: "${t.text.trim()}" i typsnitt ${fname(t)}, ${sname(t)} storlek, färg ${cname(t)}`);
-    });
-  }
-  if (state.symbol !== 'ingen') {
-    L.push(`Symbol: ${sym.name}`);
-    L.push(`Symbolens placering: ${place.name}`);
-    if (!sym.flag) L.push(`Färg på symbol: ${sc ? sc.name : 'Samma som texten'}`);
-  } else {
-    L.push('Symbol: Ingen symbol');
-  }
+  const rws = rowsOf();
+  const layoutNote = rws.length > 1 ? (doubleText(state) ? ' (dubbeltext – rader ovanpå varandra)' : ' (staplade rader)') : '';
+  const seqs = contentSequence();
+  L.push(`Innehåll (i ordning)${layoutNote}:`);
+  rws.forEach((row, ri) => {
+    L.push(`  ${rws.length > 1 ? `Rad ${ri + 1}: ` : ''}${seqs[ri]}`);
+    textEls(row).forEach(e => { if (e.text.trim()) L.push(`     text "${e.text.trim()}" – typsnitt ${fontName(e.font)}, färg ${colorName(e.color)}`); });
+  });
+  if (doubleText(state)) L.push(`  Främre radens position: ${byId(DUBBEL_POSITIONS, state.content.overlayPos).name}`);
+  if (allSymEls().length) L.push(`  Färg på symboler: ${symbolColorText()} (flaggor sys i sina riktiga färger)`);
   if (shadowEnabled(state)) L.push(`Skugga bakom ${state.shadowSymbols ? 'text och symboler' : 'enbart text'}: ${byId(TEXT_COLORS, state.shadowColor).name}`);
   if (state.family === 'cotton') L.push('Klickspänne: Svart plast');
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
@@ -740,23 +730,14 @@ function orderText() {
 // används bara i leverantörsknapparna Kopiera/Mejla/Visa beställning.)
 function cartComment(supplierLink) {
   const L = [];
-  const activeTexts = state.texts.filter(t => t.text.trim());
-  const fname = t => byId(FONTS, t.font).name;
-  const cname = t => byId(TEXT_COLORS, t.color).name;
-  const sname = t => byId(TEXT_SIZES, t.size).name.toLowerCase();
-  if (isDouble()) {
-    const t1 = state.texts[0], t2 = state.texts[1];
-    L.push(`Dubbeltext: bakre "${t1.text.trim()}" i ${fname(t1)}/${cname(t1)} (${sname(t1)} storlek), ` +
-      `främre "${t2.text.trim()}" i ${fname(t2)}/${cname(t2)} (${sname(t2)} storlek), ` +
-      `främre position: ${byId(DUBBEL_POSITIONS, state.dubbelPos).name}`);
-  } else if (activeTexts.length > 1) {
-    const layoutName = state.textLayout === 'rader'
-      ? `${activeTexts.length === 3 ? 'tre' : 'två'} rader` : 'efter varandra';
-    L.push(`Flera texter (${layoutName}):`);
-    activeTexts.forEach((t, i) => L.push(`  ${i + 1}. "${t.text.trim()}" ${fname(t)}/${cname(t)} (${sname(t)} storlek)`));
-  } else if (activeTexts.length === 1) {
-    L.push(`Textstorlek: ${sname(activeTexts[0])}`);
-  }
+  const rws = rowsOf();
+  const seqs = contentSequence();
+  const layoutNote = rws.length > 1 ? (doubleText(state) ? ' – dubbeltext' : ' – staplade rader') : '';
+  // Hela sekvensen (symboler + text i ordning) så sömmerskan ser upplägget
+  L.push(`Innehåll (v→h)${layoutNote}: ${seqs.join('  //  ')}`);
+  allTextEls().forEach(e => { if (e.text.trim()) L.push(`  "${e.text.trim()}" – ${fontName(e.font)}/${colorName(e.color)}`); });
+  if (allSymEls().length) L.push(`  Symbolfärg: ${symbolColorText()}`);
+  if (doubleText(state)) L.push(`  Främre radens position: ${byId(DUBBEL_POSITIONS, state.content.overlayPos).name}`);
   if (selectedSize(state)) L.push(`Storlek: ${sizeDescription(state)}`);
   if (shadowEnabled(state)) L.push(`Skugga: ${state.shadowSymbols ? 'text och symboler' : 'enbart text'}`);
   if (state.extraInfo.trim()) L.push(`Kundens övriga info: ${state.extraInfo.trim()}`);
@@ -767,11 +748,29 @@ function cartComment(supplierLink) {
 // Semantisk beskrivning av designen (namn ur katalogen). cart.resolveOrder
 // matchar den mot artikelns RIKTIGA val och options, så namn behöver inte
 // stämma exakt med butikens (spretiga) valnamn.
+// Härled butikens enkla "Symbolens placering" ur sekvensen (best-effort).
+function derivePlacement() {
+  const syms = allSymEls();
+  if (!syms.length) return 'Ingen symbol';
+  const row = rowsOf().find(r => r.els.some(e => e.t === 'text' && e.text.trim())) || rowsOf().find(r => r.els.length) || rowsOf()[0];
+  const els = row.els;
+  let firstText = -1, lastText = -1;
+  els.forEach((e, i) => { if (e.t === 'text' && e.text.trim()) { if (firstText < 0) firstText = i; lastText = i; } });
+  const before = els.some((e, i) => e.t === 'sym' && (firstText < 0 || i < firstText));
+  const after = els.some((e, i) => e.t === 'sym' && (lastText < 0 || i > lastText));
+  if (before && after) return 'På vardera sida om texten';
+  if (before) return 'Före texten';
+  if (after) return 'Efter texten';
+  return 'På vardera sida om texten';
+}
 function cartDesign(supplierLink) {
   const lin = byId(linings, state.lining);
-  const t1 = state.texts.filter(t => t.text.trim())[0];
+  const t1 = allTextEls().find(e => e.text.trim()) || allTextEls()[0];
   const isCotton = state.family === 'cotton';
-  const hasSymbol = state.symbol !== 'ingen';
+  const syms = allSymEls();
+  // Butiken har bara ETT symbolval: en symbol → den; flera/olika → "Egen symbol"
+  const symbolChoice = syms.length === 0 ? 'Ingen symbol'
+    : syms.length === 1 ? symName(syms[0].id) : 'Egen symbol';
   return {
     webbingColor: isCotton ? byId(WEBBING_COLORS, state.webbing).name : null,
     biothaneColor: isCotton ? null : byId(BIOTHANE_COLORS, state.biothane).name,
@@ -782,12 +781,12 @@ function cartDesign(supplierLink) {
     foder: `${lin.group.replace(/ \(.*\)/, '')} – ${lin.name}`,
     sizeCm: state.circumference,
     sizeRange: selectedSize(state)?.id || null,
-    text: t1 ? t1.text.trim() : '',
-    font: t1 ? byId(FONTS, t1.font).name : null,
-    textColor: byId(TEXT_COLORS, (t1 ? t1.color : 'svart')).name,
-    symbol: hasSymbol ? byId(SYMBOLS, state.symbol).name : 'Ingen symbol',
-    placement: hasSymbol ? byId(SYMBOL_PLACEMENTS, state.symbolPlacement).name : 'Ingen symbol',
-    symbolColor: hasSymbol ? byId(TEXT_COLORS, state.symbolColor || (t1 ? t1.color : 'svart')).name : '-',
+    text: contentPlainText(),
+    font: t1 ? fontName(t1.font) : null,
+    textColor: colorName(t1 ? t1.color : 'svart'),
+    symbol: symbolChoice,
+    placement: derivePlacement(),
+    symbolColor: syms.length ? colorName(state.symbolColor || (t1 ? t1.color : 'svart')) : '-',
     shadow: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
     hardware: byId(HARDWARE_FINISHES, state.hardware).name,
     comment: cartComment(supplierLink),
@@ -843,25 +842,21 @@ $('#circ').addEventListener('input', e => {
   renderSummary(); rebuild3D();
 });
 
-$('#textInputT').addEventListener('input', e => {
+// Skriv i det markerade textelementet utan att bygga om fältet (behåller fokus).
+$('#elTextInput').addEventListener('input', e => {
+  const active = activeElement();
+  if (!active || active.t !== 'text') return;
   const limit = textInputLimit(state);
   const value = limit === null ? e.target.value : Array.from(e.target.value.normalize('NFC')).slice(0, limit).join('');
   if (e.target.value !== value) e.target.value = value;
-  state.texts[state.activeText].text = value;
-  // Refresh symbol availability too, without rebuilding the focused text field.
-  $('#symbolGrid').querySelectorAll('button').forEach((button, i) => {
-    button.disabled = !symbolChoiceAllowed(state, SYMBOLS[i].id);
-    button.title = SYMBOLS[i].name + (button.disabled ? ' – korta texten för att få plats med symbolen' : '');
-  });
-  $('#placementSeg').querySelectorAll('button').forEach((button, i) => {
-    button.disabled = !symbolChoiceAllowed(state, state.symbol, SYMBOL_PLACEMENTS[i].id);
-    button.title = button.disabled ? 'Korta texten för att få plats med två symboler' : '';
-  });
+  active.text = value;
+  // uppdatera chip-texten + räknare utan full refresh
+  renderContentChips();
   renderSummary(); rebuild3D();
 });
 // macOS ersätter dubbelt mellanslag med punkt (insertReplacementText) –
 // stoppa det och infoga ett vanligt mellanslag i stället
-$('#textInputT').addEventListener('beforeinput', e => {
+$('#elTextInput').addEventListener('beforeinput', e => {
   if (e.inputType !== 'insertReplacementText') return;
   e.preventDefault();
   const inp = e.target;
@@ -870,10 +865,45 @@ $('#textInputT').addEventListener('beforeinput', e => {
   inp.setSelectionRange(start + 1, start + 1);
   inp.dispatchEvent(new Event('input'));
 });
-$('#removeTextBtn').addEventListener('click', () => {
-  if (state.activeText === 0) return;
-  state.texts.splice(state.activeText, 1);
-  state.activeText = Math.max(0, state.activeText - 1);
+
+// Lägg till / ta bort / flytta element
+function insertEl(newEl) {
+  clampActive();
+  const row = activeRow();
+  row.els.splice(state.activeEl.i + 1, 0, newEl);
+  state.activeEl = { row: state.activeEl.row, i: state.activeEl.i + 1 };
+  refresh();
+}
+$('#addTextBtn').addEventListener('click', () => { if (canAddToRow(state)) insertEl(newTextEl(state.activeEl.row)); });
+$('#addSymbolBtn').addEventListener('click', () => { if (canAddToRow(state)) insertEl({ t: 'sym', id: 'tass' }); });
+$('#addRowBtn').addEventListener('click', () => {
+  if (rowsOf().length >= MAX_ROWS) return;
+  rowsOf().push({ els: [newTextEl(rowsOf().length)] });
+  if (rowsOf().length > 2 && state.content.layout === 'overlay') state.content.layout = 'stack';
+  state.activeEl = { row: rowsOf().length - 1, i: 0 };
+  refresh();
+});
+$('#elMoveLeft').addEventListener('click', () => {
+  const row = activeRow(), i = state.activeEl.i;
+  if (i === 0) return;
+  [row.els[i - 1], row.els[i]] = [row.els[i], row.els[i - 1]];
+  state.activeEl.i = i - 1; refresh();
+});
+$('#elMoveRight').addEventListener('click', () => {
+  const row = activeRow(), i = state.activeEl.i;
+  if (i >= row.els.length - 1) return;
+  [row.els[i + 1], row.els[i]] = [row.els[i], row.els[i + 1]];
+  state.activeEl.i = i + 1; refresh();
+});
+$('#elRemove').addEventListener('click', () => {
+  const rs = rowsOf(), row = activeRow();
+  if (rs.length === 1 && row.els.length === 1) return;
+  row.els.splice(state.activeEl.i, 1);
+  if (!row.els.length && rs.length > 1) {
+    rs.splice(state.activeEl.row, 1);
+    if (rs.length < 2) state.content.layout = 'stack';
+  }
+  state.activeEl = { row: Math.min(state.activeEl.row, rs.length - 1), i: 0 };
   refresh();
 });
 
@@ -958,16 +988,15 @@ function exportCfg() {
   const isCotton = state.family === 'cotton';
   const widthCm = currentWidthCm();
   return {
-    texts: state.texts.map(t => ({
-      text: t.text,
-      font: byId(FONTS, t.font),
-      color: byId(TEXT_COLORS, t.color),
-      sizeK: byId(TEXT_SIZES, t.size).k,
-    })),
-    layout: state.textLayout,
-    dubbelPos: state.dubbelPos,
-    symbol: state.symbol,
-    symbolPlacement: state.symbolPlacement,
+    content: {
+      rows: state.content.rows.map(r => ({
+        els: r.els.map(e => e.t === 'sym'
+          ? { t: 'sym', id: e.id }
+          : { t: 'text', text: e.text, font: byId(FONTS, e.font), color: byId(TEXT_COLORS, e.color) }),
+      })),
+      layout: state.content.layout,
+      overlayPos: state.content.overlayPos,
+    },
     symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
     shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
     shadowSymbols: state.shadowSymbols,
@@ -1041,7 +1070,6 @@ $('#shareBtn').addEventListener('click', async () => {
   $('#cartBtn').style.display = '';
   $('#cartBtn').addEventListener('click', handleAddToCart);
 }
-$('#textInputT').value = state.texts[0].text;
 $('#circ').value = state.circumference;
 $('#circVal').textContent = `${state.circumference} cm`;
 $('#extraInfo').value = state.extraInfo;

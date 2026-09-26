@@ -19,20 +19,40 @@ export const SIZE_OPTIONS = {
 };
 export const sizeOptions = s => s.family === 'cotton' ? SIZE_OPTIONS[s.cottonModel]?.[s.cottonWidth] || [] : [];
 export const selectedSize = s => sizeOptions(s).find(o => o.id === s.sizeRange) || null;
-export const doubleText = s => s.texts.length === 2 && s.textLayout === 'dubbel';
 const color = id => TEXT_COLORS.find(c => c.id === id);
+
+// -------------------------------------------------- innehållsmodell
+// state.content = { rows: [ { els: [ {t:'text',text,font,color} | {t:'sym',id} ] } ],
+//                   layout: 'stack'|'overlay', overlayPos }
+// En rad = en ordnad sekvens av element (textbitar + symboler). Flera rader
+// staplas (stack) eller läggs över varandra (overlay = gammal dubbeltext).
+export const rows = s => (s.content && s.content.rows) || [];
+export const textEls = row => row.els.filter(e => e.t === 'text');
+export const symEls = row => row.els.filter(e => e.t === 'sym');
+const strLen = t => Array.from((t || '').trim().normalize('NFC')).length;
+export const rowTextChars = row => textEls(row).reduce((n, e) => n + strLen(e.text), 0);
+export const rowSymbolCount = row => symEls(row).length;
+export const rowUsed = row => rowTextChars(row) + rowSymbolCount(row);
+export const hasContent = s => rows(s).some(r => r.els.some(e => e.t === 'sym' || strLen(e.text)));
+// overlay (dubbeltext) = två rader ovanpå varandra
+export const doubleText = s => s.content?.layout === 'overlay' && rows(s).length === 2;
+
 export const shadowEnabled = s => s.family === 'cotton' && s.shadow && !doubleText(s);
 export const shadowColorAllowed = c => !c.special;
 
-export function textColorAllowed(s, c, index = 0) {
+// c = färgobjekt, el = { row, i } för elementet (row-index avgör overlay-regeln)
+export function textColorAllowed(s, c, el = { row: 0 }) {
   if (!c) return false;
   if (s.family === 'biothane' && c.special && c.id !== 'dimmig') return false;
   if (doubleText(s) && c.special) return false;
-  if (s.family === 'biothane' && s.texts.length > 1 && c.id === 'dimmig') return false;
-  if (doubleText(s) && index > 0) {
-    const first = color(s.texts[0].color);
+  const nText = rows(s).reduce((n, r) => n + textEls(r).length, 0);
+  if (s.family === 'biothane' && nText > 1 && c.id === 'dimmig') return false;
+  // overlay: främre raden (row 1) ligger ovanpå bakre (row 0) – glitter fäster
+  // bara på glitter
+  if (doubleText(s) && el.row > 0) {
+    const first = color(textEls(rows(s)[0])[0]?.color);
     if (first?.glitter && !c.glitter) return false;
-    if (s.family === 'biothane' && doubleText(s) && !!first?.glitter !== !!c.glitter) return false;
+    if (s.family === 'biothane' && !!first?.glitter !== !!c.glitter) return false;
   }
   if (shadowEnabled(s) && color(s.shadowColor)?.glitter && !c.glitter) return false;
   return true;
@@ -41,7 +61,7 @@ export function symbolColorAllowed(s, c) {
   if (doubleText(s) && c.special) return false;
   if (s.family === 'biothane') {
     if (c.special && c.id !== 'dimmig') return false;
-    const first = color(s.texts[0].color);
+    const first = color(textEls(rows(s)[0] || { els: [] })[0]?.color);
     if (first?.id === 'dimmig') return c.id === 'dimmig';
     if (c.id === 'dimmig') return false;
   }
@@ -49,7 +69,7 @@ export function symbolColorAllowed(s, c) {
   return true;
 }
 
-// Normalize imported designs and dependent choices, never silently truncate text.
+// Normalisera importerade designer och beroende val; trunkera aldrig text tyst.
 export function normalizeDesign(s) {
   const changes = [];
   const model = COTTON_MODELS.find(m => m.id === s.cottonModel);
@@ -58,13 +78,12 @@ export function normalizeDesign(s) {
   if (options.length && !selectedSize(s)) s.sizeRange = options[0].id;
   if (s.family === 'biothane' || doubleText(s)) s.shadow = false;
   if (!shadowColorAllowed(color(s.shadowColor) || {})) s.shadowColor = 'svart';
-  s.texts.forEach((t, i) => {
-    t.size = 'stor';
-    if (!textColorAllowed(s, color(t.color), i)) {
-      t.color = TEXT_COLORS.find(c => textColorAllowed(s, c, i)).id;
-      changes.push(`Text ${i + 1} fick en tillåten färg för den valda kombinationen.`);
+  rows(s).forEach((row, ri) => textEls(row).forEach(e => {
+    if (!textColorAllowed(s, color(e.color), { row: ri })) {
+      e.color = TEXT_COLORS.find(c => textColorAllowed(s, c, { row: ri })).id;
+      changes.push('En text fick en tillåten färg för den valda kombinationen.');
     }
-  });
+  }));
   if (s.symbolColor && !symbolColorAllowed(s, color(s.symbolColor) || {})) {
     s.symbolColor = '';
     changes.push('Symbolfärgen följer nu textfärgen.');
@@ -72,43 +91,47 @@ export function normalizeDesign(s) {
   return changes;
 }
 
-export function symbolCount(s) {
-  if (!s.symbol || s.symbol === 'ingen') return 0;
-  return s.symbolPlacement === 'bada' && s.texts.some(t => t.text.trim()) ? 2 : 1;
-}
-export function characterCounts(s) {
-  return s.texts.map(t => Array.from(t.text.trim().normalize('NFC')).length);
-}
-// Reserve the space occupied by symbols and by other sequential text blocks.
-export function textInputLimit(s, index = s.activeText || 0) {
+// -------------------------------------------------- teckengränser
+// Gränsen (size.limit) gäller PER RAD: radens texttecken + symboler.
+export const symbolCount = s => rows(s).reduce((n, r) => n + rowSymbolCount(r), 0);
+export const characterCounts = s => rows(s).map(rowTextChars);
+
+// Hur många tecken till som får skrivas i ett givet textelement.
+export function textInputLimit(s, el = s.activeEl || { row: 0, i: 0 }) {
   const size = selectedSize(s);
   if (!size) return 24;
   if (size.limit === null) return null;
-  const symbols = !s.symbol || s.symbol === 'ingen' ? 0 : s.symbolPlacement === 'bada' ? 2 : 1;
-  const others = s.textLayout === 'rad'
-    ? characterCounts(s).reduce((sum, count, i) => sum + (i === index ? 0 : count), 0) : 0;
-  return Math.max(0, size.limit - symbols - others);
+  const row = rows(s)[el.row];
+  if (!row) return size.limit;
+  const target = row.els[el.i];
+  const thisChars = target && target.t === 'text' ? strLen(target.text) : 0;
+  return Math.max(0, size.limit - (rowUsed(row) - thisChars));
 }
 
-export function symbolChoiceAllowed(s, symbol, placement = s.symbolPlacement) {
+// Får man lägga till ett element (symbol eller text) i en rad?
+export function canAddToRow(s, rowIndex = (s.activeEl?.row ?? 0)) {
   const size = selectedSize(s);
   if (!size || size.limit === null) return true;
-  const next = { ...s, symbol, symbolPlacement: placement };
-  if (symbolCount(next) <= symbolCount(s)) return true;
-  const counts = characterCounts(s);
-  const text = s.textLayout === 'rad' ? counts.reduce((a, b) => a + b, 0) : Math.max(0, ...counts);
-  return text + symbolCount(next) <= size.limit;
+  const row = rows(s)[rowIndex];
+  if (!row) return true;
+  return rowUsed(row) < size.limit;
 }
 
 export function validationErrors(s) {
-  const errors = [], size = selectedSize(s), counts = characterCounts(s);
-  if (size) {
-    // Layered/stacked names each share the available width; sequential texts share it.
-    const used = (s.textLayout === 'rad' ? counts.reduce((a, b) => a + b, 0) : Math.max(0, ...counts)) + symbolCount(s);
-    if (size.limit !== null && used > size.limit) errors.push(`Vald storlek tillåter max ${size.limit} tecken inklusive symboler (${used} valda). Korta texten eller ändra symbolerna.`);
-    if (size.id === 'custom' && !s.extraInfo.trim()) errors.push('Skriv önskat storleksintervall i Övrig info för egen storlek.');
+  const errors = [], size = selectedSize(s);
+  if (size && size.limit !== null) {
+    rows(s).forEach((row, i) => {
+      const used = rowUsed(row);
+      if (used > size.limit) {
+        const label = rows(s).length > 1 ? `Rad ${i + 1}: ` : '';
+        errors.push(`${label}Vald storlek tillåter max ${size.limit} tecken inklusive symboler (${used} valda). Korta texten eller ta bort symboler.`);
+      }
+    });
   }
-  s.texts.forEach((t, i) => { if (!textColorAllowed(s, color(t.color), i)) errors.push(`Otillåten färg på text ${i + 1}.`); });
+  if (size?.id === 'custom' && !s.extraInfo.trim()) errors.push('Skriv önskat storleksintervall i Övrig info för egen storlek.');
+  rows(s).forEach((row, ri) => textEls(row).forEach(e => {
+    if (!textColorAllowed(s, color(e.color), { row: ri })) errors.push('Otillåten färg på en text.');
+  }));
   return errors;
 }
 export const previewCircumference = s => selectedSize(s)?.previewCm ?? s.circumference;
