@@ -337,3 +337,48 @@ export function findColor(list, id) {
 export function allLinings() {
   return LINING_GROUPS.flatMap(g => g.items.map(i => ({ ...i, group: g.group, leather: g.leather })));
 }
+
+// -------------------------------------------------- redigerbar katalog
+// Värdena ovan är facit/fallback. Finns en admin-redigerad /data.json läggs
+// den ovanpå genom att listorna muteras PÅ PLATS – alla moduler som importerar
+// dem ser då de nya värdena utan omstart. Går hämtningen fel behålls
+// standardvärdena, så en trasig eller saknad data.json aldrig kan släcka
+// butiken. Admin (admin.php) skriver data.json server-side, som d.php.
+const CATALOG_LISTS = {
+  biothaneColors: BIOTHANE_COLORS, webbingColors: WEBBING_COLORS,
+  textLayouts: TEXT_LAYOUTS, textSizes: TEXT_SIZES, dubbelPositions: DUBBEL_POSITIONS,
+  liningGroups: LINING_GROUPS, textColors: TEXT_COLORS, fonts: FONTS,
+  symbols: SYMBOLS, hardwareFinishes: HARDWARE_FINISHES, symbolPlacements: SYMBOL_PLACEMENTS,
+  cottonModels: COTTON_MODELS, cottonWidths: COTTON_WIDTHS,
+};
+const CATALOG_OBJS = { biothane: BIOTHANE, leatherSurcharge: LEATHER_SURCHARGE, productUrls: PRODUCT_URLS };
+
+// Standardkatalogen som ren data (för admin: "återställ till standard").
+export function defaultCatalog() {
+  const c = {};
+  for (const [k, arr] of Object.entries(CATALOG_LISTS)) c[k] = JSON.parse(JSON.stringify(arr));
+  for (const [k, obj] of Object.entries(CATALOG_OBJS)) c[k] = JSON.parse(JSON.stringify(obj));
+  return c;
+}
+
+// Lägg en katalog ovanpå standardvärdena (in-place). Endast kända nycklar med
+// rätt typ tas – okända/felaktiga fält ignoreras, listor byts bara om de har
+// innehåll, så en delvis data.json inte tömmer en kategori.
+export function applyCatalog(j) {
+  if (!j || typeof j !== 'object') return false;
+  for (const [k, arr] of Object.entries(CATALOG_LISTS)) {
+    if (Array.isArray(j[k]) && j[k].length) arr.splice(0, arr.length, ...j[k]);
+  }
+  for (const [k, obj] of Object.entries(CATALOG_OBJS)) {
+    if (j[k] && typeof j[k] === 'object' && !Array.isArray(j[k])) {
+      for (const key of Object.keys(obj)) delete obj[key];
+      Object.assign(obj, j[k]);
+    }
+  }
+  return true;
+}
+
+try {
+  const res = await fetch('/data.json', { cache: 'no-cache' });
+  if (res.ok) applyCatalog(await res.json());
+} catch { /* behåll inbyggda standardvärden */ }
