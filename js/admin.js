@@ -25,7 +25,10 @@ const col = {
   hexlist: (f, label) => ({ label, get: r => (r[f] || []).join(', '), set: (r, v) => { const a = v.split(/[\s,]+/).filter(x => /^#[0-9a-fA-F]{3,8}$/.test(x)); if (a.length) r[f] = a; else delete r[f]; } }),
   widths: (f, label) => ({ label, type: 'widths', get: r => r[f] || [], set: (r, v) => { r[f] = v; } }),
   price: (mapField, width) => ({ label: width, type: 'num', get: r => r[mapField]?.[width] ?? '', set: (r, v) => { if (!r[mapField]) r[mapField] = {}; if (v === '' || v == null) delete r[mapField][width]; else r[mapField][width] = Number(v); if (r[mapField] && !Object.keys(r[mapField]).length) delete r[mapField]; } }),
+  image: kind => ({ label: 'Bild', type: 'image', kind, get: r => r.id, set: () => {} }),
 };
+
+const THUMB_DIR = { lining: 'foder-thumb', webbing: 'band-thumb' };
 
 const SPECIALS = [{ v: '', l: '(ingen)' }, { v: 'rainbow', l: 'rainbow' }, { v: 'pastelrainbow', l: 'pastelrainbow' }, { v: 'metal', l: 'metal' }, { v: 'reflex', l: 'reflex' }];
 
@@ -37,8 +40,8 @@ const CATS = [
   { key: 'biothaneColors', label: 'BioThane-färger', hint: 'Färger på BioThane-bandet.',
     cols: () => [col.id(), col.text('name', 'Namn'), col.color(), col.text('note', 'Notering')],
     blank: () => ({ id: '', name: '', hex: '#cccccc' }) },
-  { key: 'webbingColors', label: 'Bomullsband', hint: 'Bandfärger och vilka färdiga bredder de finns i.',
-    cols: () => [col.id(), col.text('name', 'Namn'), col.color(), col.widths('widths', 'Bredder')],
+  { key: 'webbingColors', label: 'Bomullsband', hint: 'Bandfärger och vilka färdiga bredder de finns i. Foto = använd uppladdad tygtextur i 3D (annars vävs den procedurellt ur färgen).',
+    cols: () => [col.id(), col.text('name', 'Namn'), col.color(), col.widths('widths', 'Bredder'), col.bool('foto', 'Foto'), col.image('webbing')],
     blank: () => ({ id: '', name: '', hex: '#cccccc', widths: [] }) },
   { key: 'textColorsSpacer' }, // (platshållare, tas bort nedan)
   { key: 'liningGroups', label: 'Foder', hint: 'Fodergrupper (läder, metallic, mönstrad bomull, softshell) och deras färger.', custom: renderLining },
@@ -77,6 +80,7 @@ function setSur(r, kind, v) {
 // ---------------------------------------------------------------- generisk tabell
 function tableEditor(rows, columns, blank) {
   const wrap = el('div');
+  const scroller = el('div', 'tbl-scroll');
   const table = el('table', 'adm');
   const thead = el('thead'); const htr = el('tr');
   columns.forEach(c => htr.appendChild(el('th', null, c.label)));
@@ -85,7 +89,8 @@ function tableEditor(rows, columns, blank) {
   const tbody = el('tbody');
   rows.forEach((row, i) => tbody.appendChild(buildRow(rows, row, i, columns)));
   table.appendChild(tbody);
-  wrap.appendChild(table);
+  scroller.appendChild(table);
+  wrap.appendChild(scroller);
   if (blank) {
     const add = el('button', 'adm-btn adm-add', '+ Lägg till rad');
     add.addEventListener('click', () => { rows.push(blank()); touch(); renderMain(); });
@@ -142,6 +147,17 @@ function buildCell(c, row) {
       lab.appendChild(cb); lab.appendChild(document.createTextNode(width)); w.appendChild(lab);
     });
     return w;
+  }
+  if (c.type === 'image') {
+    const w = el('div', 'cell-img');
+    const img = el('img', 'thumb');
+    const bust = () => { img.src = `${THUMB_DIR[c.kind]}/${row.id}.webp?t=${Date.now()}`; };
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    img.onload = () => { img.style.visibility = 'visible'; };
+    if (row.id) bust(); else img.style.visibility = 'hidden';
+    const btn = el('button', 'adm-btn', 'Ladda upp'); btn.type = 'button';
+    btn.addEventListener('click', () => uploadImage(c.kind, row, bust));
+    w.appendChild(img); w.appendChild(btn); return w;
   }
   const inp = el('input'); inp.type = c.type === 'num' ? 'number' : 'text';
   if (c.cls) inp.className = c.cls;
@@ -216,7 +232,7 @@ function renderLining(container) {
     card.appendChild(head);
     if (!g.items) g.items = [];
     card.appendChild(tableEditor(g.items,
-      [col.id(), col.text('name', 'Namn'), col.color('hex', 'Färg'), col.color('hex2', 'Färg 2'), col.text('pattern', 'Mönster'), col.bool('metallic', 'Metallic')],
+      [col.id(), col.text('name', 'Namn'), col.color('hex', 'Färg'), col.color('hex2', 'Färg 2'), col.text('pattern', 'Mönster'), col.bool('metallic', 'Metallic'), col.bool('foto', 'Foto'), col.num('texCm', 'cm-skala'), col.image('lining')],
       () => ({ id: '', name: '', hex: '#cccccc' })));
     const rm = el('button', 'adm-btn ghost', '✕ Ta bort hela gruppen'); rm.style.marginTop = '10px';
     rm.addEventListener('click', () => { if (confirm(`Ta bort gruppen "${g.group}"?`)) { cat.liningGroups.splice(gi, 1); touch(); renderMain(); } });
@@ -313,6 +329,38 @@ async function save() {
     }
   } catch (e) { toast('Kunde inte nå servern: ' + e.message, 'err'); }
   finally { $('#btnSave').disabled = validate().length > 0; }
+}
+
+function pickFile() {
+  return new Promise(resolve => {
+    const inp = el('input'); inp.type = 'file'; inp.accept = 'image/webp,image/png,image/jpeg';
+    inp.addEventListener('change', () => resolve(inp.files[0] || null), { once: true });
+    inp.click();
+  });
+}
+
+async function uploadImage(kind, row, onDone) {
+  if (!row.id || !/^[a-z0-9-]+$/.test(row.id)) { toast('Sätt ett giltigt id (a–z, 0–9, bindestreck) först.', 'err'); return; }
+  const file = await pickFile();
+  if (!file) return;
+  let pw = sessionStorage.getItem('vd_admin_pw');
+  if (!pw) { pw = prompt('Admin-lösenord:'); if (!pw) return; }
+  const fd = new FormData();
+  fd.append('password', pw); fd.append('kind', kind); fd.append('id', row.id); fd.append('image', file);
+  toast('Laddar upp bild…');
+  try {
+    const res = await fetch('admin-upload.php', { method: 'POST', body: fd });
+    const j = await res.json().catch(() => ({}));
+    if (res.ok && j.ok) {
+      sessionStorage.setItem('vd_admin_pw', pw);
+      row.foto = true; touch();
+      toast('Bild uppladdad. Kom ihåg att spara för att publicera foto-kopplingen.');
+      renderMain();
+    } else {
+      if (res.status === 401) sessionStorage.removeItem('vd_admin_pw');
+      toast(j.error || `Fel (${res.status})`, 'err');
+    }
+  } catch (e) { toast('Kunde inte ladda upp: ' + e.message, 'err'); }
 }
 
 function preview() {

@@ -6,35 +6,19 @@
 //          och skriver den nya. Svar: { "ok": true, "backup": "data-...json" }
 //
 // Ingen databas – samma filbaserade mönster som d.php. Endast skrivning kräver
-// lösenord; data.json är ändå publik (verktyget läser den).
-//
-// ── INNAN DEN ANVÄNDS: sätt ett lösenord ──────────────────────────────────
-// Byt ADMIN_PW_SHA256 nedan mot sha256-hashen av ditt valda lösenord.
-// Generera hashen (byt ut lösenordet):
-//     macOS/Linux:  printf '%s' 'ditt-lösenord' | shasum -a 256
-//     Node:         node -e "console.log(require('crypto').createHash('sha256').update('ditt-lösenord').digest('hex'))"
-// Tills en riktig hash är satt vägrar endpointen att spara.
+// lösenord; data.json är ändå publik (verktyget läser den). Lösenordet sätts i
+// admin-config.php (delas med admin-upload.php). Bilduppladdning: admin-upload.php.
 
-const ADMIN_PW_SHA256 = 'SÄTT-MIG';   // ← klistra in sha256-hex här
+require __DIR__ . '/admin-config.php';
 
 $TARGET = __DIR__ . '/data.json';
 $BKDIR  = __DIR__ . '/data-backups';
 $MAX    = 2000000;   // 2 MB tak på inskickad katalog
 $KEEP   = 30;        // antal säkerhetskopior att behålla
 
-function out($data, $status = 200) {
-  http_response_code($status);
-  header('Content-Type: application/json; charset=utf-8');
-  header('Cache-Control: no-store');
-  echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-  exit;
-}
+function out($data, $status = 200) { admin_json($data, $status); }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(['error' => 'method'], 405);
-
-if (!preg_match('/^[a-f0-9]{64}$/', ADMIN_PW_SHA256)) {
-  out(['error' => 'Admin är inte konfigurerad: sätt ADMIN_PW_SHA256 i admin.php.'], 503);
-}
 
 $raw = file_get_contents('php://input');
 if ($raw === false || strlen($raw) > $MAX) out(['error' => 'För stor eller tom begäran.'], 413);
@@ -42,8 +26,9 @@ $req = json_decode($raw, true);
 if (!is_array($req)) out(['error' => 'Ogiltig JSON.'], 400);
 
 // ── lösenord ──
-$pw = isset($req['password']) ? (string) $req['password'] : '';
-if (!hash_equals(ADMIN_PW_SHA256, hash('sha256', $pw))) out(['error' => 'Fel lösenord.'], 401);
+$ok = admin_check_pw(isset($req['password']) ? $req['password'] : '');
+if ($ok === null) out(['error' => 'Admin är inte konfigurerad: sätt ADMIN_PW_SHA256 i admin-config.php.'], 503);
+if (!$ok) out(['error' => 'Fel lösenord.'], 401);
 
 // ── katalog-validering ──
 $cat = isset($req['catalog']) ? $req['catalog'] : null;

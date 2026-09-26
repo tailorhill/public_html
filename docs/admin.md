@@ -4,7 +4,8 @@ Enkelt webbverktyg för att redigera **all katalogdata** i designverktyget –
 färger, material, foder, beslag, typsnitt, symboler, modeller, priser och
 bredder – utan att röra koden.
 
-Sida: `admin.html` · Spar-endpoint: `admin.php` · Data: `data.json`
+Sida: `admin.html` · Spar-endpoint: `admin.php` · Bilduppladdning: `admin-upload.php`
+· Lösenord/konfig: `admin-config.php` · Data: `data.json`
 
 ## Hur det hänger ihop
 
@@ -19,18 +20,19 @@ Sida: `admin.html` · Spar-endpoint: `admin.php` · Data: `data.json`
 
 ## Innan första användning: sätt ett lösenord
 
-`admin.php` vägrar spara tills ett lösenord är satt.
+Admin vägrar spara/ladda upp tills ett lösenord är satt. Lösenordet ligger på
+**ett ställe**, `admin-config.php`, och delas av `admin.php` och `admin-upload.php`.
 
 1. Generera sha256-hashen av ditt valda lösenord:
    ```bash
    printf '%s' 'ditt-lösenord' | shasum -a 256
    ```
    (eller `node -e "console.log(require('crypto').createHash('sha256').update('ditt-lösenord').digest('hex'))"`)
-2. Klistra in hex-strängen i `admin.php`:
+2. Klistra in hex-strängen i `admin-config.php`:
    ```php
    const ADMIN_PW_SHA256 = '…din hash…';
    ```
-3. Ladda upp `admin.php` till one.com.
+3. Ladda upp `admin-config.php` till one.com.
 
 Lösenordet efterfrågas när du klickar **Spara & publicera** och sparas i
 webbläsarens session-lagring tills du stänger fliken.
@@ -50,6 +52,28 @@ webbläsarens session-lagring tills du stänger fliken.
 
 Dubbletter av id och ogiltiga hex-koder blockerar sparning och visas överst.
 
+## Bilder (foder- och bandtexturer)
+
+Foder och bomullsband kan ha ett riktigt tygfoto som används i 3D. Kopplingen
+är katalogdata: fältet **`foto`** (på/av) och för foder **`texCm`** (texturens
+fysiska rutstorlek i cm, styr skalan). Bilderna ligger som:
+
+- Foder: `textures/<id>.webp` (3D) + `foder-thumb/<id>.webp` (miniatyr)
+- Band: `wtex/<id>.webp` (3D) + `band-thumb/<id>.webp` (miniatyr)
+
+Finns ingen `foto` faller 3D tillbaka på ett procedurellt utseende ur färgen
+(hex/hex2/mönster), och miniatyren visar färgen.
+
+**Ladda upp bild** i admin: kolumnen **Bild** i Bomullsband och Foder har en
+*Ladda upp*-knapp. Välj en bild (webp/png/jpeg) – `admin-upload.php` skalar den
+och skriver både texturen och miniatyren som WebP, och kryssar i **Foto**. Sätt
+`cm-skala` för foder så mönstret blir rätt stort. Klicka sedan **Spara &
+publicera** så att foto-kopplingen (`foto`/`texCm`) sparas i `data.json`.
+
+> Kräver att serverns PHP har GD med WebP-stöd (one.com har normalt det). Saknas
+> det kan du i stället ladda upp färdiga `<id>.webp`-filer manuellt till mapparna
+> ovan och kryssa i **Foto** för hand.
+
 ## Gränser (kräver mer än ett formulär)
 
 - **Nya symbol-*former*** kräver SVG-path i `js/vd-symbols.js`. Admin redigerar
@@ -62,5 +86,6 @@ Dubbletter av id och ogiltiga hex-koder blockerar sparning och visas överst.
 
 ## Filer att ladda upp till one.com
 
-`data.json`, `admin.html`, `admin.php`, `js/admin.js`, `js/data.js`.
-Mappen `data-backups/` skapas automatiskt av `admin.php`.
+`data.json`, `admin.html`, `admin.php`, `admin-upload.php`, `admin-config.php`,
+`js/admin.js`, `js/data.js`, `js/foder-realism.js`. Mapparna `data-backups/`,
+`textures/`, `wtex/`, `foder-thumb/`, `band-thumb/` skapas/fylls automatiskt.
