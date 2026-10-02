@@ -3,6 +3,7 @@
 // ersätter bomullshalsbandets foder med riktiga lager: fodret i full bredd,
 // bomullsbandet som eget upphöjt band ovanpå, sömmar och vinyltext i relief.
 import * as THREE from 'three';
+import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { applyGlitter } from './glitter-material.js';
 import { CollarViewer } from './collar3d.js';
 import { loadHardwareAssets, hardwareAsset } from './hardware-assets.js';
@@ -727,32 +728,76 @@ export class RealisticCollarViewer extends CollarViewer {
     const selvMat = new THREE.MeshPhysicalMaterial({ color: col.clone().multiplyScalar(0.9), roughness: 0.98, sheen: 0.08, sheenColor: col });
     for (const s of [1, -1]) { const m = add(new THREE.Mesh(torusArc(R + 0.038, 0.04), selvMat)); m.position.y = s * webH / 2; }
 
-    // Små, sammanhängande ojämnheter i sydda lager bryter den perfekta
-    // cylindersilhuetten utan att ändra textens placering eller beslagens fästen.
+    // Shape sewn layers together, including edge rolls and end caps.
     for (const mesh of G.children) {
       if (!mesh.isMesh) continue;
-      const p = mesh.geometry.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        const x = p.getX(i), z = p.getZ(i), r = Math.hypot(x, z);
-        if (r < 1) continue;
-        const a = Math.atan2(x, z), y = p.getY(i) + mesh.position.y;
-        const edgeWeight = Math.min(1, Math.abs(y) / (width * 0.5));
-        const ripple = 0.024 * Math.sin(7 * a + y * 0.8) + 0.012 * Math.cos(13 * a - y)
-          + edgeWeight * 0.024 * Math.sin(19 * a + y * 2);
-        // Small gathers on the lining's inner face, away from the printed band.
-        const innerFold = r < R - th * 0.6
-          ? -0.07 * (1 - edgeWeight * edgeWeight) + 0.025 * Math.sin(a * 23) * Math.pow(edgeWeight, 3)
-          : 0;
-        p.setXYZ(i, x * (1 + (ripple + innerFold) / r), p.getY(i) + 0.025 * Math.sin(5 * a), z * (1 + (ripple + innerFold) / r));
+      mesh.updateMatrix();
+      const inverse = mesh.matrix.clone().invert(), vertex = new THREE.Vector3();
+      const positions = mesh.geometry.attributes.position;
+      for (let i = 0; i < positions.count; i++) {
+        vertex.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrix);
+        this._sewnPoint(vertex, cfg, halfSpan, th).applyMatrix4(inverse);
+        positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
       }
-      p.needsUpdate = true;
-      mesh.geometry.computeVertexNormals();
+      positions.needsUpdate = true;
+      mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingSphere();
     }
+    this._addEdgeStitches(cfg, halfSpan, th, webH);
 
     // vävd Valley Dogs-etikett vid fodrets ände
     this._addLabel(G, 0.68, R + 0.14, width); // framsidan, bredvid texten
 
     if (halv) this._addHalfSlip(cfg);
+  }
+
+  // Millimetre-scale deformation shared by the cloth and its stitches.
+  _sewnPoint(p, cfg, halfSpan, thickness) {
+    const R = cfg.circumference / (2 * Math.PI), r = Math.hypot(p.x, p.z);
+    if (r < 1) return p;
+    const a = Math.atan2(p.x, p.z), y = p.y;
+    const anchors = halfSpan < Math.PI ? [-halfSpan, halfSpan]
+      : [Math.PI, Math.PI - 0.85, ...(cfg.modelKind === 'stallbart' ? [Math.PI + 0.65] : [])];
+    const pressure = Math.max(...anchors.map(anchor => {
+      const distance = Math.atan2(Math.sin(a - anchor), Math.cos(a - anchor)) * R;
+      return Math.exp(-Math.pow(distance / 0.85, 2));
+    }));
+    const edge = Math.min(1, Math.abs(y) / (cfg.width * 0.5));
+    const ripple = 0.024 * Math.sin(7 * a + y * 0.8) + 0.012 * Math.cos(13 * a - y)
+      + edge * 0.024 * Math.sin(19 * a + y * 2);
+    const inner = Math.max(0, Math.min(1, (R - r) / thickness));
+    const gather = inner * (0.018 * Math.sin(a * 23) * edge * edge + 0.10 * pressure);
+    const radius = r + ripple + gather - 0.025 * pressure;
+    p.set(p.x * radius / r, y + 0.025 * Math.sin(5 * a) - Math.sign(y) * edge * 0.065 * pressure, p.z * radius / r);
+    return p;
+  }
+
+  // Short arched threads enter the cloth at both ends. Merge into one draw call.
+  _threadMesh(curves, hex) {
+    const geometries = curves.map(points => new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3(points), this.lite ? 2 : 3, 0.012, this.lite ? 3 : 5, false));
+    if (!geometries.length) return null;
+    const geometry = mergeGeometries(geometries);
+    geometries.forEach(g => g.dispose());
+    const color = new THREE.Color(hex);
+    color.lerp(new THREE.Color('#fff'), 0.06);
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({color, roughness:0.93}));
+    mesh.name = 'sewn-thread'; mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  _addEdgeStitches(cfg, halfSpan, thickness, webH) {
+    const R = cfg.circumference / (2 * Math.PI), curves = [];
+    const length = 2 * halfSpan * R, count = Math.floor(length / 0.24);
+    for (const side of [-1, 1]) for (let i = 0; i < count; i++) {
+      const center = -halfSpan + (i + 0.5) * 2 * halfSpan / count;
+      const y = side * (webH / 2 - 0.10) + 0.009 * Math.sin(i * 1.7);
+      curves.push([-1, 0, 1].map(t => {
+        const a = center + t * 0.075 / R, r = R + 0.079 + (t === 0 ? 0.026 : 0);
+        return this._sewnPoint(new THREE.Vector3(Math.sin(a) * r, y, Math.cos(a) * r), cfg, halfSpan, thickness);
+      }));
+    }
+    const mesh = this._threadMesh(curves, cfg.bandColor);
+    if (mesh) { mesh.name = 'cotton-edge-stitches'; this.collarGroup.add(mesh); }
   }
 
   _halfSlipLayout(cfg) {
@@ -1288,10 +1333,37 @@ export class RealisticCollarViewer extends CollarViewer {
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(rw, rw, h, 28, 1, true, dir > 0 ? Math.PI : 0, Math.PI), mPlain);
     pipe.position.set(x, 0, z);
     g.add(pipe);
-    for (const s of [1, -1]) {
-      const layer = new THREE.Mesh(new THREE.BoxGeometry(len, h, th), s > 0 && stitched ? mStitch : mPlain);
-      layer.position.set(x + dir * len / 2, 0, z + s * rw);
+    const settle = t => t * t * (3 - 2 * t);
+    const height = (t, y, side) => z + side * (rw * (1 - settle(t)) + th * 0.6 * settle(t))
+      + (this._isBio ? 0 : 0.018 * Math.sin(t * Math.PI) * Math.cos(y * 3));
+    for (const side of [1, -1]) {
+      const geometry = new THREE.BoxGeometry(len, h, th, 16, 8, 1);
+      const pos = geometry.attributes.position;
+      const uv = geometry.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * len);
+      for (let i = 0; i < pos.count; i++) {
+        const t = (pos.getX(i) + len / 2) / len, y = pos.getY(i);
+        pos.setXYZ(i, x + dir * len * t, y, height(t, y, side) + pos.getZ(i));
+      }
+      geometry.computeVertexNormals();
+      // Actual thread geometry below replaces the painted box-X on this face.
+      const layer = new THREE.Mesh(geometry, this._isBio ? mPlain : this._webTapeMat(this._bandColor, h));
+      layer.name = 'folded-strap-layer'; layer.castShadow = true; layer.receiveShadow = true;
       g.add(layer);
+    }
+    if (stitched && !this._isBio) {
+      const curves = [], margin = Math.min(0.20, len * 0.18), y = h / 2 - 0.20;
+      const corners = [[margin,-y],[len-margin,-y],[len-margin,y],[margin,y]];
+      const paths = corners.map((p,i) => [p,corners[(i+1)%4]]);
+      paths.push([corners[0],corners[2]], [corners[1],corners[3]]);
+      for (const [a,b] of paths) {
+        const distance = Math.hypot(b[0]-a[0],b[1]-a[1]), n = Math.max(1,Math.floor(distance / 0.24));
+        for (let i=0;i<n;i++) curves.push([-0.30,0,0.30].map(step => {
+          const t=(i+0.5+step)/n, u=a[0]+(b[0]-a[0])*t, v=a[1]+(b[1]-a[1])*t;
+          return new THREE.Vector3(x+dir*u,v,height(u/len,v,1)+th/2+(step===0?0.025:0));
+        }));
+      }
+      const thread = this._threadMesh(curves,this._bandColor); if(thread) g.add(thread);
     }
   }
 
