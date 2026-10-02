@@ -1481,47 +1481,11 @@ export class RealisticCollarViewer extends CollarViewer {
     return g;
   }
 
-  // The backdrop belongs to the scene so PNG exports match the preview.
-  setPhotoMode(enabled) {
-    if (!this._photoBackdrop) {
-      const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      const gradient = ctx.createLinearGradient(0, 0, 0, 512);
-      gradient.addColorStop(0, '#d8cfc4'); gradient.addColorStop(0.55, '#f5f0e9'); gradient.addColorStop(1, '#e6ddd2');
-      ctx.fillStyle = gradient; ctx.fillRect(0, 0, 32, 512);
-      this._photoBackdrop = new THREE.CanvasTexture(canvas);
-      this._photoBackdrop.colorSpace = THREE.SRGBColorSpace;
-    }
-    if (enabled && !this.photoMode) {
-      this._previousBackground = this.scene.background;
-      this._previousExposure = this.renderer.toneMappingExposure;
-      this._photoLights = this.scene.children.filter(o => o.isDirectionalLight).map(light => ({
-        light, intensity: light.intensity, radius: light.shadow.radius, blur: light.shadow.blurSamples,
-      }));
-      this._photoLights.forEach(({light}, i) => {
-        light.intensity = [2.2, 0.55, 0.8][i] ?? light.intensity;
-        if (light.castShadow) { light.shadow.radius = 8; light.shadow.blurSamples = 12; }
-      });
-    }
-    if (!enabled && this.photoMode) {
-      this.scene.background = this._previousBackground;
-      this.renderer.toneMappingExposure = this._previousExposure;
-      this._photoLights.forEach(({light, intensity, radius, blur}) => {
-        light.intensity = intensity; light.shadow.radius = radius; light.shadow.blurSamples = blur;
-      });
-    }
-    this.photoMode = enabled;
-    if (enabled) { this.scene.background = this._photoBackdrop; this.renderer.toneMappingExposure = 1.08; }
-  }
-
   // kamerapresets med mjuk övergång
   setView(name) {
     const cfg = this._lastCfg; if (!cfg) return;
-    this.setPhotoMode(name === 'foto');
     const R = cfg.circumference / (2 * Math.PI), y = this.collarGroup.position.y;
-    const photoDistance = (R + 1.3) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) / Math.min(1, this.camera.aspect);
     const views = {
-      foto: [[R * 0.22, y + photoDistance * 0.22, photoDistance], [0, y - 0.3, 0]],
       oversikt: [[0, 12, 34], [0, 2, 0]],
       beslag:   [[3, y + 5, -R - 13], [0, y, -R * 0.7]],
       kant:     [[R * 0.55 + 3, y + 3.2, R + 7.5], [R * 0.3, y, R * 0.8]],

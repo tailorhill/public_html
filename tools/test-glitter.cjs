@@ -12,9 +12,7 @@ const assert = require('node:assert/strict');
       await page.waitForFunction(() => window.viewer?._lastCfg);
       await page.evaluate(() => viewer.hardwareReady);
       if(await page.locator('#infoDialog[open]').count()) await page.locator('#infoDialogOk').click();
-      await page.locator('[data-view="foto"]').click();
-      await page.waitForTimeout(800);
-      assert.equal(await page.evaluate(() => viewer.photoMode), true);
+      assert.equal(await page.locator('[data-view="foto"]').count(), 0);
       assert.equal(await page.locator('#snapshotBtn').isVisible(), true);
       const result = await page.evaluate(async () => {
         const base = viewer._lastCfg;
@@ -38,15 +36,9 @@ const assert = require('node:assert/strict');
       assert.equal(result.count,4); assert.equal(result.png,true);
       const download = page.waitForEvent('download'); await page.locator('#snapshotBtn').click();
       assert.equal((await download).suggestedFilename(),'halsband-design.png');
-      if(!lite) {
-        const png=await page.evaluate(()=>viewer.snapshot());
-        require('node:fs').writeFileSync('/private/tmp/valley-photo-mode.png',Buffer.from(png.split(',')[1],'base64'));
-      }
-      await page.locator('[data-view="oversikt"]').click();
-      assert.equal(await page.evaluate(()=>viewer.photoMode===false && viewer.scene.background===null && viewer.renderer.toneMappingExposure===1),true);
       await page.close();
     }
     assert.deepEqual(errors,[]);
-    console.log('PASS: photo mode, restored overview, PNG download, isolated glitter on cotton/BioThane and half-slip, regular/lite shader compilation.');
+    console.log('PASS: PNG download, isolated glitter on cotton/BioThane and half-slip, regular/lite shader compilation.');
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1});
