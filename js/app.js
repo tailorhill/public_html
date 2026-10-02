@@ -916,7 +916,9 @@ $('#shadowToggle').addEventListener('change', e => { state.shadow = e.target.che
 // vy-knappar (Översikt / Närbild kant / Insida) styr kameran
 document.querySelectorAll('#viewBtns .view-btn').forEach(b => {
   b.addEventListener('click', () => {
-    document.querySelectorAll('#viewBtns .view-btn').forEach(x => x.classList.toggle('sel', x === b));
+    document.querySelectorAll('#viewBtns .view-btn').forEach(x => {
+      x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', String(x === b));
+    });
     viewer.setView(b.dataset.view);
   });
 });

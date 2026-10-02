@@ -120,7 +120,7 @@ export class CollarViewer {
   // PNG-bild av aktuell vy (med bakgrundsfärg i stället för transparens)
   snapshot() {
     const prevBg = this.scene.background;
-    this.scene.background = new THREE.Color('#f4f1ec');
+    this.scene.background = prevBg || new THREE.Color('#f4f1ec');
     this.renderer.render(this.scene, this.camera);
     const url = this.renderer.domElement.toDataURL('image/png');
     this.scene.background = prevBg;

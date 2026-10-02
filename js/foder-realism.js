@@ -3,6 +3,7 @@
 // ersätter bomullshalsbandets foder med riktiga lager: fodret i full bredd,
 // bomullsbandet som eget upphöjt band ovanpå, sömmar och vinyltext i relief.
 import * as THREE from 'three';
+import { applyGlitter } from './glitter-material.js';
 import { CollarViewer } from './collar3d.js';
 import { loadHardwareAssets, hardwareAsset } from './hardware-assets.js';
 import { allLinings, WEBBING_COLORS } from './data.js';
@@ -646,6 +647,7 @@ export class RealisticCollarViewer extends CollarViewer {
     // frigör även kartor som grundklassen inte känner till
     this.collarGroup.traverse(o => {
       for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+        m.userData.glitterMask?.dispose();
         for (const k of ['normalMap', 'roughnessMap', 'metalnessMap']) if (m[k] && m[k] !== this._brush && !(m[k].userData && m[k].userData.keep)) m[k].dispose();
       }
     });
@@ -720,6 +722,7 @@ export class RealisticCollarViewer extends CollarViewer {
       sheen: 0.25, sheenRoughness: 0.85, sheenColor: col.clone().lerp(new THREE.Color('#fff'), 0.08),
       envMapIntensity: 0.35,
     });
+    applyGlitter(this, webMat, cfg, e, H - e);
     add(new THREE.Mesh(cyl(R + 0.075, webH), webMat));
     const selvMat = new THREE.MeshPhysicalMaterial({ color: col.clone().multiplyScalar(0.9), roughness: 0.98, sheen: 0.08, sheenColor: col });
     for (const s of [1, -1]) { const m = add(new THREE.Mesh(torusArc(R + 0.038, 0.04), selvMat)); m.position.y = s * webH / 2; }
@@ -963,6 +966,7 @@ export class RealisticCollarViewer extends CollarViewer {
   }
 
   _finishBiothane(cfg) {
+    applyGlitter(this, this.collarGroup.children[0].material, cfg, 0, this.texCanvas.height);
     for (const mesh of this.collarGroup.children.slice(0, 2)) {
       Object.assign(mesh.material, this._coatingMaps(cfg.circumference, cfg.width));
       mesh.material.bumpScale = 0.025;
@@ -1477,11 +1481,47 @@ export class RealisticCollarViewer extends CollarViewer {
     return g;
   }
 
+  // The backdrop belongs to the scene so PNG exports match the preview.
+  setPhotoMode(enabled) {
+    if (!this._photoBackdrop) {
+      const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+      gradient.addColorStop(0, '#d8cfc4'); gradient.addColorStop(0.55, '#f5f0e9'); gradient.addColorStop(1, '#e6ddd2');
+      ctx.fillStyle = gradient; ctx.fillRect(0, 0, 32, 512);
+      this._photoBackdrop = new THREE.CanvasTexture(canvas);
+      this._photoBackdrop.colorSpace = THREE.SRGBColorSpace;
+    }
+    if (enabled && !this.photoMode) {
+      this._previousBackground = this.scene.background;
+      this._previousExposure = this.renderer.toneMappingExposure;
+      this._photoLights = this.scene.children.filter(o => o.isDirectionalLight).map(light => ({
+        light, intensity: light.intensity, radius: light.shadow.radius, blur: light.shadow.blurSamples,
+      }));
+      this._photoLights.forEach(({light}, i) => {
+        light.intensity = [2.2, 0.55, 0.8][i] ?? light.intensity;
+        if (light.castShadow) { light.shadow.radius = 8; light.shadow.blurSamples = 12; }
+      });
+    }
+    if (!enabled && this.photoMode) {
+      this.scene.background = this._previousBackground;
+      this.renderer.toneMappingExposure = this._previousExposure;
+      this._photoLights.forEach(({light, intensity, radius, blur}) => {
+        light.intensity = intensity; light.shadow.radius = radius; light.shadow.blurSamples = blur;
+      });
+    }
+    this.photoMode = enabled;
+    if (enabled) { this.scene.background = this._photoBackdrop; this.renderer.toneMappingExposure = 1.08; }
+  }
+
   // kamerapresets med mjuk övergång
   setView(name) {
     const cfg = this._lastCfg; if (!cfg) return;
+    this.setPhotoMode(name === 'foto');
     const R = cfg.circumference / (2 * Math.PI), y = this.collarGroup.position.y;
+    const photoDistance = (R + 1.3) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) / Math.min(1, this.camera.aspect);
     const views = {
+      foto: [[R * 0.22, y + photoDistance * 0.22, photoDistance], [0, y - 0.3, 0]],
       oversikt: [[0, 12, 34], [0, 2, 0]],
       beslag:   [[3, y + 5, -R - 13], [0, y, -R * 0.7]],
       kant:     [[R * 0.55 + 3, y + 3.2, R + 7.5], [R * 0.3, y, R * 0.8]],
@@ -1490,9 +1530,11 @@ export class RealisticCollarViewer extends CollarViewer {
     const [p, t] = views[name] || views.oversikt;
     const p0 = this.camera.position.clone(), t0 = this.controls.target.clone();
     const p1 = new THREE.Vector3(...p), t1 = new THREE.Vector3(...t);
-    const start = performance.now(), dur = 700;
+    const token = this._viewTransition = (this._viewTransition || 0) + 1;
+    const start = performance.now(), dur = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700;
     const step = now => {
-      const k = Math.min(1, (now - start) / dur), s = k * k * (3 - 2 * k);
+      if (token !== this._viewTransition) return;
+      const k = dur ? Math.min(1, (now - start) / dur) : 1, s = k * k * (3 - 2 * k);
       this.camera.position.lerpVectors(p0, p1, s);
       this.controls.target.lerpVectors(t0, t1, s);
       if (k < 1) requestAnimationFrame(step);

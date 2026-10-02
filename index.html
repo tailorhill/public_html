@@ -197,9 +197,10 @@
   <section class="stage">
     <canvas id="c3d"></canvas>
     <div class="view-btns" id="viewBtns">
-      <button type="button" class="view-btn sel" data-view="oversikt">Översikt</button>
-      <button type="button" class="view-btn" data-view="kant">Närbild kant</button>
-      <button type="button" class="view-btn" data-view="insida">Insida</button>
+      <button type="button" class="view-btn sel" aria-pressed="true" data-view="oversikt">Översikt</button>
+      <button type="button" class="view-btn" aria-pressed="false" data-view="kant">Närbild kant</button>
+      <button type="button" class="view-btn" aria-pressed="false" data-view="insida">Insida</button>
+      <button type="button" class="view-btn" aria-pressed="false" data-view="foto">Fotoläge</button>
     </div>
     <div class="zoom-btns" id="zoomBtns">
       <button type="button" class="zoom-btn" id="zoomIn" title="Zooma in" aria-label="Zooma in">+</button>
@@ -224,7 +225,7 @@
         fortsätta senare eller dela den.</p>
       <button class="btn primary admin-only" id="copyBtn">Kopiera beställningstext</button>
       <button class="btn admin-only" id="mailBtn">Mejla beställningen</button>
-      <button class="btn admin-only" id="snapshotBtn">Ladda ner bild (PNG)</button>
+      <button class="btn" id="snapshotBtn">Ladda ner bild (PNG)</button>
       <button class="btn admin-only" id="svgBtn">Exportera SVG för skärning</button>
       <button class="btn admin-only" id="dxfBtn">Exportera DXF (Silhouette gratis)</button>
       <p class="note admin-only">Leverantörsvy: klistra in beställningstexten, mejla den, eller
