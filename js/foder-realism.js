@@ -21,7 +21,7 @@ const photoImgs = {};
 // Bomullsbandsfoton (3 cm-band, sömlösa längs bandet; en ruta = 5 × bandbredden)
 export const WEBBING_PHOTOS = WEBBING_COLORS.filter(c => c.foto).map(c => c.id);
 export const webbingImgs = {};
-export const WEAVE_SCALE = 0.34; // maskstorlek relativt bandbredd
+export const WEAVE_SCALE = 0.50; // maskstorlek relativt bandbredd
 
 // Lazy-laddning: texturerna är WebP och hämtas EN i taget när ett foder/en
 // bandfärg faktiskt väljs (i stället för alla ~80 upp­front). Varje textur
@@ -35,6 +35,12 @@ function _loadImg(url) {
   });
 }
 const _webbingPromises = {}, _liningPromises = {};
+let cottonRelief = null, cottonReliefReady = null;
+function ensureCottonRelief(base) {
+  if (!cottonReliefReady) cottonReliefReady = _loadImg(new URL('assets/materials/cotton/height.png', base).href)
+    .then(im => { cottonRelief = im; return im; });
+  return cottonReliefReady;
+}
 
 // Ladda (om ej redan laddad) bandfärgens textur. Löftet resolvar när bilden
 // finns i cachen, så anroparen kan bygga om 3D-vyn direkt efter.
@@ -64,6 +70,7 @@ export function ensureTexturesFor(cfg, base = document.baseURI) {
   return Promise.all([
     ensureLining(cfg && cfg.lining && cfg.lining.id, base),
     ensureWebbing(cfg && cfg.webbingId, base),
+    cfg?.family === 'cotton' ? ensureCottonRelief(base) : Promise.resolve(null),
   ]);
 }
 export const photoTileCm = l => (l && photoImgs[l.id]) ? PHOTO_LININGS[l.id].cm : TILE_CM;
@@ -291,7 +298,8 @@ export function buildLiningMaps(lining, N = 1024, tileCm = TILE_CM) {
   const mk = () => { const c = document.createElement('canvas'); c.width = c.height = N; return c; };
   const albedo = mk(), normal = mk(), orm = mk();
   const actx = albedo.getContext('2d');
-  const photo = photoImgs[lining.id];
+  // Plain cloth photos contain folds and lighting, not a repeatable color pattern.
+  const photo = (lining.pattern || kind === 'leather' || kind === 'metallic') ? photoImgs[lining.id] : null;
   if (photo) {
     const s = PHOTO_LININGS[lining.id].cm * pxcm;
     for (let yy = 0; yy < N; yy += s) for (let xx = 0; xx < N; xx += s) actx.drawImage(photo, xx, yy, s, s);
@@ -511,7 +519,14 @@ export class RealisticCollarViewer extends CollarViewer {
   paintWebbing(ctx, x, y, w, h, hex) {
     if (!this.realistic) return super.paintWebbing(ctx, x, y, w, h, hex);
     const im = webbingImgs[this._webId];
-    if (im) { this._drawWebPhoto(ctx, im, x, y, w, h); return; }
+    if (im) { this._drawWebPhoto(ctx, im, x, y, w, h); }
+    else { ctx.fillStyle = hex; ctx.fillRect(x, y, w, h); }
+    if (cottonRelief) {
+      ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.16;
+      this._drawCottonRelief(ctx, x, y, w, h, w / this._lastCircumference, h / this._bandW);
+      ctx.restore(); return;
+    }
+    if (im) return;
     ctx.fillStyle = hex; ctx.fillRect(x, y, w, h);
     // garnfärgsvariation längs bandet (varp) + fin fibrering
     const col = new THREE.Color(hex);
@@ -522,6 +537,30 @@ export class RealisticCollarViewer extends CollarViewer {
       ctx.fillStyle = (v > 0 ? col.clone().lerp(new THREE.Color('#fff'), v) : col.clone().lerp(new THREE.Color('#000'), -v)).getStyle();
       ctx.fillRect(x, yy, w, pitch * 0.9);
     }
+  }
+
+  // A modeled weave tile, displayed over 12 mm; keep yarn size stable across collar widths.
+  _drawCottonRelief(ctx, x, y, w, h, pxX, pxY) {
+    const tw = Math.max(1, pxX * 1.2), th = Math.max(1, pxY * 1.2);
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    for (let yy = y; yy < y + h; yy += th) for (let xx = x; xx < x + w; xx += tw)
+      ctx.drawImage(cottonRelief, xx, yy, tw + 0.2, th + 0.2);
+    ctx.restore();
+  }
+
+  // Dense, irregular foil grains as in the supplied QUEEN/GULDHUND photos.
+  sprinkle(ctx, x, y, w, h, baseCol, density = 1.6) {
+    const random = rng(hashStr(baseCol.getHexString()) + Math.round(w));
+    const palette = [baseCol.clone().multiplyScalar(0.52), baseCol.clone().lerp(new THREE.Color('#fff'), 0.28), baseCol.clone().lerp(new THREE.Color('#fff'), 0.76)].map(c => c.getStyle());
+    const n = Math.min(40000, Math.round(w * h / 16 * density));
+    ctx.save();
+    for (let i = 0; i < n; i++) {
+      const px = x + random() * w, py = y + random() * h, size = 0.45 + random() * 1.25;
+      ctx.fillStyle = palette[Math.floor(random() * palette.length)];
+      ctx.globalAlpha = 0.45 + random() * 0.5;
+      ctx.fillRect(px, py, size, size * (0.6 + random() * 0.6));
+    }
+    ctx.restore();
   }
 
   // Höjd/grovhet för bomullsbandet i bandtexturens upplösning (endast bandytan).
@@ -549,6 +588,13 @@ export class RealisticCollarViewer extends CollarViewer {
         lum[i] = Math.max(-1, Math.min(1, (l - lb) / lb * 1.4));
       }
     }
+    let woven = null;
+    if (cottonRelief) {
+      const c = document.createElement('canvas'); c.width = W; c.height = Hb;
+      const ctx = c.getContext('2d');
+      this._drawCottonRelief(ctx, 0, 0, W, Hb, pxcm, Hb / cfg.bandWidthCm);
+      woven = ctx.getImageData(0, 0, W, Hb).data;
+    }
     const rand = rng(7), fz = fbm(rand, 64, 2);
     const pitchY = pxcm * 0.085, pitchX = pxcm * 0.17;          // ~12 varptrådar/cm, kypert
     const stitchY = [H * 0.03, Hb - H * 0.03], lw = Math.max(1.5, H * 0.008) * 1.3;
@@ -559,7 +605,7 @@ export class RealisticCollarViewer extends CollarViewer {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
         const tw = 0.5 + 0.5 * Math.sin(2 * Math.PI * (x / pitchX + y / (pitchY * 2)));
-        let h = (lum ? 0.5 + 0.5 * lum[i] : 0.4 * rib + 0.3 * tw * rib + 0.3 * fz(x / W, y / Hb)) * selv;
+        let h = (woven ? woven[i * 4] / 255 : lum ? 0.5 + 0.5 * lum[i] : 0.4 * rib + 0.3 * tw * rib + 0.3 * fz(x / W, y / Hb)) * selv;
         for (const sy of stitchY) {
           const dy = Math.abs(y - sy);
           if (dy < lw) {
@@ -569,14 +615,16 @@ export class RealisticCollarViewer extends CollarViewer {
           }
         }
         const t = md[i * 4 + 3] / 255;
-        hgt[i] = h * (1 - t) + 1.5 * t;
+        const grain = ((Math.imul(x + 1, 374761393) ^ Math.imul(y + 1, 668265263)) >>> 0) / 4294967295;
+        // Thin heat-transfer film retains some of the underlying weave.
+        hgt[i] = h * (1 - t) + (1.1 + h * 0.12 + grain * 0.13) * t;
       }
     }
     const nC = document.createElement('canvas'), rC = document.createElement('canvas');
     nC.width = rC.width = W; nC.height = rC.height = Hb;
     const nctx = nC.getContext('2d'), rctx = rC.getContext('2d');
     const NI = nctx.createImageData(W, Hb), RI = rctx.createImageData(W, Hb);
-    const baseR = cfg.fullGlitter ? 0.5 : 0.9, s = 0.85;
+    const baseR = cfg.fullGlitter ? 0.58 : 0.94, s = 1.6;
     for (let y = 0, i = 0; y < Hb; y++) for (let x = 0; x < W; x++, i++) {
       const xl = y * W + (x - 1 + W) % W, xr = y * W + (x + 1) % W;
       const yu = Math.max(0, y - 1) * W + x, yd = Math.min(Hb - 1, y + 1) * W + x;
@@ -587,7 +635,7 @@ export class RealisticCollarViewer extends CollarViewer {
       NI.data[i * 4 + 2] = (inv * 0.5 + 0.5) * 255;
       NI.data[i * 4 + 3] = 255;
       const t = md[i * 4 + 3] / 255;
-      RI.data[i * 4] = 255; RI.data[i * 4 + 1] = (baseR * (1 - t) + 0.32 * t) * 255; RI.data[i * 4 + 2] = 0; RI.data[i * 4 + 3] = 255;
+      RI.data[i * 4] = 255; RI.data[i * 4 + 1] = (baseR * (1 - t) + 0.48 * t) * 255; RI.data[i * 4 + 2] = 0; RI.data[i * 4 + 3] = 255;
     }
     nctx.putImageData(NI, 0, 0); rctx.putImageData(RI, 0, 0);
     const tex = c => { const t = new THREE.CanvasTexture(c); t.anisotropy = this.renderer.capabilities.getMaxAnisotropy(); return t; };
@@ -601,6 +649,9 @@ export class RealisticCollarViewer extends CollarViewer {
         for (const k of ['normalMap', 'roughnessMap', 'metalnessMap']) if (m[k] && m[k] !== this._brush && !(m[k].userData && m[k].userData.keep)) m[k].dispose();
       }
     });
+    // A relaxed collar is slightly oval; all attached hardware stays aligned.
+    this.collarGroup.scale.set(this.realistic ? 1.035 : 1, 1, this.realistic ? 0.965 : 1);
+    this._lastCircumference = cfg.circumference;
     this._isBio = cfg.family === 'biothane';
     this._bandW = cfg.bandWidthCm; this._bandColor = cfg.bandColor; this._webId = cfg.webbingId;
     this._bendR = cfg.circumference / (2 * Math.PI) + 0.1;
@@ -644,7 +695,7 @@ export class RealisticCollarViewer extends CollarViewer {
     add(new THREE.Mesh(cyl(R, width), this.liningMaterial(cfg.lining, R * arc, width, THREE.FrontSide)));
     add(new THREE.Mesh(cyl(R - th, width), this.liningMaterial(cfg.lining, (R - th) * arc, width, THREE.BackSide)));
     const edgeMat = this.liningMaterial(cfg.lining, R * arc, Math.PI * th, THREE.FrontSide, true);
-    for (const s of [1, -1]) { const m = add(new THREE.Mesh(torusArc(R - th / 2, th / 2), edgeMat)); m.position.y = s * width / 2; m.scale.y = 0.55; }
+    for (const s of [1, -1]) { const m = add(new THREE.Mesh(torusArc(R - th / 2, th / 2), edgeMat)); m.position.y = s * width / 2; m.scale.y = 0.85; }
     if (halv) {
       for (const s of [1, -1]) {
         const a = s * halfSpan;
@@ -664,12 +715,12 @@ export class RealisticCollarViewer extends CollarViewer {
     const col = new THREE.Color(cfg.bandColor);
     const webMat = new THREE.MeshPhysicalMaterial({
       map: bandTex, normalMap: wm.normal, roughnessMap: wm.rough, roughness: 1, metalness: 0,
-      normalScale: new THREE.Vector2(0.5, 0.5),
+      normalScale: new THREE.Vector2(0.65, 0.65),
       sheen: 0.25, sheenRoughness: 0.85, sheenColor: col.clone().lerp(new THREE.Color('#fff'), 0.08),
       envMapIntensity: 0.35,
     });
     add(new THREE.Mesh(cyl(R + 0.075, webH), webMat));
-    const selvMat = new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.94, sheen: 0.2, sheenColor: col.clone().lerp(new THREE.Color('#fff'), 0.3) });
+    const selvMat = new THREE.MeshPhysicalMaterial({ color: col.clone().multiplyScalar(0.9), roughness: 0.98, sheen: 0.08, sheenColor: col });
     for (const s of [1, -1]) { const m = add(new THREE.Mesh(torusArc(R + 0.038, 0.04), selvMat)); m.position.y = s * webH / 2; }
 
     // Små, sammanhängande ojämnheter i sydda lager bryter den perfekta
@@ -681,8 +732,14 @@ export class RealisticCollarViewer extends CollarViewer {
         const x = p.getX(i), z = p.getZ(i), r = Math.hypot(x, z);
         if (r < 1) continue;
         const a = Math.atan2(x, z), y = p.getY(i) + mesh.position.y;
-        const ripple = 0.018 * Math.sin(7 * a + y * 0.8) + 0.009 * Math.cos(13 * a - y);
-        p.setXYZ(i, x * (1 + ripple / r), p.getY(i) + 0.018 * Math.sin(5 * a), z * (1 + ripple / r));
+        const edgeWeight = Math.min(1, Math.abs(y) / (width * 0.5));
+        const ripple = 0.024 * Math.sin(7 * a + y * 0.8) + 0.012 * Math.cos(13 * a - y)
+          + edgeWeight * 0.024 * Math.sin(19 * a + y * 2);
+        // Small gathers on the lining's inner face, away from the printed band.
+        const innerFold = r < R - th * 0.6
+          ? -0.07 * (1 - edgeWeight * edgeWeight) + 0.025 * Math.sin(a * 23) * Math.pow(edgeWeight, 3)
+          : 0;
+        p.setXYZ(i, x * (1 + (ripple + innerFold) / r), p.getY(i) + 0.025 * Math.sin(5 * a), z * (1 + (ripple + innerFold) / r));
       }
       p.needsUpdate = true;
       mesh.geometry.computeVertexNormals();
@@ -958,18 +1015,24 @@ export class RealisticCollarViewer extends CollarViewer {
 
   // Sömlös webbingtextur (1 cm lång ruta, full bandbredd) för ofodrade band.
   _webTapeMat(hex, bw) {
-    const key = hex + bw;
+    const key = hex + bw + (cottonRelief ? ':woven' : ':fallback');
     if (this._tapeKey === key) return this._tapeMat;
     const Nu = 128, Nv = 256, col = new THREE.Color(hex), r = rng(3), fz = fbm(r, 8, 2);
     const a = document.createElement('canvas'), n = document.createElement('canvas');
     a.width = n.width = Nu; a.height = n.height = Nv;
+    let woven = null;
+    if (cottonRelief) {
+      const sample = document.createElement('canvas'); sample.width = Nu; sample.height = Nv;
+      const ctx = sample.getContext('2d'); this._drawCottonRelief(ctx, 0, 0, Nu, Nv, Nu, Nv / bw);
+      woven = ctx.getImageData(0, 0, Nu, Nv).data;
+    }
     const rows = Math.round(bw * 12), h = new Float32Array(Nu * Nv);
     for (let y = 0; y < Nv; y++) for (let x = 0; x < Nu; x++) {
       const v = y / Nv, u = x / Nu;
       const rib = Math.pow(Math.abs(Math.sin(Math.PI * v * rows)), 0.7);
       const tw = 0.5 + 0.5 * Math.sin(2 * Math.PI * (u * 6 + v * rows / 2));
       const edge = Math.min(v, 1 - v) * bw / 0.12, selv = edge < 1 ? Math.sqrt(1 - (1 - edge) ** 2) : 1;
-      h[y * Nu + x] = (0.4 * rib + 0.3 * tw * rib + 0.3 * fz(u, v)) * selv;
+      h[y * Nu + x] = (woven ? woven[(y * Nu + x) * 4] / 255 : 0.4 * rib + 0.3 * tw * rib + 0.3 * fz(u, v)) * selv;
     }
     const actx = a.getContext('2d'), nctx = n.getContext('2d');
     const AI = actx.createImageData(Nu, Nv), NI = nctx.createImageData(Nu, Nv);
@@ -1007,7 +1070,7 @@ export class RealisticCollarViewer extends CollarViewer {
       ctx.globalAlpha = 0.08; ctx.fillStyle = '#000';
       for (let y = 0; y < 256; y += 3) ctx.fillRect(0, y, 512, 1);
       for (let x = 0; x < 512; x += 3) ctx.fillRect(x, 0, 1, 256);
-      ctx.globalAlpha = 1; ctx.fillStyle = '#b4502c';
+      ctx.globalAlpha = 1; ctx.fillStyle = '#a31a60';
       ctx.font = '600 104px "Dancing Script", cursive'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Valley Dogs', 256, 150);
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.userData = { keep: true };
@@ -1015,7 +1078,7 @@ export class RealisticCollarViewer extends CollarViewer {
       this._labelMat = new THREE.MeshPhysicalMaterial({ map: t, roughness: 0.85, sheen: 0.5, sheenRoughness: 0.5, side: THREE.DoubleSide, envMapIntensity: 0.3 });
       this._labelMat.userData.keep = true;
     }
-    const lw = 2.3, lh = 1.15;
+    const lw = 2.1, lh = 0.8;
     const geo = new THREE.PlaneGeometry(lw, lh, 12, 1);
     // böj etiketten längs halsbandets radie
     const p = geo.attributes.position;
