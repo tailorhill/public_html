@@ -664,6 +664,7 @@ export class RealisticCollarViewer extends CollarViewer {
       if (this.realistic && cfg.family === 'biothane') {
         this._finishBiothane(cfg);
         if (halfSlip) this._buildBioHalfSlip(cfg);
+        this._shapeBiothane(cfg);
       }
       return;
     }
@@ -771,7 +772,9 @@ export class RealisticCollarViewer extends CollarViewer {
         mesh.material.map.repeat.x = arc / (2 * Math.PI);
         mesh.material.map.offset.x = (1 - arc / (2 * Math.PI)) / 2;
       }
-      if (mesh.material.bumpMap) mesh.material.bumpMap.repeat.x *= arc / (2 * Math.PI);
+      for (const map of [mesh.material.bumpMap, mesh.material.roughnessMap]) {
+        if (map) map.repeat.x *= arc / (2 * Math.PI);
+      }
     });
     for (const mesh of [top, bottom]) {
       mesh.geometry.dispose();
@@ -797,7 +800,7 @@ export class RealisticCollarViewer extends CollarViewer {
     const knappe = cfg.modelKind === 'halvstrypknappe', adjustable = cfg.modelKind === 'justerbart';
     const visible = cfg.showHardware !== false, thickness = bio ? 0.20 : 0.11;
     const metal = visible ? this.metalMaterial(cfg.hardware) : null;
-    const tape = bio ? new THREE.MeshPhysicalMaterial({ color: cfg.bandColor, roughness: 0.62, clearcoat: 0.08, side: THREE.DoubleSide }) : this._webTapeMat(cfg.bandColor, bw);
+    const tape = bio ? this._bioTapeMaterial(cfg.bandColor, bw) : this._webTapeMat(cfg.bandColor, bw);
     const P = (a, r = R + 0.04) => new THREE.Vector3(Math.sin(a) * r, 0, Math.cos(a) * r);
     const arc = (a, b, r, n = 32) => Array.from({ length: n + 1 }, (_, i) => P(a + (b - a) * i / n, r));
     const add = (o, name) => {
@@ -897,27 +900,77 @@ export class RealisticCollarViewer extends CollarViewer {
     G.userData.halfSlipVariant = cfg.modelKind;
   }
 
-  _finishBiothane(cfg) {
+  _coatingMaps(uCm, vCm) {
     if (!this._coatingGrain) {
-      const N = 256, c = document.createElement('canvas');
-      c.width = c.height = N;
+      const N = 256, c = document.createElement('canvas'), rough = document.createElement('canvas');
+      c.width = c.height = rough.width = rough.height = N;
       const ctx = c.getContext('2d'), pixels = ctx.createImageData(N, N);
-      const noise = fbm(rng(43), 40, 3);
+      const rctx = rough.getContext('2d'), rp = rctx.createImageData(N, N);
+      const noise = fbm(rng(43), 36, 3), pores = fbm(rng(92), 80, 2), broad = fbm(rng(27), 5, 3);
       for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-        const i = (y * N + x) * 4;
-        const v = 128 + (noise(x / N, y / N) - 0.5) * 100;
-        pixels.data.set([v, v, v, 255], i);
+        const i = (y * N + x) * 4, u = x / N, v = y / N;
+        // Shallow, irregular embossed coating; no textile ribs or leather cracks.
+        const grain = noise(u, v) * 0.7 + pores(u, v) * 0.3;
+        const h = 128 + (grain - 0.5) * 130;
+        const r = 255 * (0.61 + grain * 0.12 + broad(u, v) * 0.10);
+        pixels.data.set([h, h, h, 255], i); rp.data.set([r, r, r, 255], i);
       }
-      ctx.putImageData(pixels, 0, 0);
-      this._coatingGrain = c;
+      ctx.putImageData(pixels, 0, 0); rctx.putImageData(rp, 0, 0);
+      this._coatingGrain = c; this._coatingRough = rough;
     }
+    const make = c => {
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(uCm / 1.2, vCm / 1.2);
+      t.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      return t;
+    };
+    return { bumpMap: make(this._coatingGrain), roughnessMap: make(this._coatingRough) };
+  }
+
+  _bioTapeMaterial(color, width) {
+    return new THREE.MeshPhysicalMaterial({
+      color, ...this._coatingMaps(1, width), bumpScale: 0.025,
+      roughness: 1, metalness: 0, clearcoat: 0.06, clearcoatRoughness: 0.72,
+      envMapIntensity: 0.65, side: THREE.DoubleSide,
+    });
+  }
+
+  _shapeBiothane(cfg) {
+    const bodies = this.collarGroup.children.slice(0, 4);
+    bodies.forEach((mesh, index) => {
+      if (index < 2) {
+        const p = mesh.geometry.parameters;
+        const replacement = new THREE.CylinderGeometry(p.radiusTop, p.radiusBottom, p.height,
+          p.radialSegments, 12, true, p.thetaStart, p.thetaLength);
+        mesh.geometry.dispose(); mesh.geometry = replacement;
+      }
+      mesh.updateMatrix();
+      const inverse = mesh.matrix.clone().invert(), p = mesh.geometry.attributes.position;
+      const v = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i).applyMatrix4(mesh.matrix);
+        const radius = Math.hypot(v.x, v.z), angle = Math.atan2(v.x, v.z);
+        const radial = 0.012 * Math.sin(5 * angle + v.y * 0.6) + 0.006 * Math.cos(11 * angle);
+        if (index >= 2) v.y = mesh.position.y + (v.y - mesh.position.y) * 0.65;
+        v.x *= 1 + radial / radius; v.z *= 1 + radial / radius;
+        v.y += 0.016 * Math.sin(3 * angle + 0.5);
+        v.applyMatrix4(inverse); p.setXYZ(i, v.x, v.y, v.z);
+      }
+      p.needsUpdate = true; mesh.geometry.computeVertexNormals();
+      mesh.geometry.computeBoundingSphere();
+    });
+  }
+
+  _finishBiothane(cfg) {
     for (const mesh of this.collarGroup.children.slice(0, 2)) {
-      const grain = new THREE.CanvasTexture(this._coatingGrain);
-      grain.wrapS = grain.wrapT = THREE.RepeatWrapping;
-      grain.repeat.set(Math.max(1, Math.round(cfg.circumference / 2)), cfg.width / 2);
-      grain.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-      mesh.material.bumpMap = grain;
-      mesh.material.bumpScale = 0.009;
+      Object.assign(mesh.material, this._coatingMaps(cfg.circumference, cfg.width));
+      mesh.material.bumpScale = 0.025;
+      mesh.material.roughness = 1;
+      mesh.material.envMapIntensity = 0.65;
+      if (mesh.material.isMeshPhysicalMaterial) {
+        mesh.material.clearcoat = 0.06; mesh.material.clearcoatRoughness = 0.72;
+      }
       mesh.receiveShadow = true;
     }
     if (cfg.modelKind === 'stallbart') {
