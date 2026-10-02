@@ -746,7 +746,7 @@ export class RealisticCollarViewer extends CollarViewer {
     }
 
     // vävd Valley Dogs-etikett vid fodrets ände
-    this._addLabel(G, 0.68, R + 0.02, width); // framsidan, bredvid texten
+    this._addLabel(G, 0.68, R + 0.14, width); // framsidan, bredvid texten
 
     if (halv) this._addHalfSlip(cfg);
   }
@@ -1080,12 +1080,18 @@ export class RealisticCollarViewer extends CollarViewer {
     }
     const lw = 2.1, lh = 0.8;
     const geo = new THREE.PlaneGeometry(lw, lh, 12, 1);
-    // böj etiketten längs halsbandets radie
+    // Follow the collar's arc exactly, outside its padded/rippled surface.
     const p = geo.attributes.position;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, -(x * x) / (2 * r)); }
+    for (let i = 0; i < p.count; i++) {
+      const angle = p.getX(i) / r;
+      p.setX(i, r * Math.sin(angle));
+      p.setZ(i, r * (Math.cos(angle) - 1));
+    }
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, this._labelMat);
-    m.position.set(Math.sin(a) * r, -width / 2 - lh * 0.5 + 0.55, Math.cos(a) * r);
+    m.name = 'valley-dogs-label';
+    // Only the upper 1.2 mm overlaps the lining; the printed face hangs clear.
+    m.position.set(Math.sin(a) * r, -width / 2 - lh * 0.5 + 0.12, Math.cos(a) * r);
     m.lookAt(Math.sin(a) * (r + 10), m.position.y, Math.cos(a) * (r + 10));
     m.castShadow = true; m.receiveShadow = true;
     G.add(m);
