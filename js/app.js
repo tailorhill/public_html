@@ -674,7 +674,12 @@ function renderSelectionLegend() {
   const cotton = state.family === 'cotton';
   const width = currentWidthCm();
   const band = byId(cotton ? WEBBING_COLORS : BIOTHANE_COLORS, cotton ? state.webbing : state.biothane);
-  $('#selectionLegendTitle').textContent = `Dina val · ${cotton ? 'Bomull' : 'BioThane'} · ${width} cm · ${band.name}`;
+  const title = $('#selectionLegendTitle');
+  title.textContent = `Dina val · ${cotton ? 'Bomull' : 'BioThane'} · ${width} cm · ${band.name}`;
+  if (cotton) {
+    const material = LINING_GROUPS[liningGroupIndex(state.lining)].group.replace(/ \(.*\)/, '');
+    title.appendChild(el('span', 'legend-lining', `Foder: ${material} · ${byId(linings, state.lining).name}`));
+  }
   const choices = [
     ['Modell', byId(cotton ? COTTON_MODELS : BIOTHANE.models, cotton ? state.cottonModel : state.bioModel).name],
     ['Storlek', sizeDescription(state)], ['Band', band.name],
