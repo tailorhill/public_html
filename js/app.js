@@ -462,7 +462,6 @@ function renderContentEditor() {
       prev.style.fontFamily = f.css; prev.style.fontWeight = f.weight;
       if (f.italic) prev.style.fontStyle = 'italic';
       b.appendChild(prev);
-      b.appendChild(el('span', 'option-name', f.name));
       b.title = f.name + (f.caps ? ' (endast versaler)' : '');
       b.addEventListener('click', () => { active.font = f.id; refresh(); });
       fg.appendChild(b);
