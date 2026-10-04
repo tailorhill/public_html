@@ -147,67 +147,60 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   flex-shrink: 0;
 }
 
-/* ---------- swatches ---------- */
-.swatches {
+/* ---------- namngivna material- och symbolval ---------- */
+.swatches, .swatches.metal, .swatches.lining, .symgrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px 8px;
+  align-items: start;
 }
 .swatch {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 8px;
-  border: 2px solid rgba(0,0,0,0.12);
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.1s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 0; width: 100%; padding: 3px;
+  border: 0; border-radius: 8px; background: transparent;
+  color: var(--ink); font: inherit; cursor: pointer;
 }
-.swatch:hover { transform: scale(1.12); z-index: 2; }
-.swatch.sel {
+.sw-preview {
+  display: block; position: relative;
+  width: 100%; max-width: 58px; aspect-ratio: 1;
+  border-radius: 8px; border: 2px solid rgba(0,0,0,0.12);
+  transition: border-color 0.1s;
+}
+.swatch:hover .sw-preview { border-color: var(--ink); }
+.swatch.sel .sw-preview {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px #fff inset, 0 0 0 2px var(--ink);
 }
-.swatch.dis { opacity: 0.25; cursor: not-allowed; }
-.swatch.spec::after {
-  content: '◆';
-  position: absolute; inset: 0;
+.swatch.sel .sw-name { font-weight: 700; }
+.swatch.dis { opacity: 0.5; cursor: not-allowed; }
+.sw-preview.spec::after {
+  content: '◆'; position: absolute; inset: 0;
   display: grid; place-items: center;
-  color: rgba(255,255,255,0.8);
-  font-size: 9px;
+  color: rgba(255,255,255,0.8); font-size: 9px;
   text-shadow: 0 0 3px rgba(0,0,0,0.6);
 }
-.sw-name { display: none; }
-.swatches.metal { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
-.swatches.metal .swatch { border-radius: 50%; }
-/* foder: större bildrutor så fototexturen syns */
-.swatches.lining { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); margin: 10px 0; }
+.sw-name, .option-name {
+  display: block; width: 100%; min-width: 0;
+  font-family: var(--font, sans-serif); font-size: 11px; font-weight: 500;
+  font-style: normal; line-height: 1.35; text-align: center;
+  overflow-wrap: anywhere; color: var(--ink);
+}
+.swatches.metal .sw-preview { border-radius: 50%; }
+.swatches.lining { margin: 10px 0; }
 .chip-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .chip-row .note { margin: 0; }
-
-/* ---------- symboler ---------- */
 #textTabs { margin-bottom: 12px; }
-.symgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
-  gap: 6px;
-}
 .symopt {
-  aspect-ratio: 1;
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  background: #faf8f4;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  padding: 4px;
-  transition: all 0.12s;
-  font: inherit;
-  color: var(--muted);
-  font-size: 18px;
+  min-width: 0; width: 100%;
+  border: 1.5px solid var(--line); border-radius: 10px;
+  background: #faf8f4; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 5px; font: inherit;
 }
-.symopt:hover { border-color: var(--accent); transform: scale(1.06); }
+.symopt:hover { border-color: var(--accent); }
 .symopt.sel { border-color: var(--accent); background: #f3ead9; }
-.symopt canvas { width: 100%; height: 100%; display: block; }
+.symopt canvas { width: 48px; height: 48px; max-width: 100%; display: block; }
+.swatch:focus-visible, .symopt:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* ---------- innehållseditor (chip-remsa) ---------- */
 .chip-strip {

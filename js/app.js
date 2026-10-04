@@ -342,23 +342,26 @@ function swatchGrid(container, list, getSel, onPick, opts = {}) {
     const b = el('button', 'swatch' + (getSel() === c.id ? ' sel' : '') + (disabled ? ' dis' : ''));
     b.type = 'button';
     b.title = c.name + (c.note ? ` – ${c.note}` : '');
+    const preview = el('span', 'sw-preview');
+    preview.setAttribute('aria-hidden', 'true');
+    b.setAttribute('aria-pressed', String(getSel() === c.id));
     if (opts.image) {
       // bildruta: fototextur som miniatyr, hex som fallback bakom
       const url = opts.image(c);
-      b.style.backgroundColor = c.hex || '#cccccc';
+      preview.style.backgroundColor = c.hex || '#cccccc';
       if (url) {
-        b.style.backgroundImage = `url('${url}')`;
-        b.style.backgroundSize = 'cover';
-        b.style.backgroundPosition = 'center';
+        preview.style.backgroundImage = `url('${url}')`;
+        preview.style.backgroundSize = 'cover';
+        preview.style.backgroundPosition = 'center';
       }
     } else {
-      b.style.background = swatchBackground(c);
+      preview.style.background = swatchBackground(c);
     }
-    if (c.special) b.classList.add('spec');
+    if (c.special) preview.classList.add('spec');
     b.disabled = disabled;
     b.addEventListener('click', () => { onPick(c.id); refresh(); });
     const lbl = el('span', 'sw-name', c.name);
-    b.appendChild(lbl);
+    b.append(preview, lbl);
     container.appendChild(b);
   }
 }
@@ -459,6 +462,7 @@ function renderContentEditor() {
       prev.style.fontFamily = f.css; prev.style.fontWeight = f.weight;
       if (f.italic) prev.style.fontStyle = 'italic';
       b.appendChild(prev);
+      b.appendChild(el('span', 'option-name', f.name));
       b.title = f.name + (f.caps ? ' (endast versaler)' : '');
       b.addEventListener('click', () => { active.font = f.id; refresh(); });
       fg.appendChild(b);
@@ -485,6 +489,9 @@ function renderContentEditor() {
       const cv = document.createElement('canvas'); cv.width = cv.height = 64;
       drawSymbol(cv.getContext('2d'), s.id, 32, 32, s.flag ? 34 : 42, '#3a332b');
       b.appendChild(cv);
+      b.appendChild(el('span', 'option-name', s.name));
+      b.setAttribute('aria-pressed', String(active.id === s.id));
+      cv.setAttribute('aria-hidden', 'true');
       b.addEventListener('click', () => { active.id = s.id; refresh(); });
       symWrap.appendChild(b);
     }
