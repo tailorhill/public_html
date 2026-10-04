@@ -679,7 +679,11 @@ function renderSelectionLegend() {
     ['Modell', byId(cotton ? COTTON_MODELS : BIOTHANE.models, cotton ? state.cottonModel : state.bioModel).name],
     ['Storlek', sizeDescription(state)], ['Band', band.name],
   ];
-  if (cotton) choices.push(['Foder', byId(linings, state.lining).name]);
+  if (cotton) {
+    const lining = byId(linings, state.lining);
+    const material = LINING_GROUPS[liningGroupIndex(state.lining)].group.replace(/ \(.*\)/, '');
+    choices.push(['Fodermaterial', material], ['Foderfärg / mönster', lining.name]);
+  }
   if (state.fullGlitter) choices.push(['Helglitter', colorName(state.glitterColor)]);
   rowsOf().forEach((row, i) => {
     choices.push([`Rad ${i + 1}`, row.els.map(e => e.t === 'sym' ? symName(e.id)
