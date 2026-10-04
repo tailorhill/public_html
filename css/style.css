@@ -385,10 +385,11 @@ dialog pre {
 
 /* Live legend stays beside the preview; expand for the full design. */
 .selection-legend {
-  flex: 0 0 auto; max-height: 30%; overflow-y: auto;
+  flex: 0 0 auto;
   background: rgba(255,255,255,0.96); border-top: 1px solid var(--line);
   padding: 10px 14px; font-size: 12px;
 }
+.stage:has(.selection-legend[open]) .preview-scene { min-height: 180px; }
 .selection-legend summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .selection-legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 12px; margin: 10px 0 2px; }
 .legend-lining { display: block; margin-top: 3px; font-weight: 500; overflow-wrap: anywhere; }
@@ -410,11 +411,15 @@ dialog pre {
   .view-btn { padding: 5px 10px; font-size: 11px; }
   .stage-hint { display: none; }
   .zoom-btns { bottom: 6px; right: 6px; flex-direction: row; }
-  .selection-legend { padding: 6px 12px; max-height: 32%; }
+  .selection-legend { padding: 6px 12px; }
+  .stage:has(.selection-legend[open]) { height: auto; position: relative; top: auto; }
+  .stage:has(.selection-legend[open]) .preview-scene {
+    flex: none; height: clamp(150px, 28svh, 240px); min-height: 0;
+  }
 }
 @media (max-width: 900px) and (max-height: 500px) {
   html { scroll-padding-top: 160px; }
   .stage { height: 150px; }
-  .selection-legend { max-height: 40%; }
+  .stage:has(.selection-legend[open]) .preview-scene { height: 100px; }
   .view-btns { left: 8px; transform: none; }
 }
