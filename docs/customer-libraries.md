@@ -12,7 +12,7 @@ Path och koordinatskala följer med i designlänken. Mottagaren behöver alltså
 
 `assets/libraries/google-fonts.json` indexerar statiska TTF-varianter från Google Fonts officiella OFL-katalog, med en låst Git-revision. Inga API-nycklar behövs. Det är ett index över stödda varianter, inte hela Google Fonts utbud. Variabla fonter, stora fontfiler och andra licenskataloger ingår inte.
 
-TTF-filen hämtas först vid förhandsvisning, val eller återställning av ett valt typsnitt. Samma fil används av FontFace och opentype.js för att hålla förhandsvisning och skärfiler konsekventa. ÅÄÖåäö kontrolleras innan typsnittet godtas. Nedladdningen kräver kontakt med raw.githubusercontent.com. Om återställningen misslyckas behålls typsnittsvalet och beställning/export blockeras med ett felmeddelande tills användaren laddar om eller byter typsnitt.
+TTF-filen hämtas automatiskt när ett prov blir synligt i sökfönstret (högst tre samtidiga förhandsvisningar), eller vid återställning av ett valt typsnitt. Provet visar en laddningstext tills rätt font är klar; vid fel visas ett meddelande och en knapp för att försöka igen. Samma fil används av FontFace och opentype.js för att hålla förhandsvisning och skärfiler konsekventa. ÅÄÖåäö kontrolleras innan typsnittet godtas. Nedladdningen kräver kontakt med raw.githubusercontent.com. Om återställningen misslyckas behålls typsnittsvalet och beställning/export blockeras med ett felmeddelande tills användaren laddar om eller byter typsnitt.
 
 Indexet kan uppdateras med `python3 tools/build-font-library.py`. Skriptet behåller tidigare publicerade poster och deras filrevisioner så att sparade designer fortsätter använda samma filer. Nya familjer läggs till.
 

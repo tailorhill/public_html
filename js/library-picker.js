@@ -38,25 +38,64 @@ export function createLibraryPicker(onPick) {
   let mode, generation=0, offset=0, fontMatches=[];
   const error=e=>{status.textContent=['TypeError','TimeoutError','AbortError'].includes(e.name) ? 'Tjänsten kunde inte nås. Kontrollera anslutningen och försök igen.' : e.message || 'Något gick fel. Försök igen.';};
   const pick=async(b,action)=>{const token=generation,kind=mode;b.disabled=true;status.textContent='Hämtar…';try{const item=await action();if(token!==generation||!dialog.open)return;await onPick(kind,item);dialog.close();}catch(e){if(token===generation)error(e);}finally{b.disabled=false;}};
+  // Load visible samples automatically, with bounded concurrency. Never display
+  // the generic fallback font as though it were the requested typeface.
+  let previewQueue = [], previewJobs = 0;
+  const previewObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) {
+      previewObserver.unobserve(entry.target);
+      previewQueue.push(entry.target._loadPreview);
+    }
+    drainPreviews();
+  }, { root: dialog, rootMargin: '100px' });
+  function drainPreviews() {
+    while (previewJobs < 3 && previewQueue.length) {
+      const job = previewQueue.shift(); previewJobs++;
+      job().finally(() => { previewJobs--; drainPreviews(); });
+    }
+  }
   const fontPage=()=>{
+    const token = generation;
     for(const f of fontMatches.slice(offset,offset+24)) {
-      const card=node('div',null,'library-card'), label=node('strong',f.name), sample=node('div','Luna Åäö','library-font-sample');
-      const preview=node('button','Förhandsvisa','btn ghost'), choose=node('button','Välj','btn');
-      preview.type=choose.type='button';
-      preview.onclick=async()=>{preview.disabled=true;try{await useLibraryFont(f.id, false);sample.style.fontFamily=`"${f.id}"`;status.textContent=f.name;}catch(e){error(e);}finally{preview.disabled=false;}};
+      const card=node('div',null,'library-card'), label=node('strong',f.name), sample=node('div','Laddar typsnitt…','library-font-sample');
+      sample.dataset.fontId = f.id;
+      sample.setAttribute('aria-busy', 'true');
+      const message=node('p',null,'note'); message.setAttribute('role','status');
+      const preview=node('button','Försök igen','btn ghost'), choose=node('button','Välj','btn');
+      preview.type=choose.type='button'; preview.hidden=true; choose.disabled=true;
+      let pending = false;
+      card._loadPreview = async () => {
+        if (pending || token !== generation || !dialog.open || !card.isConnected) return;
+        pending = true; preview.hidden=true; message.textContent='';
+        sample.textContent='Laddar typsnitt…'; sample.setAttribute('aria-busy','true');
+        try {
+          await useLibraryFont(f.id, false);
+          if(token!==generation || !dialog.open || !card.isConnected)return;
+          sample.style.fontFamily=`"${f.id}"`;
+          sample.textContent='Luna Åäö'; sample.dataset.ready='true'; choose.disabled=false;
+        } catch(e) {
+          if(token!==generation || !dialog.open || !card.isConnected)return;
+          sample.textContent='Förhandsvisning saknas';
+          message.textContent=['TypeError','TimeoutError','AbortError'].includes(e.name)
+            ? 'Kunde inte hämta typsnittet. Försök igen.' : e.message;
+          preview.hidden=false;
+        } finally { pending=false; sample.setAttribute('aria-busy','false'); }
+      };
+      preview.onclick=card._loadPreview;
       choose.onclick=()=>pick(choose,()=>useLibraryFont(f.id));
-      card.append(label,sample,preview,choose);results.append(card);
+      card.append(label,sample,message,preview,choose);results.append(card);
+      previewObserver.observe(card);
     }
     offset+=24;more.hidden=offset>=fontMatches.length;
   };
   async function run() {
-    const token=++generation;results.replaceChildren();more.hidden=true;status.textContent='Söker…';
+    const token=++generation;previewObserver.disconnect();previewQueue=[];results.replaceChildren();more.hidden=true;status.textContent='Söker…';
     try {
       const query=input.value.trim().toLowerCase();
       if(mode==='font') {
         const catalog=await fontCatalog();if(token!==generation)return;
         fontMatches=catalog.fonts.filter(f=>f.name.toLowerCase().includes(query)||f.id.includes(query));offset=0;fontPage();
-        status.textContent=`${fontMatches.length} typsnitt. Förhandsvisa för att se stilen. Svenska bokstäver kontrolleras när typsnittet hämtas.`;
+        status.textContent=`${fontMatches.length} typsnitt. Proverna visar automatiskt rätt stil när de har laddats. Svenska bokstäver kontrolleras samtidigt.`;
       } else {
         const q=translations[query]||query||'dog';
         const found=await json(`https://api.iconify.design/search?query=${encodeURIComponent(q)}&prefix=mdi&limit=48`);
@@ -85,7 +124,7 @@ export function createLibraryPicker(onPick) {
     }catch(e){if(token===generation)error(e);}
   }
   form.onsubmit=e=>{e.preventDefault();run();};more.onclick=fontPage;
-  dialog.addEventListener('close',()=>{generation++;});
+  dialog.addEventListener('close',()=>{generation++;previewObserver.disconnect();previewQueue=[];});
   return kind=>{mode=kind;title.textContent=kind==='font'?'Hitta typsnitt – Google Fonts':'Hitta symboler – Iconify';
     input.value='';input.placeholder=kind==='font'?'Sök typsnittets namn':'Sök t.ex. hund, tass eller heart';
     source.textContent=kind==='font'?'Google Fonts – källor och licenser':'Material Design Icons · Pictogrammers · Apache 2.0';
