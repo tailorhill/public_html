@@ -12,7 +12,7 @@
 
 $DIR = __DIR__ . '/designs';
 $LEN = 10;      // kodlängd (hex)
-$MAX = 4000;    // max payload-längd
+$MAX = 1000000;    // max payload-längd
 
 function out_json($data, $status = 200) {
   http_response_code($status);

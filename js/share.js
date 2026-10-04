@@ -6,7 +6,7 @@
 // ordning. v1 (texter + en symbol + placering) migreras vid avkodning.
 
 const b64encode = s =>
-  btoa(String.fromCharCode(...new TextEncoder().encode(s)))
+  btoa(Array.from(new TextEncoder().encode(s), b => String.fromCharCode(b)).join(''))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 const b64decode = s =>
@@ -22,6 +22,7 @@ export function encodeDesign(state) {
   const c = state.content || { rows: [{ els: [] }], layout: 'stack', overlayPos: 'mitten' };
   const d = {
     v: 2,
+    xs: (state.librarySymbols || []).filter(s => c.rows.some(r => r.els.some(e => e.t === 'sym' && e.id === s.id))).map(s => ({id:s.id,path:s.path,viewBox:s.viewBox})),
     f: state.family,
     cm: state.cottonModel,
     cw: state.cottonWidth,

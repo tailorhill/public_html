@@ -17,6 +17,18 @@ for (const [id, d] of Object.entries(VD_SYMBOL_PATHS)) register(id, d, 2048);
 // inbyggd. `viewBox` = kvadratstorleken på symbolens koordinatrymd.
 for (const s of SYMBOLS) if (s.path) register(s.id, s.path, s.viewBox);
 
+// Imported silhouettes contain path data only, never executable SVG markup.
+export function registerLibrarySymbol(s) {
+  if (!s || !/^mdi-[a-z0-9-]{1,100}$/.test(s.id) || typeof s.path !== 'string'
+    || s.path.length > 12000 || !/^[MmZzLlHhVvCcSsQqTtAaEe0-9.,+\s-]+$/.test(s.path)
+    || !Number.isFinite(s.viewBox) || s.viewBox < 1 || s.viewBox > 2048) throw Error('Ogiltig bibliotekssymbol.');
+  const symbol = { id:s.id, name:s.id.slice(4).replaceAll('-', ' '), path:s.path, viewBox:s.viewBox, library:true };
+  new Path2D(s.path);
+  register(symbol.id, symbol.path, symbol.viewBox);
+  if (!SYMBOLS.some(item => item.id === symbol.id)) SYMBOLS.push(symbol);
+  return symbol;
+}
+
 function getBounds(entry) {
   if (entry.bounds) return entry.bounds;
   const n = 256;

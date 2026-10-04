@@ -3,6 +3,7 @@
 // - DXF (R12-polylines) för gratisversionen av Silhouette Studio
 // Texterna konverteras med opentype.js + fontfilerna i fonts/, symbolerna
 // är Valley Dogs egna vektorer. Layouten speglar 3D-vyn (paintTextBlock).
+import { fontBuffer } from './font-library.js';
 import { symbolExportData, symbolAspect } from './symbols.js';
 
 let opentypeReady = null;
@@ -32,10 +33,10 @@ function loadClipper() {
 }
 
 const fontCache = {};
-async function loadFont(ttf) {
+export async function loadFont(ttf) {
   if (fontCache[ttf]) return fontCache[ttf];
   const opentype = await loadOpentype();
-  const buf = await (await fetch(`fonts/${ttf}`)).arrayBuffer();
+  const buf = await fontBuffer(ttf);
   fontCache[ttf] = opentype.parse(buf);
   return fontCache[ttf];
 }

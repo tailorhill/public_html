@@ -141,7 +141,7 @@ export async function resolveOrder(articleUid, design) {
   const setEnum = (ch, desired, label, opts = {}) => {
     const options = ch.options || [];
     let o = pickOption(desired, options);
-    if (!o && options.length === 1) o = options[0];              // bara ett val → ta det
+    if (!o && !opts.strict && options.length === 1) o = options[0];              // bara ett val → ta det
     if (!o && opts.defaultMatch) o = options.find(x => opts.defaultMatch.test(norm(nm(x.name)))) || null;
     if (!o && desired != null && ch.mandatory) {
       problems.push(`${label}: "${desired}" går inte att välja för den här modellen.`);
@@ -168,8 +168,8 @@ export async function resolveOrder(articleUid, design) {
       case 'leather': isEnum ? setEnum(ch, design.leather, 'Äkta läder på fodret') : setStr(ch, design.leather); break;
       case 'foder': setStr(ch, design.foder); break;
       case 'buckle': isEnum ? setEnum(ch, 'Svart plast', 'Klickspänne', { fallbackFirst: true }) : setStr(ch, 'Svart plast'); break;
-      case 'font': isEnum ? setEnum(ch, design.font, 'Typsnitt') : setStr(ch, design.font); break;
-      case 'symbol': isEnum ? setEnum(ch, design.symbol, 'Symbol', { fallbackFirst: true }) : setStr(ch, design.symbol); break;
+      case 'font': isEnum ? setEnum(ch, design.libraryFont ? 'Eget typsnitt' : design.font, 'Typsnitt', { strict: design.libraryFont }) : setStr(ch, design.font); break;
+      case 'symbol': isEnum ? setEnum(ch, design.librarySymbol ? 'Egen symbol' : design.symbol, 'Symbol', { fallbackFirst: !design.librarySymbol, strict: design.librarySymbol }) : setStr(ch, design.symbol); break;
       case 'placement': isEnum ? setEnum(ch, design.placement, 'Symbolens placering', { fallbackFirst: true }) : setStr(ch, design.placement); break;
       case 'symbolColor': setStr(ch, design.symbolColor); break;
       case 'textColor': setStr(ch, design.textColor); break;

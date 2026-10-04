@@ -423,3 +423,18 @@ dialog pre {
   .stage:has(.selection-legend[open]) .preview-scene { height: 100px; }
   .view-btns { left: 8px; transform: none; }
 }
+
+/* Searchable external libraries: same dialog on desktop and mobile. */
+.library-dialog { width: min(760px, calc(100vw - 24px)); max-height: 85dvh; overflow: auto; padding: 18px; }
+.library-dialog h2 { font-size: 18px; margin: 0 0 10px; }
+.library-dialog form { display: flex; gap: 8px; margin-top: 14px; }
+.library-dialog form input { flex: 1; min-width: 0; }
+.library-dialog form .btn { width: auto; }
+.library-results { display: grid; grid-template-columns: repeat(auto-fill,minmax(125px,1fr)); gap: 10px; margin: 14px 0; }
+.library-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-width: 0; overflow-wrap: anywhere; }
+.library-card strong { font-size: 12px; }
+.library-card .btn { font-size: 12px; padding: 6px; margin-top: 5px; }
+.library-font-sample { font-size: 24px; padding: 12px 0; overflow-wrap: anywhere; }
+.library-dialog > a { display: block; font-size: 12px; margin-top: 12px; }
+#fontLibraryBtn, #symbolLibraryBtn { margin-top: 12px; }
+.library-dialog [hidden] { display: none !important; }

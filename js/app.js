@@ -4,7 +4,9 @@ import {
   LEATHER_SURCHARGE, PRODUCT_URLS, DUBBEL_POSITIONS, allLinings,
 } from './data.js';
 import { RealisticCollarViewer, ensureTexturesFor } from './foder-realism.js';
-import { drawSymbol } from './symbols.js';
+import { createLibraryPicker, useLibraryFont, unavailableFonts } from './library-picker.js';
+import { libraryFont } from './font-library.js';
+import { drawSymbol, registerLibrarySymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
 import {
@@ -182,6 +184,10 @@ function updateHash() {
 // Återställ en design från en länk. Alla id:n valideras mot katalogen –
 // okända värden (t.ex. utgångna färger) faller tillbaka på standard.
 function applyDesign(d) {
+  state.librarySymbols = [];
+  for (const s of (Array.isArray(d.xs) ? d.xs.slice(0, 60) : [])) {
+    try { state.librarySymbols.push(registerLibrarySymbol(s)); } catch { /* malformed external data */ }
+  }
   const valid = (list, id, fallback) => (id && byId(list, id) ? id : fallback);
   if (d.f === 'cotton' || d.f === 'biothane') state.family = d.f;
   state.cottonModel = valid(COTTON_MODELS, d.cm, state.cottonModel);
@@ -629,6 +635,7 @@ function refresh() {
 
 function renderValidation() {
   const errors = validationErrors(state), size = selectedSize(state);
+  if (allTextEls().some(e => unavailableFonts.has(e.font))) errors.push('Ett valt typsnitt kunde inte laddas. Ladda om sidan för att försöka igen, eller välj ett annat typsnitt.');
   const perRow = rowsOf().length > 1 ? ' per rad' : '';
   $('#sizeTextNote').textContent = size?.id === 'custom'
     ? 'Egen storlek har ingen teckengräns. Skriv önskat storleksintervall under Övrig info.'
@@ -829,6 +836,8 @@ function cartDesign(supplierLink) {
     sizeRange: selectedSize(state)?.id || null,
     text: contentPlainText(),
     font: t1 ? fontName(t1.font) : null,
+    libraryFont: !!t1?.font.startsWith('gf-'),
+    librarySymbol: syms.some(s => s.id.startsWith('mdi-')),
     textColor: colorName(t1 ? t1.color : 'svart'),
     symbol: symbolChoice,
     placement: derivePlacement(),
@@ -1113,10 +1122,40 @@ $('#shareBtn').addEventListener('click', async () => {
   setTimeout(() => { $('#shareBtn').textContent = '💾 Spara designen'; }, 2000);
 });
 
+const openLibrary = createLibraryPicker(async (kind, item) => {
+  const active = activeElement();
+  if (!active || (kind === 'font' ? active.t !== 'text' : active.t !== 'sym')) return;
+  if (kind === 'font') active.font = item.id;
+  else {
+    active.id = item.id;
+    state.librarySymbols ||= [];
+    if (!state.librarySymbols.some(s => s.id === item.id)) state.librarySymbols.push(item);
+  }
+  refresh();
+});
+$('#fontLibraryBtn').addEventListener('click', () => openLibrary('font'));
+$('#symbolLibraryBtn').addEventListener('click', () => openLibrary('symbol'));
+
 // init: återställ ev. design från länken (#d=...) och aktivera varukorgsknappen.
 {
   const dm = (location.hash || '').match(/[#&]d=([A-Za-z0-9\-_]+)/);
-  if (dm) { const d = decodeDesign(dm[1]); if (d) applyDesign(d); }
+  if (dm) {
+    const d = decodeDesign(dm[1]);
+    if (d) {
+      const ids = [...new Set((d.content?.rows || []).flatMap(r => r.els).filter(e => e.t === 'text' && /^gf-[a-z0-9]+$/.test(e.font)).map(e => e.font))];
+      await Promise.all(ids.slice(0, 30).map(async id => {
+        try { await useLibraryFont(id); }
+        catch {
+          // Preserve the chosen font and block checkout rather than silently replacing it.
+          let f;
+          try { f = await libraryFont(id); } catch { f = {id, name:id, css:`"${id}"`,weight:400,caps:false,ttf:'@'+id}; }
+          if (!FONTS.some(x => x.id === id)) FONTS.push(f);
+          unavailableFonts.add(id);
+        }
+      }));
+      applyDesign(d);
+    }
+  }
   $('#cartBtn').style.display = '';
   $('#cartBtn').addEventListener('click', handleAddToCart);
 }
