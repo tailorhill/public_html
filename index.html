@@ -191,22 +191,6 @@
       <textarea id="extraInfo" rows="3" placeholder="T.ex. dubbeltext: bakre texten i typsnitt … färg …, främre texten i typsnitt … färg …"></textarea>
     </section>
 
-  </aside>
-
-  <!-- Mitten: 3D -->
-  <section class="stage">
-    <canvas id="c3d"></canvas>
-    <div class="view-btns" id="viewBtns">
-      <button type="button" class="view-btn sel" aria-pressed="true" data-view="oversikt">Översikt</button>
-      <button type="button" class="view-btn" aria-pressed="false" data-view="kant">Närbild kant</button>
-      <button type="button" class="view-btn" aria-pressed="false" data-view="insida">Insida</button>
-    </div>
-    <div class="zoom-btns" id="zoomBtns">
-      <button type="button" class="zoom-btn" id="zoomIn" title="Zooma in" aria-label="Zooma in">+</button>
-      <button type="button" class="zoom-btn" id="zoomOut" title="Zooma ut" aria-label="Zooma ut">−</button>
-    </div>
-    <div class="stage-hint">Dra för att rotera · scrolla eller +/− för att zooma</div>
-
     <!-- Sammanfattning -->
     <div class="summary card">
       <h2>Ditt halsband</h2>
@@ -231,6 +215,28 @@
         ladda ner skärfiler (SVG/DXF, verklig storlek för Cricut/Silhouette). Mejlknappen packar
         bild + skärfiler + text i en zip.</p>
     </div>
+  </aside>
+
+  <!-- Mitten: 3D -->
+  <section class="stage" aria-label="Förhandsvisning av halsbandet">
+    <div class="preview-scene">
+    <canvas id="c3d"></canvas>
+    <div class="view-btns" id="viewBtns">
+      <button type="button" class="view-btn sel" aria-pressed="true" data-view="oversikt">Översikt</button>
+      <button type="button" class="view-btn" aria-pressed="false" data-view="kant">Närbild kant</button>
+      <button type="button" class="view-btn" aria-pressed="false" data-view="insida">Insida</button>
+    </div>
+    <div class="zoom-btns" id="zoomBtns">
+      <button type="button" class="zoom-btn" id="zoomIn" title="Zooma in" aria-label="Zooma in">+</button>
+      <button type="button" class="zoom-btn" id="zoomOut" title="Zooma ut" aria-label="Zooma ut">−</button>
+    </div>
+    <div class="stage-hint">Dra för att rotera · scrolla eller +/− för att zooma</div>
+
+    </div>
+    <details class="selection-legend" id="selectionLegend">
+      <summary id="selectionLegendTitle">Dina val</summary>
+      <dl id="selectionLegendItems"></dl>
+    </details>
   </section>
 
 </main>

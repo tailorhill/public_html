@@ -45,7 +45,8 @@ a { color: var(--accent); }
 .layout {
   display: grid;
   grid-template-columns: 390px 1fr;
-  height: calc(100vh - 65px);
+  height: calc(100dvh - var(--header-height, 65px));
+  min-height: 0;
 }
 
 .panel {
@@ -244,9 +245,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* ---------- stage ---------- */
 .stage {
-  position: relative;
-  overflow: hidden;
+  min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg);
 }
+.preview-scene { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 #c3d { width: 100%; height: 100%; display: block; touch-action: none; }
 .view-btns {
   position: absolute;
@@ -303,9 +306,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* ---------- summary ---------- */
 .summary {
-  position: absolute;
-  top: 16px; right: 16px;
-  width: 275px;
+  position: static;
+  flex-shrink: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -380,14 +383,37 @@ dialog pre {
   overflow: auto;
 }
 
+/* Live legend stays beside the preview; expand for the full design. */
+.selection-legend {
+  flex: 0 0 auto; max-height: 30%; overflow-y: auto;
+  background: rgba(255,255,255,0.96); border-top: 1px solid var(--line);
+  padding: 10px 14px; font-size: 12px;
+}
+.selection-legend summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
+.selection-legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 12px; margin: 10px 0 2px; }
+.selection-legend dt { color: var(--muted); }
+.selection-legend dd { margin: 0; overflow-wrap: anywhere; }
+
 /* ---------- responsivt ---------- */
 @media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: 55vh auto;
-    height: auto;
+  html { scroll-padding-top: calc(clamp(210px, 38svh, 330px) + 12px); }
+  .topbar { position: relative; }
+  .layout { display: flex; flex-direction: column; height: auto; }
+  .stage {
+    order: -1; position: sticky; top: 0; z-index: 10;
+    height: clamp(210px, 38svh, 330px); flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(60,45,25,0.12);
   }
-  .stage { order: -1; height: 55vh; }
-  .summary { position: static; width: auto; margin: 12px; }
   .panel { height: auto; overflow: visible; }
+  .view-btns { top: 6px; }
+  .view-btn { padding: 5px 10px; font-size: 11px; }
+  .stage-hint { display: none; }
+  .zoom-btns { bottom: 6px; right: 6px; flex-direction: row; }
+  .selection-legend { padding: 6px 12px; max-height: 32%; }
+}
+@media (max-width: 900px) and (max-height: 500px) {
+  html { scroll-padding-top: 160px; }
+  .stage { height: 150px; }
+  .selection-legend { max-height: 40%; }
+  .view-btns { left: 8px; transform: none; }
 }

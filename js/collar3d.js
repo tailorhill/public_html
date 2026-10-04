@@ -79,6 +79,8 @@ export class CollarViewer {
     this.texCanvas = document.createElement('canvas');
 
     window.addEventListener('resize', () => this.resize());
+    this._resizeObserver = new ResizeObserver(() => this.resize());
+    this._resizeObserver.observe(canvas.parentElement);
     this.resize();
     this._animate = this._animate.bind(this);
     requestAnimationFrame(this._animate);

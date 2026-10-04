@@ -650,6 +650,7 @@ function renderValidation() {
 
 function renderSummary() {
   renderValidation();
+  renderSelectionLegend();
   const { rows, total } = computePrice();
   const tbody = $('#priceRows');
   tbody.innerHTML = '';
@@ -668,6 +669,33 @@ function renderSummary() {
 
   updateHash();
 }
+
+function renderSelectionLegend() {
+  const cotton = state.family === 'cotton';
+  const width = currentWidthCm();
+  const band = byId(cotton ? WEBBING_COLORS : BIOTHANE_COLORS, cotton ? state.webbing : state.biothane);
+  $('#selectionLegendTitle').textContent = `Dina val · ${cotton ? 'Bomull' : 'BioThane'} · ${width} cm · ${band.name}`;
+  const choices = [
+    ['Modell', byId(cotton ? COTTON_MODELS : BIOTHANE.models, cotton ? state.cottonModel : state.bioModel).name],
+    ['Storlek', sizeDescription(state)], ['Band', band.name],
+  ];
+  if (cotton) choices.push(['Foder', byId(linings, state.lining).name]);
+  if (state.fullGlitter) choices.push(['Helglitter', colorName(state.glitterColor)]);
+  rowsOf().forEach((row, i) => {
+    choices.push([`Rad ${i + 1}`, row.els.map(e => e.t === 'sym' ? symName(e.id)
+      : `${e.text || '(tom text)'} · ${fontName(e.font)} · ${colorName(e.color)}`).join(' / ')]);
+  });
+  if (allSymEls().length) choices.push(['Symbolfärg', symbolColorText()]);
+  if (shadowEnabled(state)) choices.push(['Skugga', `${colorName(state.shadowColor)} · ${state.shadowSymbols ? 'text och symboler' : 'bara text'}`]);
+  choices.push(['Beslag', byId(HARDWARE_FINISHES, state.hardware).name]);
+  const list = $('#selectionLegendItems'); list.replaceChildren();
+  for (const [name, value] of choices) list.append(el('dt', null, name), el('dd', null, value));
+}
+
+// Keep the desktop viewport aligned even if the header wraps or fonts load.
+new ResizeObserver(entries => {
+  document.documentElement.style.setProperty('--header-height', `${entries[0].target.getBoundingClientRect().height}px`);
+}).observe(document.querySelector('.topbar'));
 
 // -------- innehållsbeskrivning (för beställningstext/varukorg) --------
 const allTextEls = () => rowsOf().flatMap(r => textEls(r));
