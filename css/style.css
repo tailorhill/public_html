@@ -412,7 +412,7 @@ dialog pre {
   .stage-hint { display: none; }
   .zoom-btns { bottom: 6px; right: 6px; flex-direction: row; }
   .selection-legend { padding: 6px 12px; }
-  .stage:has(.selection-legend[open]) { height: auto; position: relative; top: auto; }
+  .stage:has(.selection-legend[open]) { height: auto; }
   .stage:has(.selection-legend[open]) .preview-scene {
     flex: none; height: clamp(150px, 28svh, 240px); min-height: 0;
   }
