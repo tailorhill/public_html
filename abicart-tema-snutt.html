@@ -2,19 +2,21 @@
 /* Valley Dogs varukorgssnutt. ENDA snutt som ska ligga i temats head – lägg
    bara in den EN gång (inte dubbelt). Designverktyget resolvar designen mot
    artikelns riktiga val och skickar FÄRDIGA val-uid:n som #vdadd=... Denna snutt
-   lägger halsbandet i sessionens korg och går sen till startsidan. Länka till
+   lägger halsbandet i kundens korg och går sen till startsidan. Länka till
    verktyget med en vanlig länk till design.valleydogs.se
 
-   VIKTIGT om sessionen: API-anropen måste köras i KUNDENS korg-session, annars
-   svarar Order.addArticle "Object not found". Sessionens token hämtas från
-   butikens eget ramverk (twsReduxStore.getState().session) – samma token som
-   "Köp"-knappen använder – och skickas som ?session=... i varje anrop. Vi väntar
-   tills ramverket hunnit etablera sessionen innan vi kör, så det fungerar även
-   för en helt ny kund (tom session). Kakan twssessid_<webshop> används som
-   reserv. (Det gamla sättet, Session.set {order}, fungerar inte längre – Abicart
-   har gjort fältet skrivskyddat.) */
+   Sessionen (så här gör butikens egen "Köp"-knapp):
+   1. Finns redan en session (butikens state, kakan twssessid_<webshop> eller
+      localStorage diversity_twssessid_<webshop>) används den – kunden behåller
+      det som redan ligger i korgen.
+   2. Annars – t.ex. en helt ny kund i inkognito – skapas en med
+      Session.getToken och sparas i samma kakor + localStorage som butiken
+      använder, så korgen syns efter omdirigeringen.
+   Alla anrop skickar tokenen som ?session=... – utan den hamnar ordern utanför
+   kundens korg och Order.addArticle svarar "Object not found". */
 (function () {
   var WEBSHOP = 119951;
+  var CK = 'twssessid_' + WEBSHOP, CK2 = 'diversity_twssessid_' + WEBSHOP;
   var m = location.hash.match(/[#&]vdadd=([A-Za-z0-9\-_]+)/);
   if (!m) return;
 
@@ -33,20 +35,11 @@
   // rensa hashen direkt så en omladdning inte lägger i dubbelt
   history.replaceState(null, '', location.pathname + location.search);
 
-  // Sessionstoken: i första hand ur butikens state, annars ur kakan.
-  function token() {
-    try { var s = window.twsReduxStore && window.twsReduxStore.getState().session; if (s) return s; } catch (e) {}
-    var c = document.cookie.match(new RegExp('(?:^|;\\s*)twssessid_' + WEBSHOP + '=([A-Za-z0-9]+)'));
-    return c ? c[1] : '';
-  }
-  function storeReady() {
-    try { return !!(window.twsReduxStore && window.twsReduxStore.getState().webshop); } catch (e) { return false; }
-  }
+  var token = '';
 
   function rpc(method, params) {
-    var url = '/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv&vat_country=SE';
-    var tok = token();
-    if (tok) url += '&session=' + tok;
+    var url = '/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv&vat_country=SE' +
+      (token ? '&session=' + token : '');
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -58,38 +51,49 @@
     });
   }
 
-  function addToCart() {
-    // Hämta sessionens korg-order; för en tom session skapar vi en ny (den knyts
-    // till sessionen via tokenen). Lägg sen i halsbandet.
-    return rpc('Session.get', [{ order: true }]).then(function (s) {
-      if (s && s.order) return s.order;
-      return rpc('Order.set', [null, {
-        language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } }
-      }, { uid: true }]).then(function (created) { return created && created.uid; });
-    }).then(function (orderUid) {
-      var p = { quantity: 1 };
-      for (var k in params) if (params.hasOwnProperty(k)) p[k] = params[k];
-      return rpc('Order.addArticle', [orderUid, articleUid, p, { uid: true }, { fastVerify: true }]);
+  function existingToken() {
+    try { var s = window.twsReduxStore && window.twsReduxStore.getState().session; if (s) return s; } catch (e) {}
+    var c = document.cookie.match(new RegExp('(?:^|;\\s*)' + CK + '=([A-Za-z0-9]+)'));
+    if (c) return c[1];
+    try { var l = localStorage.getItem(CK2); if (l && /^[A-Za-z0-9]+$/.test(l)) return l; } catch (e) {}
+    return '';
+  }
+
+  function saveToken(t) {
+    var exp = '; path=/; max-age=' + 60 * 60 * 24 * 30;
+    document.cookie = CK + '=' + t + exp;
+    document.cookie = CK2 + '=' + t + exp;
+    try { localStorage.setItem(CK2, t); } catch (e) {}
+  }
+
+  function ensureSession() {
+    token = existingToken();
+    if (token) return Promise.resolve(token);
+    return rpc('Session.getToken', []).then(function (t) {
+      if (!t) throw new Error('Kunde inte skapa en session');
+      token = t;
+      saveToken(t);
+      return t;
     });
   }
 
-  function go() {
-    addToCart().then(function () {
-      location.href = '/';   // startsidan visar varukorgen
-    }).catch(function (err) {
-      alert('Kunde inte lägga halsbandet i varukorgen: ' + (err && err.message) +
-        '. Prova igen, eller mejla oss så hjälper vi till.');
-      location.href = '/';
-    });
-  }
-
-  // Vänta tills butiken etablerat sessionen (store redo + token finns), kör sen.
-  // Efter ~20 s körs det ändå (kakan kan räcka).
-  var tries = 0;
-  (function run() {
-    if (storeReady() && token()) return go();
-    if (++tries > 200) return go();
-    setTimeout(run, 100);
-  })();
+  ensureSession().then(function () {
+    return rpc('Session.get', [{ order: true }]);
+  }).then(function (s) {
+    if (s && s.order) return s.order;
+    return rpc('Order.set', [null, {
+      language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } }
+    }, { uid: true }]).then(function (created) { return created && created.uid; });
+  }).then(function (orderUid) {
+    var p = { quantity: 1 };
+    for (var k in params) if (params.hasOwnProperty(k)) p[k] = params[k];
+    return rpc('Order.addArticle', [orderUid, articleUid, p, { uid: true }, { fastVerify: true }]);
+  }).then(function () {
+    location.href = '/';   // startsidan visar varukorgen
+  }).catch(function (err) {
+    alert('Kunde inte lägga halsbandet i varukorgen: ' + (err && err.message) +
+      '. Prova igen, eller mejla oss så hjälper vi till.');
+    location.href = '/';
+  });
 })();
 </script>
