@@ -1,16 +1,32 @@
 <script>
 /* Valley Dogs varukorgssnutt. Enda snutt som ska ligga i temats head.
    Designverktyget resolvar designen mot artikelns riktiga val och skickar
-   FÄRDIGA val-uid:n som #vdadd=... Denna snutt gör bara: hämta/skapa
-   sessionens korg och lagg halsbandet i den, gå sen till startsidan.
-   Lanka till verktyget med en vanlig lank till design.valleydogs.se */
+   FÄRDIGA val-uid:n som #vdadd=... Denna snutt lägger halsbandet i sessionens
+   korg och går sen till startsidan. Länka till verktyget med en vanlig länk
+   till design.valleydogs.se
+
+   VIKTIGT: API-anropen MÅSTE skicka med sessionens token (?session=...) i
+   URL:en – samma token som ligger i kundens kaka twssessid_<webshop>. Utan den
+   körs anropen i en annan (anonym) kontext, ordern vi skapar hamnar inte i
+   kundens korg, och Order.addArticle svarar "Object not found" för ALLA
+   kombinationer. (Tidigare löstes detta med Session.set {order}, men Abicart
+   har gjort det fältet skrivskyddat, så den vägen fungerar inte längre.) */
 (function () {
   var WEBSHOP = 119951;
   var m = location.hash.match(/[#&]vdadd=([A-Za-z0-9\-_]+)/);
   if (!m) return;
 
+  // sessionstoken ur kakan (samma som butiken själv skickar som ?session=)
+  function sessionToken() {
+    var c = document.cookie.match(new RegExp('(?:^|;\\s*)twssessid_' + WEBSHOP + '=([A-Za-z0-9]+)'));
+    return c ? c[1] : '';
+  }
+
   function rpc(method, params) {
-    return fetch('/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv&vat_country=SE', {
+    var url = '/backend/jsonrpc/v1?webshop=' + WEBSHOP + '&language=sv&vat_country=SE';
+    var tok = sessionToken();
+    if (tok) url += '&session=' + tok;
+    return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -20,6 +36,7 @@
       return j.result;
     });
   }
+
   function b64decode(s) {
     s = s.replace(/-/g, '+').replace(/_/g, '/');
     var bin = atob(s), bytes = new Uint8Array(bin.length);
@@ -30,29 +47,20 @@
   var data;
   try { data = JSON.parse(b64decode(m[1])); } catch (e) { return; }
   var articleUid = data.a, params = data.p || {};
+  if (!articleUid) return;
 
   // rensa hashen direkt så en omladdning inte lägger i dubbelt
   history.replaceState(null, '', location.pathname + location.search);
 
-  // Hämta sessionens korg-order. Session.get({order:true}) ger den befintliga
-  // korgen, men för en HELT TOM session (ny kund) returnerar den {order:null}.
-  // Då skapas en order OCH länkas till sessionen med Session.set – annars blir
-  // det en orphan-order som addArticle lägger i utan fel men som aldrig syns i
-  // korgen. (Session.set kan svara "Validation error" men länkningen sker ändå;
-  // vi läser tillbaka den med Session.get.)
+  // Hämta sessionens korg-order; för en tom session skapar vi en ny (den knyts
+  // till sessionen via tokenen i URL:en). Lägg sen i halsbandet.
   function sessionOrderUid() {
     return rpc('Session.get', [{ order: true }]).then(function (s) {
       if (s && s.order) return s.order;
       return rpc('Order.set', [null, {
         language: 'sv', currency: 'SEK', customer: { address: { country: 'SE' } }
       }, { uid: true }]).then(function (created) {
-        var uid = created && created.uid;
-        return rpc('Session.set', [{ order: uid }]).catch(function () {})
-          .then(function () {
-            return rpc('Session.get', [{ order: true }]).then(function (s2) {
-              return (s2 && s2.order) || uid;
-            });
-          });
+        return created && created.uid;
       });
     });
   }
