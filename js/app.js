@@ -170,16 +170,34 @@ async function supplierDesignLink() {
   return designUrl(true);
 }
 
+// Designlänken i adressfältet. Ett drag i halsmåttsreglaget ger tiotals
+// ändringar per sekund, och Safari kastar SecurityError vid fler än 100
+// replaceState-anrop på 10 s. Då fastnade länken på ett gammalt mått, och när
+// mobilen laddade om fliken efter en stund i bakgrunden öppnades designen med
+// fel halsmått. Därför: skriv debouncat, markera länken som skriven först när
+// det lyckats (annars nytt försök), och skriv alltid direkt när sidan göms.
 let lastHash = '';
-function updateHash() {
+let hashTimer = null;
+function writeHash() {
+  clearTimeout(hashTimer);
+  hashTimer = null;
   try {
     const h = '#d=' + encodeDesign(state);
-    if (h !== lastHash) {
-      lastHash = h;
-      history.replaceState(null, '', h);
-    }
-  } catch { /* ok – t.ex. miljöer utan history-API */ }
+    if (h === lastHash) return;
+    history.replaceState(null, '', h);
+    lastHash = h;
+  } catch {
+    hashTimer = setTimeout(writeHash, 2000);   // strypt eller saknar history-API
+  }
 }
+function updateHash() {
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(writeHash, 300);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') writeHash();
+});
+window.addEventListener('pagehide', writeHash);
 
 // Återställ en design från en länk. Alla id:n valideras mot katalogen –
 // okända värden (t.ex. utgångna färger) faller tillbaka på standard.
