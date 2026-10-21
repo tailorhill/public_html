@@ -9,7 +9,8 @@ export function loadHardwareAssets() {
   if (!loading) {
     const loader = new GLTFLoader();
     loading = Promise.allSettled(['side-release', 'd-ring', 'tri-glide', 'roller-buckle', 'keeper', 'half-slip-ring', 'split-keeper'].map(async name => {
-      const gltf = await loader.loadAsync(new URL(`../assets/hardware/${name}.glb`, import.meta.url).href);
+      const file = name === 'side-release' ? 'reference-side-release' : name;
+      const gltf = await loader.loadAsync(new URL(`../assets/hardware/${file}.glb`, import.meta.url).href);
       gltf.scene.updateMatrixWorld(true);
       const parts = [];
       const basis = new THREE.Matrix4().makeRotationX(Math.PI / 2);

@@ -50,7 +50,7 @@ const state = {
   shadowColor: 'svart',
   shadowSymbols: true,
   hardware: 'stal',
-  showHardware: true,
+  showHardware: false,
   extraInfo: '',
 };
 
@@ -60,7 +60,7 @@ const state = {
 const SUPPLIER = new URLSearchParams(location.search).has('supplier');
 if (SUPPLIER) document.body.classList.add('supplier');
 
-const viewer = new RealisticCollarViewer($('#c3d'));
+const viewer = new RealisticCollarViewer($('#c3d'), { loadHardware: false });
 window.viewer = viewer;
 
 // Felsökningsläge: öppna sidan med ?debug=1 för att se fel och GPU-info
@@ -311,8 +311,9 @@ function rebuild3D() {
       shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
       shadowSymbols: state.shadowSymbols,
       hardware: byId(HARDWARE_FINISHES, state.hardware),
-      showHardware: state.showHardware,
-      modelKind: modelKind(),
+      // One closed display shape for every order model. Order state stays intact.
+      showHardware: false,
+      modelKind: 'fast',
     };
     // Lazy-ladda valt foder + bandfärg (WebP), bygg först när de finns i cachen.
     // pendingCfg gör att bara den senaste designen ritas om vid snabba byten.
@@ -409,6 +410,9 @@ function selectBox(container, list, getSel, onPick, nameFn = x => x.name) {
     if (getSel() === item.id) o.selected = true;
     s.appendChild(o);
   }
+  // Some browsers defer change until the native picker closes. Capture the
+  // selection immediately without replacing the picker while it is open.
+  s.addEventListener('input', () => { onPick(s.value); renderSummary(); rebuild3D(); });
   s.addEventListener('change', () => { onPick(s.value); refresh(); });
   container.appendChild(s);
   return s;
@@ -642,7 +646,11 @@ function refresh() {
     ...h,
     name: h.name + (h.surcharge ? ` (+${state.family === 'cotton' ? h.surcharge.cotton : h.surcharge.biothane} kr)` : ''),
   })), () => state.hardware, id => { state.hardware = id; });
-  $('#buckleNote').textContent = state.family === 'cotton'
+  $('#buckleNote').textContent = modelKind() === 'halvstryp'
+    ? 'Halvstryp med två D-ringar och genomgående band. Ringar i valt utförande.'
+    : modelKind() === 'justerbart'
+    ? 'Justerbart halvstryp med martingale-ögla. Beslag i valt utförande.'
+    : state.family === 'cotton' || modelKind() === 'fast'
     ? 'Klickspänne: svart plast. D-ring i valt utförande.'
     : 'Metallspänne, D-ringar och nitar i valt utförande.';
 
@@ -909,11 +917,13 @@ document.querySelectorAll('[data-family]').forEach(b => {
   b.addEventListener('click', () => { state.family = b.dataset.family; refresh(); });
 });
 
-$('#circ').addEventListener('input', e => {
+function updateCircumference(e) {
   state.circumference = +e.target.value;
   $('#circVal').textContent = `${state.circumference} cm`;
   renderSummary(); rebuild3D();
-});
+}
+$('#circ').addEventListener('input', updateCircumference);
+$('#circ').addEventListener('change', updateCircumference);
 
 // Skriv i det markerade textelementet utan att bygga om fältet (behåller fokus).
 $('#elTextInput').addEventListener('input', e => {
@@ -1204,11 +1214,13 @@ refresh();
 // rendera om när typsnitten laddats (debouncat – loadingdone kan avfyras
 // många gånger i följd och varje refresh bygger om GPU-texturer)
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(() => refresh());
+  // Font loading changes rendering, never the customer's form selections.
+  // Replacing controls here can interrupt an open native size picker.
+  document.fonts.ready.then(() => rebuild3D());
   let fontTimer;
   document.fonts.addEventListener('loadingdone', () => {
     clearTimeout(fontTimer);
-    fontTimer = setTimeout(() => refresh(), 400);
+    fontTimer = setTimeout(() => rebuild3D(), 400);
   });
-  setTimeout(() => refresh(), 1500);
+  setTimeout(() => rebuild3D(), 1500);
 }

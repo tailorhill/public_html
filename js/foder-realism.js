@@ -458,7 +458,7 @@ export function liningSwatch(lining, size = 96, tileCm = 1.6) {
 
 // ------------------------------------------------------ viewer
 export class RealisticCollarViewer extends CollarViewer {
-  constructor(canvas) {
+  constructor(canvas, { loadHardware = true } = {}) {
     super(canvas);
     this.realistic = true;
     this._mapCache = new Map();
@@ -467,7 +467,7 @@ export class RealisticCollarViewer extends CollarViewer {
       if (o.isDirectionalLight && o.castShadow) { o.shadow.bias = -0.00015; o.shadow.normalBias = 0.018; }
     });
     this.controls.minDistance = 7;
-    this.hardwareReady = loadHardwareAssets().then(count => {
+    this.hardwareReady = (loadHardware ? loadHardwareAssets() : Promise.resolve(0)).then(count => {
       if (count && this._lastCfg) this.build(this._lastCfg);
       return count;
     });
@@ -659,7 +659,7 @@ export class RealisticCollarViewer extends CollarViewer {
     this._bandW = cfg.bandWidthCm; this._bandColor = cfg.bandColor; this._webId = cfg.webbingId;
     this._bendR = cfg.circumference / (2 * Math.PI) + 0.1;
     const cotton = this.realistic && cfg.family === 'cotton' && cfg.lining;
-    const halfSlip = this.realistic && ['halvstryp', 'halvstrypknappe', 'justerbart'].includes(cfg.modelKind);
+    const halfSlip = this.realistic && cfg.showHardware !== false && ['halvstryp', 'halvstrypknappe', 'justerbart'].includes(cfg.modelKind);
     const halv = cotton && halfSlip;
     super.build(halfSlip ? { ...cfg, showHardware: false } : cfg);
     this._lastCfg = cfg;
@@ -842,7 +842,69 @@ export class RealisticCollarViewer extends CollarViewer {
     this._addHalfSlip(cfg);
   }
 
+  // A single sliding tongue through one guide D-ring, ending at a second
+  // leash D-ring. Unlike martingale there is no separate closed control loop.
+  _addTwoRingSlip(cfg) {
+    const { R, bw, halfSpan } = this._halfSlipLayout(cfg);
+    const bio = cfg.family === 'biothane', G = this.collarGroup;
+    const tape = bio ? this._bioTapeMaterial(cfg.bandColor, bw) : this._webTapeMat(cfg.bandColor, bw);
+    const metal = this.metalMaterial(cfg.hardware), th = bio ? 0.20 : 0.11;
+    const x = Math.sin(halfSpan) * (R + 0.04), z = Math.cos(halfSpan) * (R + 0.04);
+    const add = (o, name) => {
+      o.name = name;
+      o.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+      G.add(o); return o;
+    };
+    const strap = (points, name, material = tape, thickness = th) =>
+      add(this._ribbon(points, bw, thickness, material), name);
+    const V = (a,b) => new THREE.Vector3(a,0,b);
+    // Guide's straight stock is sewn into the right end of the main band.
+    const guideX = x - 0.25, guideZ = z - 0.15;
+    const ring = (barX, barZ, direction, name) => {
+      const h = bw / 2 + 0.36, reach = bw * 0.80, tube = Math.max(0.105,bw * 0.045);
+      const path = new THREE.CurvePath();
+      const pt = (u,v) => new THREE.Vector3(barX + direction*u,v,barZ);
+      path.add(new THREE.LineCurve3(pt(0,-h),pt(0,h)));
+      path.add(new THREE.CubicBezierCurve3(pt(0,h),pt(reach*1.32,h),pt(reach*1.32,-h),pt(0,-h)));
+      add(new THREE.Mesh(new THREE.TubeGeometry(path,96,tube,12,true),metal),name);
+    };
+    ring(guideX,guideZ,-1,'two-ring-guide');
+    const wrap = (barX, barZ, direction, name) => {
+      const r = Math.max(0.105,bw*0.045) + th/2 + 0.015;
+      const points = Array.from({length:25},(_,i)=>{
+        const a=i*Math.PI/24;
+        return V(barX + direction*r*Math.sin(a),barZ+r*Math.cos(a));
+      });
+      strap(points,name);
+    };
+    strap([V(x,z),V(guideX,guideZ+0.24)],'two-ring-guide-tab');
+    wrap(guideX,guideZ,-1,'two-ring-guide-fold');
+    strap([V(guideX,guideZ-0.24),V(x+1.0,z-0.08)],'two-ring-guide-return');
+    // Tongue crosses from behind to in front of the guide through its opening.
+    const endX = guideX + bw*0.38, endZ = guideZ-0.46;
+    const curve = new THREE.CatmullRomCurve3([
+      V(-x,z), V(-x+0.8,z-0.05), V(guideX-bw*0.60,guideZ+0.12),
+      V(guideX-bw*0.28,guideZ-0.34), V(endX,endZ+0.20),
+    ],false,'centripetal');
+    strap(curve.getSpacedPoints(64),'two-ring-sliding-tongue');
+    ring(endX,endZ,1,'two-ring-leash');
+    wrap(endX,endZ,1,'two-ring-leash-fold');
+    strap([V(endX,endZ-0.20),V(endX-1.15,endZ-0.23)],'two-ring-leash-return');
+    if (!bio) {
+      strap([V(endX-1.1,endZ-0.30),V(endX-0.2,endZ-0.30)],
+        'two-ring-reinforcement',this._stitchMat(cfg.bandColor,bw,0.9),0.005);
+    } else {
+      for (const y of [-bw*0.26,bw*0.26]) {
+        const rivet = new THREE.Mesh(new THREE.SphereGeometry(0.14,16,8),metal);
+        rivet.scale.z=0.4; rivet.position.set(endX-0.55,y,endZ-0.29);
+        add(rivet,'two-ring-rivet');
+      }
+    }
+    G.userData.halfSlipVariant = 'two-ring';
+  }
+
   _addHalfSlip(cfg) {
+    if (cfg.modelKind === 'halvstryp') return this._addTwoRingSlip(cfg);
     const { R, bw, halfSpan, ringAngle } = this._halfSlipLayout(cfg);
     const G = this.collarGroup, bio = cfg.family === 'biothane';
     const knappe = cfg.modelKind === 'halvstrypknappe', adjustable = cfg.modelKind === 'justerbart';
@@ -896,7 +958,7 @@ export class RealisticCollarViewer extends CollarViewer {
     const aControl = ringAngle + guideOffset / R;
     ribbon(arc(aControl, 2 * Math.PI - aControl, R - 0.12), 'half-slip-inner-bridge');
     // A relaxed compact loop; no long, pointed triangle extending behind the collar.
-    const depth = knappe ? Math.max(4.4, bw * 1.5) : 2.0 + bw * 0.45;
+    const depth = knappe ? Math.max(6.8, bw * 2.3) : 2.0 + bw * 0.45;
     const tipZ = -R - depth, gap = 0.22;
     for (const sign of [-1, 1]) {
       const a = sign * aControl;
@@ -907,7 +969,7 @@ export class RealisticCollarViewer extends CollarViewer {
       ], false, 'centripetal');
       if (knappe && sign > 0 && visible) {
         const buckle = hardwareAsset('side-release', bw, this._plasticMat()) || super.makeSideRelease(bw);
-        const length = curve.getLength(), halfLength = 2.10 * bw / 3;
+        const length = curve.getLength(), halfLength = 3.65 * bw / 3;
         const mid = 0.53, start = Math.max(0.05, mid - halfLength / length), end = Math.min(0.95, mid + halfLength / length);
         const segment = (a, b) => Array.from({ length: 25 }, (_, i) => curve.getPointAt(a + (b - a) * i / 24));
         ribbon(segment(0, start), 'half-slip-buckle-feed'); ribbon(segment(end, 1), 'half-slip-buckle-return');
@@ -1373,8 +1435,8 @@ export class RealisticCollarViewer extends CollarViewer {
     const asset = hardwareAsset('side-release', assetWidth, this._plasticMat());
     if (asset) {
       const straps = new THREE.Group(), scale = assetWidth / 3;
-      for (const sign of [-1, 1]) this._strapWrap(straps, sign * 2.43 * scale,
-        0.24 * scale, 0.12 * scale, assetWidth * 0.42, assetWidth, sign, !this._isBio);
+      for (const [x, sign] of [[-2.25, -1], [2.85, 1]]) this._strapWrap(straps, x * scale,
+        0.50 * scale, 0.12 * scale, assetWidth * 0.42, assetWidth, sign, !this._isBio);
       if (this._bendR) this._bendGroup(straps, this._bendR);
       asset.add(straps);
       return asset;

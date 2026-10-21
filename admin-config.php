@@ -7,7 +7,7 @@
 //     node -e "console.log(require('crypto').createHash('sha256').update('ditt-lösenord').digest('hex'))"
 // Tills en riktig hash är satt vägrar admin att spara/ladda upp.
 
-const ADMIN_PW_SHA256 = 'SÄTT-MIG';
+const ADMIN_PW_SHA256 = '41998ffb9740d6844533686c71495d983a6234f039491e4bc8a9a3bf5989142a';
 
 // Returnerar true/false för rätt lösenord, eller null om admin inte är
 // konfigurerad (ingen giltig hash satt).

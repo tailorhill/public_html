@@ -57,3 +57,11 @@ node tools/test-hardware.cjs
 ```
 
 `TEST_URL`, `NODE_PATH` och `BROWSER_EXECUTABLE` kan anges för annan server eller lokal webbläsare. Testet kontrollerar modelladdning, beslagstyp, metallfärger, dolda beslag, PNG-export, lite-läge och reservmodell när GLB inte kan laddas.
+
+## Referensjustering 2026-10-21
+
+Knäppets Blender-form är uppdaterad efter kundens Bio_18.webp med insvängd handel och rundat mottagarhus. Vanligt halvstryp visas nu med ett genomgående band och två D-ringar, efter DOKUMENT221_72.webp. Justerbart halvstryp behåller martingale-konstruktionen. Tvåringsdelen genereras parametriskt i js/foder-realism.js för aktuell bandbredd och halsmått. Former och mått är fortfarande bildbaserade approximationer.
+
+## Importerat provspänne
+
+“Пряжка / Buckle” av Alex Petuhov: https://sketchfab.com/3d-models/buckle-5db252214c5a4f8e80084d9b4ab1f416 . CC BY 4.0: https://creativecommons.org/licenses/by/4.0/ . Original: sources/petuhov-buckle.glb. Bearbetning: delarna sammanfogade, koordinater och skala ändrade, material ersatt i visaren. reference-side-release.glb används som provspänne; den tidigare side-release.glb behålls. Källmodellen har Decathlon-märkning. Återskapa med Blender och tools/import_reference_buckle.py.

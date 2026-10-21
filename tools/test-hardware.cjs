@@ -27,8 +27,13 @@ const assert = require('node:assert/strict');
         for (const width of [2.5, 4, 5]) for (const circumference of [25, 45, 70]) {
           v.build({ ...base, family: 'cotton', modelKind, width, bandWidthCm: width - 1, circumference });
           const g = v.collarGroup, has = name => !!g.getObjectByName(name);
-          if (g.children.filter(o => o.name === 'half-slip-guide-ring').length !== 2) throw Error('Guide rings');
-          if (!has('half-slip-leash-ring')) throw Error('Leash ring');
+          if (modelKind === 'halvstryp') {
+            if (!has('two-ring-guide') || !has('two-ring-leash')) throw Error('Two-ring closure');
+            if (has('half-slip-leash-ring') || has('half-slip-inner-bridge')) throw Error('Unexpected martingale loop');
+          } else {
+            if (g.children.filter(o => o.name === 'half-slip-guide-ring').length !== 2) throw Error('Guide rings');
+            if (!has('half-slip-leash-ring')) throw Error('Leash ring');
+          }
           if (has('half-slip-release') !== (modelKind === 'halvstrypknappe')) throw Error('Release variant');
           if (has('half-slip-adjuster') !== (modelKind === 'justerbart')) throw Error('Adjuster variant');
           if (has('half-slip-lining-keeper') !== (modelKind === 'justerbart')) throw Error('Lining keeper');
@@ -52,7 +57,7 @@ const assert = require('node:assert/strict');
     for (const r of results) {
       if (r.modelKind === 'fast') assert.ok(r.assets.includes('side-release'), JSON.stringify(r));
       if (r.modelKind === 'stallbart') assert.ok(r.assets.includes(r.family === 'cotton' ? 'tri-glide' : 'roller-buckle'), JSON.stringify(r));
-      if (r.modelKind === 'halvstryp' && r.family === 'cotton') assert.ok(r.assets.includes('d-ring'));
+      // Plain half-slip rings are now procedural, with a single sliding tongue.
     }
     if (await page.locator('#infoDialog').isVisible()) await page.locator('#infoDialogOk').click();
     // Exercise the actual UI: these choices used to collapse to the same modelKind.

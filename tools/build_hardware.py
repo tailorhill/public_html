@@ -65,21 +65,30 @@ def rounded_path(w,h,r,z=0,steps=12):
             a=math.radians(start+i*90/steps);pts.append((cx+r*math.cos(a),cy+r*math.sin(a),z))
     return pts
 
-# Closed black side-release. Deep slots, hollow receiver, split seam and side grips.
+# Closed side-release matched to Bio_18: waisted male half, broad receiver,
+# rounded edges, recessed side releases and two full-width strap slots.
 r=group('side-release')
-f=box('Receiver moulding',(0.90,0,0.48),(3.30,3.58,0.78),0.18,plastic,r)
+f=box('Rounded receiver',(1.12,0,0.43),(2.86,3.54,0.64),0.17,plastic,r)
 cut(f,(2.00,0,0.5),(0.40,3.08,2),0.09)
-cut(f,(-0.70,0,0.33),(0.7,2.85,0.35),0.08)
-for sign in (-1,1):cut(f,(0.0,sign*1.69,0.48),(0.93,0.55,0.50),0.12)
+for sign in (-1,1):cut(f,(-0.18,sign*1.68,0.43),(0.62,0.58,0.38),0.14)
 finish(f)
-m=box('Plug moulding',(-1.68,0,0.43),(1.77,3.46,0.68),0.16,plastic,r)
-cut(m,(-2.09,0,0.5),(0.38,3.05,2),0.08);finish(m)
+# Smooth hourglass outline for the exposed plug, formed as a filled curve.
+profile=bpy.data.curves.new('Waisted plug silhouette','CURVE');profile.dimensions='2D'
+profile.fill_mode='BOTH';profile.extrude=0.25;profile.bevel_depth=0.055;profile.bevel_resolution=4
+outline=[(-2.50,-1.66),(-2.50,1.66),(-2.14,1.69),(-1.70,1.22),
+         (-1.10,1.18),(-0.43,1.66),(-0.35,1.55),(-0.35,-1.55),
+         (-0.43,-1.66),(-1.10,-1.18),(-1.70,-1.22),(-2.14,-1.69)]
+sp=profile.splines.new('BEZIER');sp.bezier_points.add(len(outline)-1)
+for p,xy in zip(sp.bezier_points,outline):
+    p.co=(*xy,0);p.handle_left_type=p.handle_right_type='AUTO'
+sp.use_cyclic_u=True
+m=bpy.data.objects.new('Waisted male moulding',profile);bpy.context.collection.objects.link(m)
+m.location.z=0.40;m.parent=r;m.data.materials.append(plastic)
+bpy.ops.object.select_all(action='DESELECT');m.select_set(True);bpy.context.view_layer.objects.active=m
+bpy.ops.object.convert(target='MESH');m=bpy.context.object
+cut(m,(-2.09,0,0.5),(0.38,3.02,2),0.08);finish(m)
 for sign in (-1,1):
-    o=box('Spring release button',(0.0,sign*1.66,0.47),(0.78,0.24,0.35),0.09,plastic,r);finish(o)
-    for k in range(4):
-        o=box('Grip rib',(-0.27+k*0.18,sign*1.79,0.49),(0.045,0.032,0.20),0.014,plastic,r);finish(o)
-# Fine moulding line, intentionally no invented branding.
-panel=box('Recessed face panel',(0.7,0,0.867),(1.64,2.35,0.018),0.008,plastic,r);finish(panel)
+    o=box('Recessed release button',(-0.14,sign*1.58,0.40),(0.45,0.22,0.25),0.08,plastic,r);finish(o)
 
 # D-ring outline: straight stock with rounded shoulders and a broad bow.
 r=group('d-ring');pts=[]
