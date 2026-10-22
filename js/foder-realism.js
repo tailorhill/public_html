@@ -139,7 +139,7 @@ function kindProps(kind, lining) {
   const c = new THREE.Color(lining.hex);
   switch (kind) {
     case 'leather':  return { normal: 0.45, env: 0.65, clearcoat: 0.10, ccRough: 0.45, sheen: 0.15, sheenRough: 0.6, sheenColor: c.clone().lerp(new THREE.Color('#fff'), 0.4) };
-    case 'metallic': return { normal: 0.45, env: 1.0, clearcoat: 0.22, ccRough: 0.25 };
+    case 'metallic': return { normal: 0.65, env: 0.9, clearcoat: 0.12, ccRough: 0.38 };
     case 'coated':   return { normal: 0.3, env: 0.6, clearcoat: 0.2, ccRough: 0.3 };
     default:         return { normal: 0.38, env: 0.45, sheen: 0.28, sheenRough: 0.85, sheenColor: c.clone().lerp(new THREE.Color('#fff'), 0.08) };
   }
@@ -367,18 +367,40 @@ export function buildLiningMaps(lining, N = 1024, tileCm = TILE_CM) {
       a[i * 4 + 2] = Math.min(255, a[i * 4 + 2] * m * (1 - warm));
     }
   } else if (kind === 'metallic') {
-    metal = 0.85;
-    const crin = fbm(rand, 5, 5), crin2 = fbm(rand, 11, 3), grain = worley(cnt(0.45), rand, 0.9);
+    // Metallic-coated fabric: the photographed grain drives the highlights,
+    // rather than displaying the studio lighting as permanent colored patches.
+    metal = 0.72;
+    const crin = fbm(rand, 5, 5), grain = worley(cnt(0.45), rand, 0.9);
+    let blurred = null;
+    if (photo) {
+      const small = document.createElement('canvas');
+      small.width = small.height = Math.max(8, Math.round(N / 32));
+      const ctx = small.getContext('2d');
+      ctx.imageSmoothingQuality = 'high'; ctx.drawImage(albedo, 0, 0, small.width, small.height);
+      const broad = mk(), bc = broad.getContext('2d');
+      bc.imageSmoothingQuality = 'high'; bc.drawImage(small, 0, 0, N, N);
+      blurred = bc.getImageData(0, 0, N, N).data;
+    }
+    // Keep the catalog tint consistent between photos with different exposure.
+    const tint = /^#([a-f0-9]{6})$/i.exec(lining.hex)?.[1] || 'aaaaaa';
+    const rgb = [0, 2, 4].map(k => parseInt(tint.slice(k, k + 2), 16));
     for (let y = 0, i = 0; y < N; y++) for (let x = 0; x < N; x++, i++) {
-      const u = x / N, v = y / N;
-      const r1 = 1 - Math.abs(2 * crin(u, v) - 1), r2 = 1 - Math.abs(2 * crin2(u, v) - 1);
+      const u = x / N, v = y / N, j = i * 4;
       grain(u, v, W2);
       const g = smooth(0, 0.3, W2[1] - W2[0]);
-      const r = r1 * r1 * 0.7 + r2 * 0.3;
-      H[i] = 0.55 * r + 0.12 * g;
-      Rg[i] = 0.16 + 0.2 * (1 - r) + 0.06 * (1 - g);
-      const m = 1.02 + 0.18 * r + 0.04 * g;
-      a[i * 4] = Math.min(255, a[i * 4] * m); a[i * 4 + 1] = Math.min(255, a[i * 4 + 1] * m); a[i * 4 + 2] = Math.min(255, a[i * 4 + 2] * m);
+      const fold = 1 - Math.abs(2 * crin(u, v) - 1);
+      if (blurred) {
+        const lum = a[j] * 0.3 + a[j + 1] * 0.59 + a[j + 2] * 0.11;
+        const base = blurred[j] * 0.3 + blurred[j + 1] * 0.59 + blurred[j + 2] * 0.11;
+        const relief = Math.max(-0.6, Math.min(0.6, (lum - base) / Math.max(24, base)));
+        H[i] = 0.65 * relief + 0.06 * fold;
+        Rg[i] = 0.38 - 0.14 * relief + 0.035 * (1 - g);
+        for (let k = 0; k < 3; k++) a[j + k] = Math.min(255, rgb[k] * (1 + 0.16 * relief));
+      } else {
+        H[i] = 0.18 * fold + 0.14 * g;
+        Rg[i] = 0.34 + 0.10 * (1 - g);
+        for (let k = 0; k < 3; k++) a[j + k] = Math.min(255, rgb[k] * (0.97 + 0.04 * g));
+      }
     }
   } else {
     // textil: tät tvåskaftsväv (softshell) eller grövre, belagd bomull
