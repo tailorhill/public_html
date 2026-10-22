@@ -738,8 +738,8 @@ function renderSelectionLegend() {
   }
   if (state.fullGlitter) choices.push(['Helglitter', colorName(state.glitterColor)]);
   rowsOf().forEach((row, i) => {
-    choices.push([`Rad ${i + 1}`, row.els.map(e => e.t === 'sym' ? symName(e.id)
-      : `${e.text || '(tom text)'} · ${fontName(e.font)} · ${colorName(e.color)}`).join(' / ')]);
+    choices.push([`Rad ${i + 1}`, row.els.map(e => e.t === 'sym' ? symLabel(e.id)
+      : `${e.text || '(tom text)'} · ${fontLabel(e.font)} · ${colorName(e.color)}`).join(' / ')]);
   });
   if (allSymEls().length) choices.push(['Symbolfärg', symbolColorText()]);
   if (shadowEnabled(state)) choices.push(['Skugga', `${colorName(state.shadowColor)} · ${state.shadowSymbols ? 'text och symboler' : 'bara text'}`]);
@@ -763,7 +763,27 @@ const contentPlainText = () => allTextEls().map(e => e.text.trim()).filter(Boole
 // "[Kvist vänster] BELLA [Hjärta]" per rad, i ordning
 function contentSequence() {
   return rowsOf().map(r => r.els
-    .map(e => e.t === 'sym' ? `[${symName(e.id)}]` : (e.text.trim() || '(tom)')).join(' '));
+    .map(e => e.t === 'sym' ? `[${symName(e.id)}${isLibSym(e.id) ? ' · sökt symbol' : ''}]` : (e.text.trim() || '(tom)')).join(' '));
+}
+
+// Typsnitt från Google Fonts (id gf-…) och sökta symboler (Material Design
+// Icons, id mdi-…) finns inte i butikens egna listor. De märks i ordern och får
+// en källänk, så att sömmerskan vet var hon hittar typsnittsfilen/ikonen.
+const isLibFont = id => typeof id === 'string' && id.startsWith('gf-');
+const isLibSym = id => typeof id === 'string' && id.startsWith('mdi-');
+const fontLabel = id => isLibFont(id) ? `${fontName(id)} (Google Fonts)` : fontName(id);
+const symLabel = id => isLibSym(id) ? `${symName(id)} (sökt symbol, Material Design Icons)` : symName(id);
+function librarySources() {
+  const L = [];
+  const fonts = [...new Set(allTextEls().filter(e => e.text.trim() && isLibFont(e.font)).map(e => e.font))];
+  for (const id of fonts) {
+    const f = byId(FONTS, id);
+    const url = f?.source || `https://fonts.google.com/?query=${encodeURIComponent(fontName(id))}`;
+    L.push(`Typsnittet ${fontName(id)} (Google Fonts): ${url}`);
+  }
+  const syms = [...new Set(allSymEls().filter(e => isLibSym(e.id)).map(e => e.id))];
+  for (const id of syms) L.push(`Symbolen ${symName(id)} (Material Design Icons): https://icon-sets.iconify.design/mdi/${id.slice(4)}/`);
+  return L;
 }
 // Symbolens färg: egen färg, annars textfärgen i samma rad (som i 3D-vyn).
 function symTextColorId(e) {
@@ -817,7 +837,7 @@ function orderText() {
   L.push(`Innehåll (i ordning)${layoutNote}:`);
   rws.forEach((row, ri) => {
     L.push(`  ${rws.length > 1 ? `Rad ${ri + 1}: ` : ''}${seqs[ri]}`);
-    textEls(row).forEach(e => { if (e.text.trim()) L.push(`     text "${e.text.trim()}" – typsnitt ${fontName(e.font)}, färg ${colorName(e.color)}`); });
+    textEls(row).forEach(e => { if (e.text.trim()) L.push(`     text "${e.text.trim()}" – typsnitt ${fontLabel(e.font)}, färg ${colorName(e.color)}`); });
   });
   if (doubleText(state)) L.push(`  Främre radens position: ${byId(DUBBEL_POSITIONS, state.content.overlayPos).name}`);
   if (allSymEls().length) L.push(`  Färg på symboler: ${symbolColorText()} (flaggor sys i sina riktiga färger)`);
@@ -826,6 +846,8 @@ function orderText() {
   L.push(`D-ring${state.family === 'biothane' ? 'ar och nitar' : ''}: ${hwf.name}`);
   L.push('Frakt: väljs i kassan hos Valley Dogs');
   if (state.extraInfo.trim()) L.push(`Övrig info: ${state.extraInfo.trim()}`);
+  const sources = librarySources();
+  if (sources.length) { L.push('Utanför butikens egna typsnitt/symboler:'); sources.forEach(x => L.push(`  ${x}`)); }
   L.push(`Designlänk (öppnar designen i leverantörsvyn): ${designUrl(true)}`);
   L.push('--------------------------------------');
   L.push(`Beräknat pris: ${total} kr`);
@@ -846,13 +868,14 @@ function cartComment(supplierLink) {
   const layoutNote = rws.length > 1 ? (doubleText(state) ? ' – dubbeltext' : ' – staplade rader') : '';
   // Hela sekvensen (symboler + text i ordning) så sömmerskan ser upplägget
   L.push(`Innehåll (v→h)${layoutNote}: ${seqs.join('  //  ')}`);
-  allTextEls().forEach(e => { if (e.text.trim()) L.push(`  "${e.text.trim()}" – ${fontName(e.font)}/${colorName(e.color)}`); });
+  allTextEls().forEach(e => { if (e.text.trim()) L.push(`  "${e.text.trim()}" – ${fontLabel(e.font)}/${colorName(e.color)}`); });
   if (allSymEls().length) L.push(`  Symbolfärg: ${symbolColorText()}`);
   if (doubleText(state)) L.push(`  Främre radens position: ${byId(DUBBEL_POSITIONS, state.content.overlayPos).name}`);
   if (selectedSize(state)) L.push(`Storlek: ${sizeDescription(state)}`);
   else L.push(`Halsmått i stängt läge: ${state.circumference} cm`);
   if (shadowEnabled(state)) L.push(`Skugga: ${state.shadowSymbols ? 'text och symboler' : 'enbart text'}`);
   if (state.extraInfo.trim()) L.push(`Kundens övriga info: ${state.extraInfo.trim()}`);
+  librarySources().forEach(x => L.push(x));
   L.push(`Design (öppnas i leverantörsvyn): ${supplierLink || designUrl(true)}`);
   return L.join('\n');
 }
@@ -891,7 +914,7 @@ function cartDesign(supplierLink) {
   const syms = allSymEls();
   // Butiken har bara ETT symbolval: en symbol → den; flera/olika → "Egen symbol"
   const symbolChoice = syms.length === 0 ? 'Ingen symbol'
-    : syms.length === 1 ? symName(syms[0].id) : 'Egen symbol';
+    : syms.length === 1 ? symLabel(syms[0].id) : 'Egen symbol';
   return {
     webbingColor: isCotton ? byId(WEBBING_COLORS, state.webbing).name : null,
     biothaneColor: isCotton ? null : byId(BIOTHANE_COLORS, state.biothane).name,
@@ -904,9 +927,10 @@ function cartDesign(supplierLink) {
     sizeRange: selectedSize(state)?.id || null,
     text: contentPlainText(),
     font: t1 ? fontName(t1.font) : null,
-    fontText: perText(e => fontName(e.font)),
-    libraryFont: !!t1?.font.startsWith('gf-'),
-    librarySymbol: syms.some(s => s.id.startsWith('mdi-')),
+    fontText: perText(e => fontLabel(e.font)),
+    // en lista kan bara ta ett typsnitt: finns något Google-typsnitt → "Eget typsnitt"
+    libraryFont: allTextEls().some(e => e.text.trim() && isLibFont(e.font)),
+    librarySymbol: syms.some(s => isLibSym(s.id)),
     textColor: perText(e => colorName(e.color)) || colorName('svart'),
     symbol: symbolChoice,
     placement: derivePlacement(),
