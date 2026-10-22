@@ -209,6 +209,28 @@ const assert = require('node:assert/strict');
   // delningslänken behåller BioThane-intervallet
   assert.equal(decodeDesign(encodeDesign({ ...bioStall, sizeRange: '45-55' })).sr, '45-55');
 
+  // ---- text-layout: bläcket fyller bandet och centreras ----
+  const tl = await import('../js/text-layout.js');
+  // påhittat typsnitt: bläck 0,7·size över ritpunkten och 0,1·size under
+  const fakeMeasure = (e, size) => ({ width: 0.6 * size * e.text.trim().length, ascent: 0.7 * size, descent: 0.1 * size });
+  const lay = (rws, layout = 'stack', maxW = 1e9) => tl.layoutContent(content(rws, layout), 0, 100, maxW, fakeMeasure, () => 1);
+  const inkCenter = L => L.cy + (0.1 * L.size - 0.7 * L.size) / 2;
+  const one = lay([[T('LUNA'), S('tass')]])[0];
+  assert.ok(Math.abs(one.inkH - tl.FILL * 100) < 1e-9);         // 86 % av bandet
+  assert.ok(Math.abs(inkCenter(one) - 50) < 1e-9);               // textens bläck mitt i bandet
+  assert.equal(one.symCy, 50);                                  // symbolen på samma mittlinje
+  assert.ok(Math.abs(one.items[1].sz - one.inkH) < 1e-9);       // symbol lika hög som texten
+  const [first, last] = [one.items[0], one.items.at(-1)];                          // centrerad horisontellt
+  assert.ok(Math.abs(first.cx - first.w / 2 + one.totW / 2) < 1e-9 && Math.abs(last.cx + last.w / 2 - one.totW / 2) < 1e-9);
+  const two = lay([[T('LUNA')], [T('2024')]]);
+  assert.ok(Math.abs(two[0].inkH + two[1].inkH + tl.ROW_GAP * 100 - tl.FILL * 100) < 1e-9);
+  assert.ok(Math.abs((inkCenter(two[0]) + inkCenter(two[1])) / 2 - 50) < 1e-9);  // blocket centrerat
+  const ov = lay([[T('BELLA')], [T('2024')]], 'overlay');
+  assert.ok(Math.abs(ov[1].inkH - tl.OVERLAY_FRONT * ov[0].inkH) < 1e-9);         // främre 80 %
+  const long = lay([[T('MAXIMILIANUS VON')]], 'stack', 300)[0];
+  assert.ok(long.totW <= 300 + 1e-9 && long.inkH < tl.FILL * 100);              // för lång rad krymps
+  assert.equal(tl.layoutContent(content([[T('  ')]]), 0, 100, 1e9, fakeMeasure, () => 1), null);
+
   // ---- varukorg: exakta storleksintervall (oförändrat) ----
   const opts = [{ uid: 1, name: '25-30 cm' }, { uid: 2, name: '30–35 cm' }, { uid: 3, name: '25–35 cm +10 kr' }, { uid: 4, name: 'Egen storlek +30 kr' }];
   assert.equal(pickSizeRange(30, opts, '25-35').uid, 3);
@@ -221,5 +243,5 @@ const assert = require('node:assert/strict');
     assert.ok((await resolveOrder(1, { sizeCm: 30, sizeRange: '30-40' })).problems.length);
   } finally { global.fetch = fetchBefore; }
 
-  console.log('PASS: innehållsmodell – storlekar, teckengränser per rad, symboler som tecken, overlay-färger, skugga, v1-migrering, symbolfärg per symbol, BioThane-storlekar och cart-intervall.');
+  console.log('PASS: innehållsmodell – storlekar, teckengränser per rad, symboler som tecken, overlay-färger, skugga, v1-migrering, symbolfärg per symbol, BioThane-storlekar, textlayout och cart-intervall.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

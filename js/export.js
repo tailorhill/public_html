@@ -5,6 +5,7 @@
 // är Valley Dogs egna vektorer. Layouten speglar 3D-vyn (paintTextBlock).
 import { fontBuffer } from './font-library.js';
 import { symbolExportData, symbolAspect } from './symbols.js';
+import { layoutContent, FRONT_FRAC } from './text-layout.js';
 
 let opentypeReady = null;
 function loadOpentype() {
@@ -42,16 +43,15 @@ export async function loadFont(ttf) {
 }
 
 // ------------------------------------------------------------- layout
-// Gemensam placeringsberäkning för båda formaten (speglar paintTextBlock).
+// Gemensam placeringsberäkning för båda formaten. Storlek och placering kommer
+// från text-layout.js – samma som 3D-vyn – men mäts här med fontfilerna.
 // Returnerar { W, H, M, bandH, total, placedTexts:[{t,font,size,cx,cy,idx}],
-//              placedSymbols:[{cx,cy,id,size}] }
+//              placedSymbols:[{cx,cy,id,size,color,rowColor}] }
 async function computeLayout(cfg) {
   const bandH = cfg.bandHmm;
   const content = cfg.content;
   const rows = (content && content.rows || []).filter(r => r.els.some(e => e.t === 'sym' || (e.text && e.text.trim())));
   if (!rows.length) throw new Error('Ingen text eller symbol att exportera.');
-  const nRows = rows.length;
-  const overlay = content.layout === 'overlay' && nRows === 2;
   const M = 5;
 
   // ladda alla unika typsnitt
@@ -59,54 +59,35 @@ async function computeLayout(cfg) {
   const fontCache = {};
   await Promise.all([...new Set(textElsFlat.map(e => e.font.ttf))].map(async ttf => { fontCache[ttf] = await loadFont(ttf); }));
   const otFont = e => fontCache[e.font.ttf];
-
-  const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.62 * 0.8)
-    : nRows === 3 ? bandH * 0.29 : nRows === 2 ? bandH * 0.4 : bandH * 0.54;
-  const rowSizes = rows.map((r, ri) => Math.min(rowBase(ri), bandH * 0.82));
-  const symSizeFor = size => size * 0.94;
-  const gapFor = size => size * 0.22;
   const disp = e => (e.font.caps ? e.text.trim().toUpperCase() : e.text.trim());
-  const textW = (e, size) => otFont(e).getAdvanceWidth(disp(e), size);
 
-  const buildRow = (row, size) => {
-    const items = row.els.filter(e => e.t === 'sym' || e.text.trim()).map(e => e.t === 'sym'
-      ? { kind: 'sym', id: e.id, color: e.color || null, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
-      : { kind: 'text', el: e, w: textW(e, size) });
-    const gap = gapFor(size);
-    const totW = items.reduce((a, it) => a + it.w, 0) + gap * Math.max(0, items.length - 1);
-    return { items, gap, totW };
+  // Bläcket relativt ritpunkten i textOtPath (baslinje = punkt + em-mitt).
+  const measureInk = (e, size) => {
+    const f = otFont(e), k = size / f.unitsPerEm;
+    const mid = ((f.ascender + f.descender) / 2) * k;
+    const bb = f.getPath(disp(e), 0, 0, size).getBoundingBox();
+    return { width: f.getAdvanceWidth(disp(e), size), ascent: -(bb.y1 + mid), descent: bb.y2 + mid };
   };
-  const layouts = rows.map((r, ri) => buildRow(r, rowSizes[ri]));
+  // samma största radbredd som 3D-vyn (andel av omkretsen), om den är känd
+  const maxW = cfg.circumference ? cfg.circumference * 10 * FRONT_FRAC : Infinity;
+  const layouts = layoutContent({ ...content, rows }, M, M + bandH, maxW, measureInk, symbolAspect);
 
   const total = Math.max(...layouts.map(L => L.totW), 0);
   const W = total + M * 2, H = bandH + M * 2;
-  const cyMid = M + bandH / 2;
-  const rowY = ri => {
-    if (overlay) {
-      if (ri === 0) return cyMid;
-      const p = content.overlayPos || 'mitten';
-      return p === 'topp' ? cyMid - bandH * 0.19 : p === 'botten' ? cyMid + bandH * 0.19 : cyMid;
-    }
-    if (nRows === 3) return M + bandH * [0.19, 0.5, 0.81][ri];
-    if (nRows === 2) return M + bandH * [0.29, 0.72][ri];
-    return cyMid;
-  };
+  const cx0 = M + total / 2;
 
   const placedTexts = [], placedSymbols = [];
   let textIdx = 0;
-  rows.forEach((row, ri) => {
-    const L = layouts[ri], size = rowSizes[ri], cy = rowY(ri);
-    let x = M + (total - L.totW) / 2;
-    const rowColor = (row.els.find(e => e.t === 'text') || {}).color || null;
+  for (const L of layouts) {
+    const rowColor = (L.row.els.find(e => e.t === 'text') || {}).color || null;
     for (const it of L.items) {
       if (it.kind === 'text') {
-        placedTexts.push({ t: { text: it.el.text, font: it.el.font, color: it.el.color }, font: otFont(it.el), size, cx: x + it.w / 2, cy, idx: textIdx++ });
+        placedTexts.push({ t: { text: it.el.text, font: it.el.font, color: it.el.color }, font: otFont(it.el), size: L.size, cx: cx0 + it.cx, cy: L.cy, idx: textIdx++ });
       } else {
-        placedSymbols.push({ cx: x + it.w / 2, cy, id: it.id, size: it.sz, color: it.color, rowColor });
+        placedSymbols.push({ cx: cx0 + it.cx, cy: L.symCy, id: it.id, size: it.sz, color: it.color, rowColor });
       }
-      x += it.w + L.gap;
     }
-  });
+  }
 
   const widthOfPlaced = p => p.font.getAdvanceWidth(disp(p.t), p.size);
   return { W, H, M, bandH, total, placedTexts, placedSymbols, disp, widthOfPlaced };

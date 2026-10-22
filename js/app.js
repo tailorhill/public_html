@@ -1132,6 +1132,8 @@ function exportCfg() {
     shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
     shadowSymbols: state.shadowSymbols,
     bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
+    // för samma radbreddsgräns som 3D-vyn (andel av omkretsen)
+    circumference: previewCircumference(state),
   };
 }
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from '../vendor/OrbitControls.js';
 import { RoomEnvironment } from '../vendor/RoomEnvironment.js';
 import { drawSymbol, symbolAspect } from './symbols.js';
+import { layoutContent, FRONT_FRAC } from './text-layout.js';
 
 // Skala: 1 enhet = 1 cm.
 
@@ -517,9 +518,6 @@ export class CollarViewer {
     if (!rows.length) return;
 
     const bandH = bandBottom - bandTop;
-    const cyMid = bandTop + bandH / 2;
-    const nRows = rows.length;
-    const overlay = content.layout === 'overlay' && nRows === 2;
 
     const scratch = document.createElement('canvas');
     scratch.width = W; scratch.height = H;
@@ -528,41 +526,15 @@ export class CollarViewer {
     const fontStr = (f, size) => `${f.italic ? 'italic ' : ''}${f.weight} ${size}px ${f.css}`;
     const disp = e => (e.font.caps ? e.text.trim().toUpperCase() : e.text.trim());
     const measureText = (e, size) => { sctx.font = fontStr(e.font, size); return sctx.measureText(disp(e)).width; };
-    const symSizeFor = size => size * 0.94;
-    const gapFor = size => size * 0.22;
-
-    // grundstorlek per rad (staplat/overlay skalar ned)
-    const rowBase = ri => overlay ? bandH * (ri === 0 ? 0.62 : 0.62 * 0.8)
-      : nRows === 3 ? bandH * 0.29 : nRows === 2 ? bandH * 0.4 : bandH * 0.54;
-    const rowSizes = rows.map((r, ri) => Math.min(rowBase(ri), bandH * 0.82));
-
-    // bygg radens element med bredder, i ordning
-    const buildRow = (row, size) => {
-      const items = row.els.filter(e => e.t === 'sym' || e.text.trim()).map(e => e.t === 'sym'
-        ? { kind: 'sym', id: e.id, color: e.color || null, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
-        : { kind: 'text', el: e, w: measureText(e, size) });
-      const gap = gapFor(size);
-      const totW = items.reduce((a, it) => a + it.w, 0) + gap * Math.max(0, items.length - 1);
-      return { items, gap, totW };
+    // Storlek och placering: gemensam med skärfilerna (text-layout.js).
+    // Bläcket mäts relativt ritpunkten med samma textBaseline som när vi ritar.
+    const measureInk = (e, size) => {
+      sctx.font = fontStr(e.font, size);
+      sctx.textBaseline = 'middle';
+      const m = sctx.measureText(disp(e));
+      return { width: m.width, ascent: m.actualBoundingBoxAscent, descent: m.actualBoundingBoxDescent };
     };
-
-    // krymp rader som blir för breda för framsidan
-    const maxW = W * 0.42;
-    let layouts = rows.map((r, ri) => buildRow(r, rowSizes[ri]));
-    layouts.forEach((L, ri) => {
-      if (L.totW > maxW && L.totW > 0) { rowSizes[ri] *= maxW / L.totW; layouts[ri] = buildRow(rows[ri], rowSizes[ri]); }
-    });
-
-    const rowY = ri => {
-      if (overlay) {
-        if (ri === 0) return cyMid;
-        const p = content.overlayPos || 'mitten';
-        return p === 'topp' ? cyMid - bandH * 0.19 : p === 'botten' ? cyMid + bandH * 0.19 : cyMid;
-      }
-      if (nRows === 3) return bandTop + bandH * [0.19, 0.5, 0.81][ri];
-      if (nRows === 2) return bandTop + bandH * [0.29, 0.72][ri];
-      return cyMid;
-    };
+    const layouts = layoutContent({ ...content, rows }, bandTop, bandBottom, W * FRONT_FRAC, measureInk, symbolAspect);
     const rowSymColor = ri => { const t = rows[ri].els.find(e => e.t === 'text'); return t ? t.color : null; };
 
     // ett textelement med ev. glitter/reflex begränsat till tecknen
@@ -593,17 +565,16 @@ export class CollarViewer {
 
     // rita en rad (element i sekvens) centrerad kring W/2
     const drawRow = (ri, colorOverride, targetOverride) => {
-      const L = layouts[ri], size = rowSizes[ri], cy = rowY(ri);
+      const L = layouts[ri];
       const symCol = colorOverride || cfg.symbolColor || rowSymColor(ri) || { hex: '#111' };
-      let x = W / 2 - L.totW / 2;
       for (const it of L.items) {
+        const cx = W / 2 + it.cx;
         if (it.kind === 'text') {
-          drawText(it.el, size, x + it.w / 2, cy, colorOverride, targetOverride);
+          drawText(it.el, L.size, cx, L.cy, colorOverride, targetOverride);
         } else if (!colorOverride || cfg.shadowSymbols !== false) {
           // egen symbolfärg, annars (som förut) gemensam/radens textfärg
-          drawSymbol(targetOverride || ctx, it.id, x + it.w / 2, cy, it.sz, (colorOverride || it.color || symCol).hex);
+          drawSymbol(targetOverride || ctx, it.id, cx, L.symCy, it.sz, (colorOverride || it.color || symCol).hex);
         }
-        x += it.w + L.gap;
       }
     };
 
