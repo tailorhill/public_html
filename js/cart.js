@@ -62,8 +62,14 @@ const b64url = s =>
 // Klassa ett valnamn på nyckelord → semantisk kategori. Robust mot butikens
 // spretiga namn (typos "bomusllsband", singular/plural "D-ring(ar)",
 // suffix "bomullsband(et)", omformuleringar "Vart ska symbolen placeras?").
+//
+// Matcha på SJÄLVA FRÅGAN, inte på butikens "(OBS …)"-förklaringar: de nämner
+// andra fält ("Vilket foder … (Äkta läder, softshell …)", "färg på din text?
+// (OBS … glitter på glitter …)", "… (kan inte ha skugga …)") och fick tidigare
+// foder att fyllas med "Ja", textfärgen med "-" och skuggan med textfärgen.
 function classify(name, type, options) {
-  const n = norm(name);
+  const raw = String(name || '');
+  const n = norm(raw.replace(/\([^)]*\)/g, ' ').replace(/\([^)]*$/, ' ')) || norm(raw);
   const opts = (options || []).map(o => norm(nm(o.name)));
   const onlyJaNej = type === 'enum' && opts.length > 0 && opts.every(o => o === 'ja' || o === 'nej');
   if (/övrig info|ovrig info/.test(n)) return 'comment';
@@ -71,6 +77,9 @@ function classify(name, type, options) {
   if (/foder/.test(n)) return 'foder';
   if (/klickspänne|klickspanne/.test(n)) return 'buckle';
   if (/typsnitt/.test(n)) return 'font';
+  // "Vill du ha skugga bakom din text och symbol? … vilken färg?" – före
+  // text+symbol-regeln nedan, som annars tar den.
+  if (/skugga/.test(n)) return 'shadow';
   // BioThane slår ihop text+symbolfärg i ett fält → fyll med textfärgen
   if (/text/.test(n) && /symbol/.test(n) && /(färg|farg)/.test(n)) return 'textColor';
   if (/symbol/.test(n)) {
@@ -78,7 +87,6 @@ function classify(name, type, options) {
     if (/(färg|farg)/.test(n)) return 'symbolColor';
     return 'symbol';
   }
-  if (/skugga/.test(n)) return 'shadow';
   if (/beslag|d-ring|dring/.test(n)) return 'hardware';
   if (/strypdel/.test(n)) return /längd|langd/.test(n) ? 'strypLength' : 'strypType';
   // storlek FÖRE bredd/modell: storleksval kan nämna "modellen"/"bredd" i sin
@@ -137,6 +145,9 @@ export async function resolveOrder(articleUid, design) {
   const problems = [];
   let commentUid = null;
   let matchedSizeChoice = false;
+  // Har artikeln ett fält för stängt läge? Annars (t.ex. halvstryp, som bara
+  // frågar efter åtdraget läge) skrivs verktygets mått direkt i storleksfältet.
+  const hasClosedSize = (art.choices || []).some(c => classify(nm(c.name), c.type, c.options) === 'sizeClosed');
 
   const setEnum = (ch, desired, label, opts = {}) => {
     const options = ch.options || [];
@@ -168,7 +179,8 @@ export async function resolveOrder(articleUid, design) {
       case 'leather': isEnum ? setEnum(ch, design.leather, 'Äkta läder på fodret') : setStr(ch, design.leather); break;
       case 'foder': setStr(ch, design.foder); break;
       case 'buckle': isEnum ? setEnum(ch, 'Svart plast', 'Klickspänne', { fallbackFirst: true }) : setStr(ch, 'Svart plast'); break;
-      case 'font': isEnum ? setEnum(ch, design.libraryFont ? 'Eget typsnitt' : design.font, 'Typsnitt', { strict: design.libraryFont }) : setStr(ch, design.font); break;
+      // Fritextfält får alla typsnitt (flera texter); en lista kan bara ta ett.
+      case 'font': isEnum ? setEnum(ch, design.libraryFont ? 'Eget typsnitt' : design.font, 'Typsnitt', { strict: design.libraryFont }) : setStr(ch, design.fontText || design.font); break;
       case 'symbol': isEnum ? setEnum(ch, design.librarySymbol ? 'Egen symbol' : design.symbol, 'Symbol', { fallbackFirst: !design.librarySymbol, strict: design.librarySymbol }) : setStr(ch, design.symbol); break;
       case 'placement': isEnum ? setEnum(ch, design.placement, 'Symbolens placering', { fallbackFirst: true }) : setStr(ch, design.placement); break;
       case 'symbolColor': setStr(ch, design.symbolColor); break;
@@ -186,7 +198,9 @@ export async function resolveOrder(articleUid, design) {
       case 'sizeTight':
         // åtdraget mått finns inte i verktyget – hänvisa till övrig info
         if (isEnum) setEnum(ch, null, 'Storlek (åtdraget)', { fallbackFirst: true });
-        else setStr(ch, design.sizeRange ? 'Se valt storleksintervall och Övrig info' : `Se stängt mått (${design.sizeCm} cm) / övrig info`);
+        else setStr(ch, design.sizeRange ? 'Se valt storleksintervall och Övrig info'
+          : hasClosedSize ? `Se stängt mått (${design.sizeCm} cm)`
+          : `Halsmått i stängt läge: ${design.sizeCm} cm (åtdraget mått ej angivet)`);
         break;
       case 'glitterColor': setStr(ch, design.glitterColor); break;
       default:

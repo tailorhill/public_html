@@ -818,6 +818,7 @@ function cartComment(supplierLink) {
   if (allSymEls().length) L.push(`  Symbolfärg: ${symbolColorText()}`);
   if (doubleText(state)) L.push(`  Främre radens position: ${byId(DUBBEL_POSITIONS, state.content.overlayPos).name}`);
   if (selectedSize(state)) L.push(`Storlek: ${sizeDescription(state)}`);
+  else L.push(`Halsmått i stängt läge: ${state.circumference} cm`);
   if (shadowEnabled(state)) L.push(`Skugga: ${state.shadowSymbols ? 'text och symboler' : 'enbart text'}`);
   if (state.extraInfo.trim()) L.push(`Kundens övriga info: ${state.extraInfo.trim()}`);
   L.push(`Design (öppnas i leverantörsvyn): ${supplierLink || designUrl(true)}`);
@@ -842,6 +843,15 @@ function derivePlacement() {
   if (after) return 'Efter texten';
   return 'På vardera sida om texten';
 }
+// Ett värde per text för butikens fritextfält: samma för alla texter → skrivs
+// en gång ("Guldglitter"), olika → per text ('"Bjursvallarens" Guldglitter,
+// "EAZY" Guld'). Tidigare skickades bara första textens värde.
+function perText(pick) {
+  const els = allTextEls().filter(e => e.text.trim());
+  if (!els.length) return null;
+  const vals = els.map(pick);
+  return new Set(vals).size === 1 ? vals[0] : els.map((e, i) => `"${e.text.trim()}" ${vals[i]}`).join(', ');
+}
 function cartDesign(supplierLink) {
   const lin = byId(linings, state.lining);
   const t1 = allTextEls().find(e => e.text.trim()) || allTextEls()[0];
@@ -862,13 +872,16 @@ function cartDesign(supplierLink) {
     sizeRange: selectedSize(state)?.id || null,
     text: contentPlainText(),
     font: t1 ? fontName(t1.font) : null,
+    fontText: perText(e => fontName(e.font)),
     libraryFont: !!t1?.font.startsWith('gf-'),
     librarySymbol: syms.some(s => s.id.startsWith('mdi-')),
-    textColor: colorName(t1 ? t1.color : 'svart'),
+    textColor: perText(e => colorName(e.color)) || colorName('svart'),
     symbol: symbolChoice,
     placement: derivePlacement(),
     symbolColor: syms.length ? colorName(state.symbolColor || (t1 ? t1.color : 'svart')) : '-',
-    shadow: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor).name : 'Nej',
+    shadow: shadowEnabled(state)
+      ? byId(TEXT_COLORS, state.shadowColor).name + (state.shadowSymbols ? '' : ' (bara bakom texten)')
+      : 'Nej',
     hardware: byId(HARDWARE_FINISHES, state.hardware).name,
     comment: cartComment(supplierLink),
   };
