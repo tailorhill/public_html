@@ -13,9 +13,21 @@ const b64decode = s =>
   new TextDecoder().decode(
     Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)));
 
-// element -> kompakt array: text ['t',text,font,color] | symbol ['s',id]
-const encEl = e => e.t === 'sym' ? ['s', e.id] : ['t', (e.text || '').slice(0, 80), e.font, e.color];
-const decEl = a => a[0] === 's' ? { t: 'sym', id: a[1] } : { t: 'text', text: a[1] || '', font: a[2], color: a[3] };
+// element -> kompakt array: text ['t',text,font,color] | symbol ['s',id(,color)]
+// Symbolens färg är valfri: saknas den följer symbolen textens färg i raden.
+const encEl = e => e.t === 'sym'
+  ? (e.color ? ['s', e.id, e.color] : ['s', e.id])
+  : ['t', (e.text || '').slice(0, 80), e.font, e.color];
+const decEl = a => a[0] === 's'
+  ? (a[2] ? { t: 'sym', id: a[1], color: a[2] } : { t: 'sym', id: a[1] })
+  : { t: 'text', text: a[1] || '', font: a[2], color: a[3] };
+
+// Äldre länkar hade EN gemensam symbolfärg (sc). Flytta den till varje symbol
+// som saknar egen färg, så designen ser likadan ut som förut.
+function applyLegacySymbolColor(rows, sc) {
+  if (!sc) return;
+  for (const row of rows) for (const e of row.els) if (e.t === 'sym' && !e.color) e.color = sc;
+}
 
 // state (app.js) -> kompakt sträng
 export function encodeDesign(state) {
@@ -38,7 +50,6 @@ export function encodeDesign(state) {
     rw: c.rows.map(row => row.els.map(encEl)),
     ly: c.layout,
     op: c.overlayPos,
-    sc: state.symbolColor,
     sh: state.shadow ? 1 : 0,
     shc: state.shadowColor,
     shs: state.shadowSymbols === false ? 0 : 1,
@@ -86,13 +97,13 @@ export function decodeDesign(str) {
         overlayPos: d.op || 'mitten',
       };
       if (!d.content.rows.length) d.content.rows = [{ els: [] }];
-      d.symbolColor = d.sc || '';
+      applyLegacySymbolColor(d.content.rows, d.sc);
       return d;
     }
     if (d.v === 1) {
       const m = migrateV1(d);
       d.content = { rows: m.rows, layout: m.layout, overlayPos: m.overlayPos };
-      d.symbolColor = m.symbolColor;
+      applyLegacySymbolColor(d.content.rows, m.symbolColor);
       return d;
     }
     return null;

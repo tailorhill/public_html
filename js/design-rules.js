@@ -91,10 +91,13 @@ export function normalizeDesign(s) {
       changes.push('En text fick en tillåten färg för den valda kombinationen.');
     }
   }));
-  if (s.symbolColor && !symbolColorAllowed(s, color(s.symbolColor) || {})) {
-    s.symbolColor = '';
-    changes.push('Symbolfärgen följer nu textfärgen.');
-  }
+  // Varje symbol kan ha egen färg (saknas den följer symbolen textens färg).
+  rows(s).forEach(row => symEls(row).forEach(e => {
+    if (e.color && !symbolColorAllowed(s, color(e.color) || {})) {
+      delete e.color;
+      changes.push('En symbol följer nu textens färg, eftersom den valda symbolfärgen inte går ihop med kombinationen.');
+    }
+  }));
   return changes;
 }
 
@@ -148,6 +151,9 @@ export function validationErrors(s) {
   if (size?.id === 'custom' && !s.extraInfo.trim()) errors.push('Skriv önskat storleksintervall i Övrig info för egen storlek.');
   rows(s).forEach((row, ri) => textEls(row).forEach(e => {
     if (!textColorAllowed(s, color(e.color), { row: ri })) errors.push('Otillåten färg på en text.');
+  }));
+  rows(s).forEach(row => symEls(row).forEach(e => {
+    if (e.color && !symbolColorAllowed(s, color(e.color) || {})) errors.push('Otillåten färg på en symbol.');
   }));
   return errors;
 }

@@ -539,7 +539,7 @@ export class CollarViewer {
     // bygg radens element med bredder, i ordning
     const buildRow = (row, size) => {
       const items = row.els.filter(e => e.t === 'sym' || e.text.trim()).map(e => e.t === 'sym'
-        ? { kind: 'sym', id: e.id, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
+        ? { kind: 'sym', id: e.id, color: e.color || null, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
         : { kind: 'text', el: e, w: measureText(e, size) });
       const gap = gapFor(size);
       const totW = items.reduce((a, it) => a + it.w, 0) + gap * Math.max(0, items.length - 1);
@@ -600,7 +600,8 @@ export class CollarViewer {
         if (it.kind === 'text') {
           drawText(it.el, size, x + it.w / 2, cy, colorOverride, targetOverride);
         } else if (!colorOverride || cfg.shadowSymbols !== false) {
-          drawSymbol(targetOverride || ctx, it.id, x + it.w / 2, cy, it.sz, symCol.hex);
+          // egen symbolfärg, annars (som förut) gemensam/radens textfärg
+          drawSymbol(targetOverride || ctx, it.id, x + it.w / 2, cy, it.sz, (colorOverride || it.color || symCol).hex);
         }
         x += it.w + L.gap;
       }

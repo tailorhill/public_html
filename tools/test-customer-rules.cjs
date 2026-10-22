@@ -153,6 +153,31 @@ const assert = require('node:assert/strict');
   assert.equal(mig.content.rows[0].els[1].text, 'LUNA');
   assert.equal(mig.content.rows[0].els[2].id, 'tass');       // symbol efter (bada)
 
+  // ---- symbolfärg per symbol (som textfärg) ----
+  const symDesign = { ...base(), content: content([[S('kvistar-vanster'), T('LUNA'), { t: 'sym', id: 'kvistar-hoger', color: 'guld' }]]) };
+  const symRt = decodeDesign(encodeDesign(symDesign)).content.rows[0].els;
+  assert.equal(symRt[0].color, undefined);                    // ingen egen färg = följer texten
+  assert.equal(symRt[2].color, 'guld');                       // egen färg följer med i länken
+  // äldre v2-länk med gemensam symbolfärg (sc) → flyttas till symboler utan egen färg
+  const legacyV2 = decodeDesign(b64url({ v: 2, f: 'cotton', rw: [[['s', 'tass'], ['t', 'LUNA', 'built', 'vit'], ['s', 'hjarta', 'rod']]], sc: 'guld' }));
+  assert.equal(legacyV2.content.rows[0].els[0].color, 'guld');
+  assert.equal(legacyV2.content.rows[0].els[2].color, 'rod');  // egen färg vinner
+  // v1-länk med symbolfärg → båda symbolerna får färgen
+  const legacyV1 = decodeDesign(b64url({ v: 1, f: 'cotton', tx: [['LUNA', 'built', 'vit']], tl: 'rad', sy: 'tass', sp: 'bada', sc: 'silver' }));
+  assert.deepEqual(legacyV1.content.rows[0].els.filter(e => e.t === 'sym').map(e => e.color), ['silver', 'silver']);
+  // helglitter: slät symbolfärg är otillåten → valideringsfel, normalisering låter den följa texten
+  const glitSym = { ...base(), cottonModel: 'fast', cottonWidth: '4', fullGlitter: true,
+    content: content([[T('LUNA', 'guldglitter'), { t: 'sym', id: 'tass', color: 'vit' }]]) };
+  assert.ok(r.validationErrors(glitSym).some(e => e.includes('symbol')));
+  r.normalizeDesign(glitSym);
+  assert.equal(glitSym.content.rows[0].els[1].color, undefined);
+  assert.equal(r.validationErrors(glitSym).length, 0);
+  // tillåten egen färg lämnas orörd
+  const okSym = { ...base(), cottonModel: 'fast', cottonWidth: '4', fullGlitter: true,
+    content: content([[T('LUNA', 'guldglitter'), { t: 'sym', id: 'tass', color: 'silverglitter' }]]) };
+  r.normalizeDesign(okSym);
+  assert.equal(okSym.content.rows[0].els[1].color, 'silverglitter');
+
   // ---- varukorg: exakta storleksintervall (oförändrat) ----
   const opts = [{ uid: 1, name: '25-30 cm' }, { uid: 2, name: '30–35 cm' }, { uid: 3, name: '25–35 cm +10 kr' }, { uid: 4, name: 'Egen storlek +30 kr' }];
   assert.equal(pickSizeRange(30, opts, '25-35').uid, 3);
@@ -165,5 +190,5 @@ const assert = require('node:assert/strict');
     assert.ok((await resolveOrder(1, { sizeCm: 30, sizeRange: '30-40' })).problems.length);
   } finally { global.fetch = fetchBefore; }
 
-  console.log('PASS: innehållsmodell – storlekar, teckengränser per rad, symboler som tecken, overlay-färger, skugga, v1-migrering och cart-intervall.');
+  console.log('PASS: innehållsmodell – storlekar, teckengränser per rad, symboler som tecken, overlay-färger, skugga, v1-migrering, symbolfärg per symbol och cart-intervall.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

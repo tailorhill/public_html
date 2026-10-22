@@ -14,7 +14,7 @@ export function applyGlitter(viewer, material, cfg, top, bottom) {
   viewer.paintTextBlock(ctx, W, H, top, bottom, {
     ...cfg, symbolColor: maskColor(cfg.symbolColor), shadowColor: maskColor(cfg.shadowColor),
     content: cfg.content && { ...cfg.content, rows: cfg.content.rows.map(row => ({ ...row,
-      els: row.els.map(e => e.t === 'text' ? { ...e, color: maskColor(e.color) } : e),
+      els: row.els.map(e => e.t === 'text' || e.color ? { ...e, color: maskColor(e.color) } : e),
     })) },
   });
   const mask = new THREE.CanvasTexture(canvas);

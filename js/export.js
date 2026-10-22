@@ -70,7 +70,7 @@ async function computeLayout(cfg) {
 
   const buildRow = (row, size) => {
     const items = row.els.filter(e => e.t === 'sym' || e.text.trim()).map(e => e.t === 'sym'
-      ? { kind: 'sym', id: e.id, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
+      ? { kind: 'sym', id: e.id, color: e.color || null, sz: symSizeFor(size), w: symSizeFor(size) * symbolAspect(e.id) }
       : { kind: 'text', el: e, w: textW(e, size) });
     const gap = gapFor(size);
     const totW = items.reduce((a, it) => a + it.w, 0) + gap * Math.max(0, items.length - 1);
@@ -97,11 +97,12 @@ async function computeLayout(cfg) {
   rows.forEach((row, ri) => {
     const L = layouts[ri], size = rowSizes[ri], cy = rowY(ri);
     let x = M + (total - L.totW) / 2;
+    const rowColor = (row.els.find(e => e.t === 'text') || {}).color || null;
     for (const it of L.items) {
       if (it.kind === 'text') {
         placedTexts.push({ t: { text: it.el.text, font: it.el.font, color: it.el.color }, font: otFont(it.el), size, cx: x + it.w / 2, cy, idx: textIdx++ });
       } else {
-        placedSymbols.push({ cx: x + it.w / 2, cy, id: it.id, size: it.sz });
+        placedSymbols.push({ cx: x + it.w / 2, cy, id: it.id, size: it.sz, color: it.color, rowColor });
       }
       x += it.w + L.gap;
     }
@@ -209,8 +210,9 @@ export async function buildCutSvg(cfg) {
       const k = s.size / b.h;
       const tx = s.cx - (b.w * k) / 2 - b.x * k;
       const ty = s.cy - s.size / 2 - b.y * k;
-      const col = cfg.symbolColor ? cfg.symbolColor.hex
-        : (L.placedTexts[0] ? L.placedTexts[0].t.color.hex : '#000');
+      // symbolens egen färg → gemensam (äldre cfg) → radens textfärg → första text
+      const c = s.color || cfg.symbolColor || s.rowColor || (L.placedTexts[0] && L.placedTexts[0].t.color);
+      const col = c ? c.hex : '#000';
       parts.push(`<g id="symbol" transform="translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${k.toFixed(5)})">` +
         `<path fill="${col}" fill-rule="evenodd" d="${data.d}"/></g>`);
     }

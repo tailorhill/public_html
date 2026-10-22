@@ -45,7 +45,6 @@ const state = {
     overlayPos: 'mitten',      // 'topp' | 'mitten' | 'botten' (overlay)
   },
   activeEl: { row: 0, i: 0 },  // markerat element (rad-index + element-index)
-  symbolColor: '',             // '' = samma som texten
   shadow: false,
   shadowColor: 'svart',
   shadowSymbols: true,
@@ -225,7 +224,7 @@ function applyDesign(d) {
   if (d.content && Array.isArray(d.content.rows)) {
     const rows = d.content.rows.map(r => ({
       els: (r.els || []).map(e => e.t === 'sym'
-        ? (byId(SYMBOLS, e.id) ? { t: 'sym', id: e.id } : null)
+        ? (byId(SYMBOLS, e.id) ? { t: 'sym', id: e.id, ...(e.color && byId(TEXT_COLORS, e.color) ? { color: e.color } : {}) } : null)
         : { t: 'text', text: String(e.text || ''), font: valid(FONTS, e.font, 'avenir'), color: valid(TEXT_COLORS, e.color, 'svart') })
         .filter(Boolean),
     })).filter(r => r.els.length);
@@ -236,7 +235,6 @@ function applyDesign(d) {
     };
     state.activeEl = { row: 0, i: 0 };
   }
-  state.symbolColor = d.symbolColor ? valid(TEXT_COLORS, d.symbolColor, '') : '';
   state.shadow = d.sh === 1;
   state.shadowColor = valid(TEXT_COLORS, d.shc, state.shadowColor);
   state.hardware = valid(HARDWARE_FINISHES, d.hw, state.hardware);
@@ -301,13 +299,12 @@ function rebuild3D() {
       content: {
         rows: state.content.rows.map(r => ({
           els: r.els.map(e => e.t === 'sym'
-            ? { t: 'sym', id: e.id }
+            ? { t: 'sym', id: e.id, color: e.color ? byId(TEXT_COLORS, e.color) : null }
             : { t: 'text', text: e.text, font: byId(FONTS, e.font), color: byId(TEXT_COLORS, e.color) }),
         })),
         layout: state.content.layout,
         overlayPos: state.content.overlayPos,
       },
-      symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
       shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
       shadowSymbols: state.shadowSymbols,
       hardware: byId(HARDWARE_FINISHES, state.hardware),
@@ -522,11 +519,23 @@ function renderContentEditor() {
       b.addEventListener('click', () => { active.id = s.id; refresh(); });
       symWrap.appendChild(b);
     }
-    const symColorList = [{ id: '', name: 'Samma som texten', hex: '#888' },
-      ...TEXT_COLORS.filter(c => symbolColorAllowed(state, c))];
-    selectBox($('#symbolColorSelect'), symColorList, () => state.symbolColor, id => { state.symbolColor = id; });
-    const isFlag = !!byId(SYMBOLS, active.id).flag;
+    // Symbolfärg väljs som textfärg: rutnät per symbol. Första rutan följer
+    // textens färg i raden (standard), övriga ger symbolen en egen färg.
+    const isFlag = !!byId(SYMBOLS, active.id)?.flag;
+    $('#symbolColorBlock').style.display = isFlag ? 'none' : '';
     $('#flagNote').style.display = isFlag ? '' : 'none';
+    if (!isFlag) {
+      const followC = byId(TEXT_COLORS, symTextColorId(active)) || TEXT_COLORS[0];
+      swatchGrid($('#colorSwS'), [{ ...followC, id: '', name: 'Samma som texten' }, ...TEXT_COLORS],
+        () => active.color || '',
+        id => { if (id) active.color = id; else delete active.color; },
+        { isDisabled: c => c.id !== '' && !symbolColorAllowed(state, c) });
+      $('#symbolColorNote').textContent = (state.fullGlitter && glitterAvailable())
+        ? 'Hela bandet är i glittermaterial, så symbolen måste också vara i en glittrig färg.'
+        : shadowEnabled(state) && state.shadowSymbols !== false && byId(TEXT_COLORS, state.shadowColor).glitter
+        ? 'Symbolen ligger ovanpå en glittrig skugga och måste därför också vara i glitter.'
+        : 'Välj "Samma som texten" eller en egen färg för just den här symbolen.';
+    }
   }
 
   const many = rowsOf().length > 1;
@@ -751,7 +760,25 @@ function contentSequence() {
   return rowsOf().map(r => r.els
     .map(e => e.t === 'sym' ? `[${symName(e.id)}]` : (e.text.trim() || '(tom)')).join(' '));
 }
-const symbolColorText = () => state.symbolColor ? colorName(state.symbolColor) : 'Samma som texten';
+// Symbolens färg: egen färg, annars textfärgen i samma rad (som i 3D-vyn).
+function symTextColorId(e) {
+  const row = rowsOf().find(r => r.els.includes(e));
+  const t = (row && row.els.find(x => x.t === 'text')) || allTextEls()[0];
+  return t ? t.color : 'svart';
+}
+const symColorId = e => e.color || symTextColorId(e);
+// Flaggor sys i sina riktiga färger och räknas inte.
+const colorSyms = () => allSymEls().filter(e => !byId(SYMBOLS, e.id)?.flag);
+// Ett värde per symbol: samma för alla → en gång, annars "Tass: Guld, Hjärta: Röd".
+function perSym(pick) {
+  const syms = colorSyms();
+  if (!syms.length) return 'Flaggornas egna färger';
+  const vals = syms.map(pick);
+  return new Set(vals).size === 1 ? vals[0] : syms.map((e, i) => `${symName(e.id)}: ${vals[i]}`).join(', ');
+}
+const symbolColorText = () => colorSyms().every(e => !e.color)
+  ? 'Samma som texten'
+  : perSym(e => e.color ? colorName(e.color) : `samma som texten (${colorName(symTextColorId(e))})`);
 
 function orderText() {
   const { total } = computePrice();
@@ -878,7 +905,7 @@ function cartDesign(supplierLink) {
     textColor: perText(e => colorName(e.color)) || colorName('svart'),
     symbol: symbolChoice,
     placement: derivePlacement(),
-    symbolColor: syms.length ? colorName(state.symbolColor || (t1 ? t1.color : 'svart')) : '-',
+    symbolColor: syms.length ? perSym(e => colorName(symColorId(e))) : '-',
     shadow: shadowEnabled(state)
       ? byId(TEXT_COLORS, state.shadowColor).name + (state.shadowSymbols ? '' : ' (bara bakom texten)')
       : 'Nej',
@@ -1091,13 +1118,12 @@ function exportCfg() {
     content: {
       rows: state.content.rows.map(r => ({
         els: r.els.map(e => e.t === 'sym'
-          ? { t: 'sym', id: e.id }
+          ? { t: 'sym', id: e.id, color: e.color ? byId(TEXT_COLORS, e.color) : null }
           : { t: 'text', text: e.text, font: byId(FONTS, e.font), color: byId(TEXT_COLORS, e.color) }),
       })),
       layout: state.content.layout,
       overlayPos: state.content.overlayPos,
     },
-    symbolColor: state.symbolColor ? byId(TEXT_COLORS, state.symbolColor) : null,
     shadowColor: shadowEnabled(state) ? byId(TEXT_COLORS, state.shadowColor) : null,
     shadowSymbols: state.shadowSymbols,
     bandHmm: (isCotton ? widthCm - 1 : widthCm) * 10,
