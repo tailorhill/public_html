@@ -182,7 +182,7 @@ const assert = require('node:assert/strict');
   const bioStall = { ...base(), family: 'biothane', bioModel: 'stallbart', bioWidth: '25', sizeRange: null,
     content: content([[T('LUNA')]]) };
   assert.deepEqual(r.sizeOptions(bioStall).map(o => [o.id, o.surcharge]),
-    [['30-40', 0], ['35-45', 10], ['45-55', 10], ['custom', 30]]);
+    [['30-40', 0], ['35-45', 10], ['45-55', 20], ['custom', 30]]);
   assert.match(r.sizeOptions(bioStall).at(-1).name, /max 10 cm ställbar del/);
   r.normalizeDesign(bioStall);
   assert.equal(bioStall.sizeRange, '30-40');                 // förval = första intervallet

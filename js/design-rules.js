@@ -21,7 +21,7 @@ export const SIZE_OPTIONS = {
 // storleksberoende teckengräns (limit null), precis som övriga BioThane-modeller.
 export const BIOTHANE_SIZE_OPTIONS = {
   stallbart: [
-    option('30-40', 0, null), option('35-45', 10, null), option('45-55', 10, null),
+    option('30-40', 0, null), option('35-45', 10, null), option('45-55', 20, null),
     { ...option('custom', 30, null), name: 'Egen storlek (max 10 cm ställbar del)' },
   ],
 };
