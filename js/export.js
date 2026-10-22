@@ -5,6 +5,7 @@
 // är Valley Dogs egna vektorer. Layouten speglar 3D-vyn (paintTextBlock).
 import { fontBuffer } from './font-library.js';
 import { symbolExportData, symbolAspect } from './symbols.js';
+import { SYMBOLS } from './data.js';
 import { layoutContent, FRONT_FRAC } from './text-layout.js';
 
 let opentypeReady = null;
@@ -296,13 +297,39 @@ function otPathToPolys(path) {
   return polys;
 }
 
+// Symbolens färg i skärfilen: egen → gemensam (äldre cfg) → radens text → första text.
+const symbolColorOf = (s, cfg, L) =>
+  s.color || cfg.symbolColor || s.rowColor || (L.placedTexts[0] && L.placedTexts[0].t.color) || null;
+
+// Informationsruta under designen: vilket lager som ska skäras i vilken färg.
+// Ritas som konturer (inte DXF-TEXT) så att den syns i alla program, även
+// Silhouette Studio, och utan teckenkodningsproblem för å/ä/ö. Eget lager INFO,
+// så den lätt kan döljas eller tas bort innan skärning.
+async function infoBoxPolys(lines, L) {
+  const font = await loadFont('nunitosans.ttf');
+  const size = 4, lineH = 6.5, pad = 3, gap = 6;
+  const widths = lines.map(t => font.getAdvanceWidth(t, size));
+  const boxW = Math.max(L.W, Math.max(...widths) + pad * 2);
+  const top = L.H + gap;
+  const boxH = pad * 2 + (lines.length - 1) * lineH + size;
+  const polys = [];
+  lines.forEach((t, i) => {
+    const baseline = top + pad + size * 0.8 + i * lineH;
+    polys.push(...otPathToPolys(font.getPath(t, pad, baseline, size)));
+  });
+  polys.push([[0, top], [boxW, top], [boxW, top + boxH], [0, top + boxH], [0, top]]);
+  return polys;
+}
+
 export async function buildCutDxf(cfg) {
   const L = await computeLayout(cfg);
   const layers = []; // {name, polys: [[x,y]...]}
 
+  const info = ['FÄRG PER LAGER (mått i mm)'];
   const shadow = await buildShadowPolys(L, cfg);
   if (shadow) {
     layers.push({ name: 'SKUGGA', polys: shadow.map(p => [...p, p[0]]) });
+    info.push(`SKUGGA: ${cfg.shadowColor.name}${cfg.shadowSymbols === false ? ' (bara bakom texten)' : ''}`);
   }
 
   for (const p of L.placedTexts) {
@@ -314,15 +341,21 @@ export async function buildCutDxf(cfg) {
       polys = polys.map(poly => poly.map(([px, py]) => [px + xOff - k * py, py]));
     }
     layers.push({ name: `TEXT${p.idx + 1}`, polys });
+    info.push(`TEXT${p.idx + 1}: "${L.disp(p.t)}" – ${p.t.font.name} – ${p.t.color.name}`);
   }
 
+  let symNo = 0;
   for (const s of L.placedSymbols) {
     const data = symbolExportData(s.id);
     if (!data) continue;
+    const layer = `SYMBOL${++symNo}`;   // ett lager per symbol – de kan ha olika färg
+    const name = (SYMBOLS.find(x => x.id === s.id) || {}).name || s.id;
+    const col = symbolColorOf(s, cfg, L);
+    info.push(`${layer}: ${name} – ${data.flag ? 'flaggans egna färger' : (col ? col.name : 'ej angiven')}`);
     if (data.flag) {
       const polys = flagRects(s.cx, s.cy, s.size, data.flag)
         .map(r => [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h], [r.x, r.y]]);
-      layers.push({ name: 'SYMBOL', polys });
+      layers.push({ name: layer, polys });
     } else {
       const b = data.bounds;
       const k = s.size / b.h;
@@ -332,9 +365,11 @@ export async function buildCutDxf(cfg) {
       const subs = data.d.split(/(?=M)/).filter(v => v.trim());
       const polys = subs.map(sd =>
         sampleSubpath(sd, k).map(([px, py]) => [px * k + tx, py * k + ty]));
-      layers.push({ name: 'SYMBOL', polys });
+      layers.push({ name: layer, polys });
     }
   }
+
+  layers.push({ name: 'INFO', polys: await infoBoxPolys(info, L) });
 
   // DXF R12 – y-axeln pekar uppåt, så flippa
   const H = L.H;
