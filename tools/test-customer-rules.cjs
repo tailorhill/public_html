@@ -178,6 +178,37 @@ const assert = require('node:assert/strict');
   r.normalizeDesign(okSym);
   assert.equal(okSym.content.rows[0].els[1].color, 'silverglitter');
 
+  // ---- BioThane ställbart: fasta storleksintervall som i butiken ----
+  const bioStall = { ...base(), family: 'biothane', bioModel: 'stallbart', bioWidth: '25', sizeRange: null,
+    content: content([[T('LUNA')]]) };
+  assert.deepEqual(r.sizeOptions(bioStall).map(o => [o.id, o.surcharge]),
+    [['30-40', 0], ['35-45', 10], ['45-55', 10], ['custom', 30]]);
+  assert.match(r.sizeOptions(bioStall).at(-1).name, /max 10 cm ställbar del/);
+  r.normalizeDesign(bioStall);
+  assert.equal(bioStall.sizeRange, '30-40');                 // förval = första intervallet
+  assert.equal(r.selectedSize(bioStall).previewCm, 35);
+  // ingen storleksberoende teckengräns på BioThane (fältets vanliga tak gäller)
+  bioStall.content = content([[T('ABCDEFGHIJKLMNOP'), S('tass')]]);
+  assert.equal(r.validationErrors(bioStall).length, 0);
+  assert.equal(r.rowLimit(bioStall, 0), null);
+  assert.equal(r.textInputLimit(bioStall), 24);
+  // egen storlek kräver Övrig info
+  bioStall.sizeRange = 'custom';
+  assert.ok(r.validationErrors(bioStall).some(e => e.includes('Övrig')));
+  bioStall.extraInfo = '28–36 cm';
+  assert.equal(r.validationErrors(bioStall).length, 0);
+  // övriga BioThane-modeller har fortfarande inget intervallval
+  assert.equal(r.sizeOptions({ ...bioStall, bioModel: 'fast' }).length, 0);
+  assert.equal(r.sizeOptions({ ...bioStall, bioModel: 'halvstryp' }).length, 0);
+  // varukorgen hittar butikens alternativ för varje intervall
+  const bioShop = [{ uid: 11, name: '30-40 cm' }, { uid: 12, name: '35-45 cm' }, { uid: 13, name: '45-55 cm' },
+    { uid: 14, name: 'Egen storlek (ange storlek under "Övrig info",  max 10 cm ställbar del)' }];
+  for (const [range, uid] of [['30-40', 11], ['35-45', 12], ['45-55', 13], ['custom', 14]]) {
+    assert.equal(pickSizeRange(40, bioShop, range).uid, uid);
+  }
+  // delningslänken behåller BioThane-intervallet
+  assert.equal(decodeDesign(encodeDesign({ ...bioStall, sizeRange: '45-55' })).sr, '45-55');
+
   // ---- varukorg: exakta storleksintervall (oförändrat) ----
   const opts = [{ uid: 1, name: '25-30 cm' }, { uid: 2, name: '30–35 cm' }, { uid: 3, name: '25–35 cm +10 kr' }, { uid: 4, name: 'Egen storlek +30 kr' }];
   assert.equal(pickSizeRange(30, opts, '25-35').uid, 3);
@@ -190,5 +221,5 @@ const assert = require('node:assert/strict');
     assert.ok((await resolveOrder(1, { sizeCm: 30, sizeRange: '30-40' })).problems.length);
   } finally { global.fetch = fetchBefore; }
 
-  console.log('PASS: innehållsmodell – storlekar, teckengränser per rad, symboler som tecken, overlay-färger, skugga, v1-migrering, symbolfärg per symbol och cart-intervall.');
+  console.log('PASS: innehållsmodell – storlekar, teckengränser per rad, symboler som tecken, overlay-färger, skugga, v1-migrering, symbolfärg per symbol, BioThane-storlekar och cart-intervall.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

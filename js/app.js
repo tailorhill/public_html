@@ -268,6 +268,8 @@ function computePrice() {
     total += base;
     const model = byId(BIOTHANE.models, state.bioModel);
     if (model.surcharge) { rows.push([model.name, model.surcharge]); total += model.surcharge; }
+    const size = selectedSize(state);
+    if (size?.surcharge) { rows.push([`Storlek: ${size.name}`, size.surcharge]); total += size.surcharge; }
     const width = byId(BIOTHANE.widths, state.bioWidth);
     if (width.surcharge) { rows.push([`Bredd ${width.name}`, width.surcharge]); total += width.surcharge; }
     const hwf = byId(HARDWARE_FINISHES, state.hardware);
@@ -561,6 +563,9 @@ function refresh() {
       o => o.name + (o.surcharge ? ` (+${o.surcharge} kr)` : ''));
   }
   $('#customSizeNote').hidden = selectedSize(state)?.id !== 'custom';
+  $('#customSizeNote').textContent = state.family === 'biothane'
+    ? 'Skriv önskat storleksintervall under Övrig info. Den ställbara delen kan vara max 10 cm. Egen storlek kostar 30 kr extra.'
+    : 'Skriv önskat storleksintervall under Övrig info. Egen storlek kostar 30 kr extra.';
   $('#extraInfo').required = selectedSize(state)?.id === 'custom';
 
   // familj
@@ -674,7 +679,7 @@ function renderValidation() {
   const perRow = rowsOf().length > 1 ? ' per rad' : '';
   $('#sizeTextNote').textContent = size?.id === 'custom'
     ? 'Egen storlek har ingen teckengräns. Skriv önskat storleksintervall under Övrig info.'
-    : size
+    : size && size.limit !== null
       ? `${size.name}: max ${size.limit} tecken${perRow}, inklusive symboler. Varje symbol räknas som ett tecken. Mellanslag räknas också.`
       : 'För denna modell finns ingen storleksberoende teckengräns. Text och symboler anpassas till bandet i förhandsvisningen.';
   $('#designErrors').textContent = errors.join(' ');
@@ -682,7 +687,7 @@ function renderValidation() {
   const lim = textInputLimit(state);
   $('#textLimitNote').textContent = size?.id === 'custom'
     ? 'Egen storlek har ingen teckengräns. Ange önskat storleksintervall under Övrig info.'
-    : size
+    : size && size.limit !== null
     ? `Max ${size.limit} tecken inklusive symboler${perRow}. Rader (tecken+symboler): ${rowsOf().map(rowUsed).join(' / ')}. Du kan skriva högst ${lim} tecken till i detta fält.`
     : 'Texten görs alltid i stor storlek, anpassad till bandet.';
   const inp = $('#elTextInput');

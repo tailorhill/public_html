@@ -17,7 +17,17 @@ export const SIZE_OPTIONS = {
     '4': [option('35-45'), option('40-50', 10, 10), option('45-55', 20, 10), option('custom', 30, null)],
   },
 };
-export const sizeOptions = s => s.family === 'cotton' ? SIZE_OPTIONS[s.cottonModel]?.[s.cottonWidth] || [] : [];
+// BioThane ställbart: fasta storleksintervall som i butiken. BioThane har ingen
+// storleksberoende teckengräns (limit null), precis som övriga BioThane-modeller.
+export const BIOTHANE_SIZE_OPTIONS = {
+  stallbart: [
+    option('30-40', 0, null), option('35-45', 10, null), option('45-55', 10, null),
+    { ...option('custom', 30, null), name: 'Egen storlek (max 10 cm ställbar del)' },
+  ],
+};
+export const sizeOptions = s => s.family === 'cotton'
+  ? SIZE_OPTIONS[s.cottonModel]?.[s.cottonWidth] || []
+  : BIOTHANE_SIZE_OPTIONS[s.bioModel] || [];
 export const selectedSize = s => sizeOptions(s).find(o => o.id === s.sizeRange) || null;
 const color = id => TEXT_COLORS.find(c => c.id === id);
 
@@ -118,7 +128,9 @@ export function rowLimit(s, rowIndex) {
 
 // Hur många tecken till som får skrivas i ett givet textelement.
 export function textInputLimit(s, el = s.activeEl || { row: 0, i: 0 }) {
-  if (!selectedSize(s)) return 24;
+  const size = selectedSize(s);
+  // ingen storlek, eller storlek utan teckengräns (BioThane): vanligt fälttak
+  if (!size || (size.limit === null && size.id !== 'custom')) return 24;
   const limit = rowLimit(s, el.row);
   if (limit === null) return null;
   const row = rows(s)[el.row];
