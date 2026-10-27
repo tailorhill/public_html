@@ -1,4 +1,5 @@
 import { TEXT_COLORS, COTTON_MODELS } from './data.js';
+import { t } from './i18n.js';
 
 const option = (id, surcharge = 0, limit = 7) => ({
   id, name: id === 'custom' ? 'Egen storlek' : `${id.replace('-', '–')} cm`, surcharge, limit,
@@ -98,14 +99,14 @@ export function normalizeDesign(s) {
   rows(s).forEach((row, ri) => textEls(row).forEach(e => {
     if (!textColorAllowed(s, color(e.color), { row: ri })) {
       e.color = TEXT_COLORS.find(c => textColorAllowed(s, c, { row: ri })).id;
-      changes.push('En text fick en tillåten färg för den valda kombinationen.');
+      changes.push(t('rules.textColorFixed'));
     }
   }));
   // Varje symbol kan ha egen färg (saknas den följer symbolen textens färg).
   rows(s).forEach(row => symEls(row).forEach(e => {
     if (e.color && !symbolColorAllowed(s, color(e.color) || {})) {
       delete e.color;
-      changes.push('En symbol följer nu textens färg, eftersom den valda symbolfärgen inte går ihop med kombinationen.');
+      changes.push(t('rules.symbolFollows'));
     }
   }));
   return changes;
@@ -156,16 +157,16 @@ export function validationErrors(s) {
     if (limit === null) return;
     const used = rowUsed(row);
     if (used > limit) {
-      const label = rows(s).length > 1 ? `Rad ${i + 1}: ` : '';
-      errors.push(`${label}Vald storlek tillåter max ${limit} tecken inklusive symboler (${used} valda). Korta texten eller ta bort symboler.`);
+      const label = rows(s).length > 1 ? t('rules.rowLabel', { n: i + 1 }) : '';
+      errors.push(t('rules.tooMany', { label, limit, used }));
     }
   });
-  if (size?.id === 'custom' && !s.extraInfo.trim()) errors.push('Skriv önskat storleksintervall i Övrig info för egen storlek.');
+  if (size?.id === 'custom' && !s.extraInfo.trim()) errors.push(t('rules.customNeedsInfo'));
   rows(s).forEach((row, ri) => textEls(row).forEach(e => {
-    if (!textColorAllowed(s, color(e.color), { row: ri })) errors.push('Otillåten färg på en text.');
+    if (!textColorAllowed(s, color(e.color), { row: ri })) errors.push(t('rules.badTextColor'));
   }));
   rows(s).forEach(row => symEls(row).forEach(e => {
-    if (e.color && !symbolColorAllowed(s, color(e.color) || {})) errors.push('Otillåten färg på en symbol.');
+    if (e.color && !symbolColorAllowed(s, color(e.color) || {})) errors.push(t('rules.badSymbolColor'));
   }));
   return errors;
 }

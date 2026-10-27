@@ -9,12 +9,17 @@ import { libraryFont } from './font-library.js';
 import { drawSymbol, registerLibrarySymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
+import { t, tName, setLang, onLangChange, applyStatic } from './i18n.js';
 import {
   sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
   validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
   symbolColorAllowed, shadowColorAllowed, characterCounts, symbolCount, textInputLimit,
   canAddToRow, doubleText, rows as contentRows, textEls, symEls, rowUsed, rowLimit,
 } from './design-rules.js';
+
+// Översätt den statiska texten direkt, innan något hinner visas (t.ex.
+// välkomstdialogen) – appen väntar senare på typsnitt innan första renderingen.
+applyStatic(document);
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -250,30 +255,30 @@ function computePrice() {
     const useGlitter = state.fullGlitter && model.glitterPrices;
     const table = useGlitter ? model.glitterPrices : model.prices;
     const base = table[w];
-    rows.push([`${useGlitter ? 'Helglittrigt ' : ''}${model.name} ${byId(COTTON_WIDTHS, w).name}`, base]);
+    rows.push([`${useGlitter ? t('price.glitterPrefix') : ''}${tName(model.name)} ${tName(byId(COTTON_WIDTHS, w).name)}`, base]);
     total += base;
     const size = selectedSize(state);
-    if (size?.surcharge) { rows.push([`Storlek: ${size.name}`, size.surcharge]); total += size.surcharge; }
+    if (size?.surcharge) { rows.push([t('price.size', { name: tName(size.name) }), size.surcharge]); total += size.surcharge; }
     const lin = byId(linings, state.lining);
     if (lin && lin.leather) {
       const ls = LEATHER_SURCHARGE[w];
-      rows.push(['Äkta läder på fodret', ls]);
+      rows.push([t('price.leather'), ls]);
       total += ls;
     }
     const hwf = byId(HARDWARE_FINISHES, state.hardware);
-    if (hwf.surcharge) { rows.push([hwf.name, hwf.surcharge.cotton]); total += hwf.surcharge.cotton; }
+    if (hwf.surcharge) { rows.push([tName(hwf.name), hwf.surcharge.cotton]); total += hwf.surcharge.cotton; }
   } else {
     const base = state.fullGlitter ? BIOTHANE.glitterBasePrice : BIOTHANE.basePrice;
-    rows.push([`${state.fullGlitter ? 'Helglittrigt halsband' : 'Halsband'} i BioThane Beta®`, base]);
+    rows.push([t(state.fullGlitter ? 'price.bioGlitter' : 'price.bio'), base]);
     total += base;
     const model = byId(BIOTHANE.models, state.bioModel);
-    if (model.surcharge) { rows.push([model.name, model.surcharge]); total += model.surcharge; }
+    if (model.surcharge) { rows.push([tName(model.name), model.surcharge]); total += model.surcharge; }
     const size = selectedSize(state);
-    if (size?.surcharge) { rows.push([`Storlek: ${size.name}`, size.surcharge]); total += size.surcharge; }
+    if (size?.surcharge) { rows.push([t('price.size', { name: tName(size.name) }), size.surcharge]); total += size.surcharge; }
     const width = byId(BIOTHANE.widths, state.bioWidth);
-    if (width.surcharge) { rows.push([`Bredd ${width.name}`, width.surcharge]); total += width.surcharge; }
+    if (width.surcharge) { rows.push([t('price.width', { name: tName(width.name) }), width.surcharge]); total += width.surcharge; }
     const hwf = byId(HARDWARE_FINISHES, state.hardware);
-    if (hwf.surcharge) { rows.push([hwf.name, hwf.surcharge.biothane]); total += hwf.surcharge.biothane; }
+    if (hwf.surcharge) { rows.push([tName(hwf.name), hwf.surcharge.biothane]); total += hwf.surcharge.biothane; }
   }
   return { rows, total };
 }
@@ -365,7 +370,7 @@ function swatchGrid(container, list, getSel, onPick, opts = {}) {
     const disabled = opts.isDisabled ? opts.isDisabled(c) : false;
     const b = el('button', 'swatch' + (getSel() === c.id ? ' sel' : '') + (disabled ? ' dis' : ''));
     b.type = 'button';
-    b.title = c.name + (c.note ? ` – ${c.note}` : '');
+    b.title = tName(c.name) + (c.note ? ` – ${tName(c.note)}` : '');
     const preview = el('span', 'sw-preview');
     preview.setAttribute('aria-hidden', 'true');
     b.setAttribute('aria-pressed', String(getSel() === c.id));
@@ -384,13 +389,13 @@ function swatchGrid(container, list, getSel, onPick, opts = {}) {
     if (c.special) preview.classList.add('spec');
     b.disabled = disabled;
     b.addEventListener('click', () => { onPick(c.id); refresh(); });
-    const lbl = el('span', 'sw-name', c.name);
+    const lbl = el('span', 'sw-name', tName(c.name));
     b.append(preview, lbl);
     container.appendChild(b);
   }
 }
 
-function segmented(container, list, getSel, onPick, nameFn = x => x.name) {
+function segmented(container, list, getSel, onPick, nameFn = x => tName(x.name)) {
   container.innerHTML = '';
   for (const item of list) {
     const b = el('button', 'seg' + (getSel() === item.id ? ' sel' : ''), nameFn(item));
@@ -400,7 +405,7 @@ function segmented(container, list, getSel, onPick, nameFn = x => x.name) {
   }
 }
 
-function selectBox(container, list, getSel, onPick, nameFn = x => x.name) {
+function selectBox(container, list, getSel, onPick, nameFn = x => tName(x.name)) {
   container.innerHTML = '';
   const s = el('select');
   for (const item of list) {
@@ -433,9 +438,9 @@ function renderContentChips() {
         const sy = byId(SYMBOLS, e.id);
         drawSymbol(cv.getContext('2d'), e.id, 20, 20, sy && sy.flag ? 22 : 30, '#3a332b');
         chip.appendChild(cv);
-        chip.title = sy ? sy.name : e.id;
+        chip.title = sy ? tName(sy.name) : e.id;
       } else {
-        chip.textContent = e.text.trim() || 'text…';
+        chip.textContent = e.text.trim() || t('chip.empty');
       }
       chip.addEventListener('click', () => { state.activeEl = { row: ri, i }; refresh(); });
       strip.appendChild(chip);
@@ -460,7 +465,7 @@ function renderContentEditor() {
   $('#addRowBtn').style.display = rowsOf().length < MAX_ROWS ? '' : 'none';
   const activeRowLimit = rowLimit(state, state.activeEl?.row ?? 0);
   $('#rowLimitNote').textContent = (!canAdd && activeRowLimit !== null)
-    ? `Raden är full (max ${activeRowLimit} tecken inkl. symboler). Ta bort något för att lägga till mer.` : '';
+    ? t('row.full', { n: activeRowLimit }) : '';
 
   const active = activeElement();
   const ed = $('#elEditor');
@@ -489,7 +494,7 @@ function renderContentEditor() {
       prev.style.fontFamily = f.css; prev.style.fontWeight = f.weight;
       if (f.italic) prev.style.fontStyle = 'italic';
       b.appendChild(prev);
-      b.title = f.name + (f.caps ? ' (endast versaler)' : '');
+      b.title = f.name + (f.caps ? t('font.capsOnly') : '');
       b.addEventListener('click', () => { active.font = f.id; refresh(); });
       fg.appendChild(b);
     }
@@ -497,25 +502,21 @@ function renderContentEditor() {
     swatchGrid($('#colorSwT'), TEXT_COLORS, () => active.color,
       id => { active.color = id; }, { isDisabled: c => !textColorAllowed(c) });
     const first = byId(TEXT_COLORS, textEls(rowsOf()[0])[0]?.color || 'svart');
-    $('#textColorNote').textContent = doubleText(state)
-      ? (first.glitter
-        ? 'Främre raden ligger ovanpå den bakre. Eftersom bakre raden är glitter måste den främre också vara glitter – slätt material fäster inte på glitter.'
-        : 'Vid dubbeltext (ovanpå) fäster inte slätt material på glitter. Håll raderna slätt-på-slätt eller glitter-på-glitter.')
-      : (state.fullGlitter && glitterAvailable()
-        ? 'Hela bandet är i glittermaterial, så texten måste också väljas i en glittrig färg.'
-        : shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter
-        ? 'Texten ligger ovanpå en glittrig skugga och måste därför också vara i glitter.'
-        : 'Materialets vanliga färgval gäller.');
+    $('#textColorNote').textContent = t(doubleText(state)
+      ? (first.glitter ? 'tc.overlayGlitter' : 'tc.overlay')
+      : (state.fullGlitter && glitterAvailable() ? 'tc.fullGlitter'
+        : shadowEnabled(state) && byId(TEXT_COLORS, state.shadowColor).glitter ? 'tc.glitterShadow'
+        : 'tc.default'));
   } else {
     const symWrap = $('#symbolGrid');
     symWrap.innerHTML = '';
     for (const s of SYMBOLS) {
       const b = el('button', 'symopt' + (active.id === s.id ? ' sel' : ''));
-      b.type = 'button'; b.title = s.name;
+      b.type = 'button'; b.title = tName(s.name);
       const cv = document.createElement('canvas'); cv.width = cv.height = 64;
       drawSymbol(cv.getContext('2d'), s.id, 32, 32, s.flag ? 34 : 42, '#3a332b');
       b.appendChild(cv);
-      b.appendChild(el('span', 'option-name', s.name));
+      b.appendChild(el('span', 'option-name', tName(s.name)));
       b.setAttribute('aria-pressed', String(active.id === s.id));
       cv.setAttribute('aria-hidden', 'true');
       b.addEventListener('click', () => { active.id = s.id; refresh(); });
@@ -528,23 +529,21 @@ function renderContentEditor() {
     $('#flagNote').style.display = isFlag ? '' : 'none';
     if (!isFlag) {
       const followC = byId(TEXT_COLORS, symTextColorId(active)) || TEXT_COLORS[0];
-      swatchGrid($('#colorSwS'), [{ ...followC, id: '', name: 'Samma som texten' }, ...TEXT_COLORS],
+      swatchGrid($('#colorSwS'), [{ ...followC, id: '', name: t('sym.sameAsText') }, ...TEXT_COLORS],
         () => active.color || '',
         id => { if (id) active.color = id; else delete active.color; },
         { isDisabled: c => c.id !== '' && !symbolColorAllowed(state, c) });
-      $('#symbolColorNote').textContent = (state.fullGlitter && glitterAvailable())
-        ? 'Hela bandet är i glittermaterial, så symbolen måste också vara i en glittrig färg.'
-        : shadowEnabled(state) && state.shadowSymbols !== false && byId(TEXT_COLORS, state.shadowColor).glitter
-        ? 'Symbolen ligger ovanpå en glittrig skugga och måste därför också vara i glitter.'
-        : 'Välj "Samma som texten" eller en egen färg för just den här symbolen.';
+      $('#symbolColorNote').textContent = t((state.fullGlitter && glitterAvailable()) ? 'sc.fullGlitter'
+        : shadowEnabled(state) && state.shadowSymbols !== false && byId(TEXT_COLORS, state.shadowColor).glitter ? 'sc.glitterShadow'
+        : 'sc.default');
     }
   }
 
   const many = rowsOf().length > 1;
   $('#layoutBlock').style.display = many ? '' : 'none';
   if (many) {
-    const layouts = [{ id: 'stack', name: 'Staplade rader' }]
-      .concat(rowsOf().length === 2 ? [{ id: 'overlay', name: 'Ovanpå (dubbeltext)' }] : []);
+    const layouts = [{ id: 'stack', name: t('layout.stack') }]
+      .concat(rowsOf().length === 2 ? [{ id: 'overlay', name: t('layout.overlay') }] : []);
     if (!layouts.some(l => l.id === state.content.layout)) state.content.layout = 'stack';
     segmented($('#layoutSeg'), layouts, () => state.content.layout, id => { state.content.layout = id; });
     $('#dubbelPosRow').style.display = doubleText(state) ? '' : 'none';
@@ -560,12 +559,10 @@ function refresh() {
   $('#exactSizeRow').hidden = !!sizes.length;
   if (sizes.length) {
     selectBox($('#rangeSizeSelect'), sizes, () => state.sizeRange, id => { state.sizeRange = id; },
-      o => o.name + (o.surcharge ? ` (+${o.surcharge} kr)` : ''));
+      o => tName(o.name) + (o.surcharge ? t('plus', { n: o.surcharge }) : ''));
   }
   $('#customSizeNote').hidden = selectedSize(state)?.id !== 'custom';
-  $('#customSizeNote').textContent = state.family === 'biothane'
-    ? 'Skriv önskat storleksintervall under Övrig info. Den ställbara delen kan vara max 10 cm. Egen storlek kostar 30 kr extra.'
-    : 'Skriv önskat storleksintervall under Övrig info. Egen storlek kostar 30 kr extra.';
+  $('#customSizeNote').textContent = t(state.family === 'biothane' ? 'customSize.bio' : 'customSize.cotton');
   $('#extraInfo').required = selectedSize(state)?.id === 'custom';
 
   // familj
@@ -595,8 +592,7 @@ function refresh() {
     ensureWebbing();
     const available = WEBBING_COLORS.filter(c => c.widths.includes(state.cottonWidth));
     $('#bandWidthNote').textContent =
-      `Bomullsbandet är ${byId(COTTON_WIDTHS, state.cottonWidth).bandWidth} brett – fodret utgör resten av bredden. ` +
-      `${available.length} färger finns i denna bredd.`;
+      t('bandWidthNote', { w: tName(byId(COTTON_WIDTHS, state.cottonWidth).bandWidth), n: available.length });
     swatchGrid($('#webbingSwatches'), available, () => state.webbing, id => { state.webbing = id; },
       { image: c => `band-thumb/${c.id}.webp` });
 
@@ -613,16 +609,16 @@ function refresh() {
     chip.style.backgroundColor = lin.hex;
     chip.style.backgroundImage = `url('foder-thumb/${lin.id}.webp')`;
     chip.style.backgroundSize = 'cover'; chip.style.backgroundPosition = 'center';
-    $('#liningName').textContent = `${lin.name} · ${linGroup}`;
+    $('#liningName').textContent = `${tName(lin.name)} · ${tName(linGroup)}`;
     $('#leatherNote').style.display = lin.leather ? '' : 'none';
   } else {
     segmented($('#bioModelSeg'), BIOTHANE.models, () => state.bioModel, id => { state.bioModel = id; },
-      m => m.name + (m.surcharge ? ` (+${m.surcharge} kr)` : ''));
+      m => tName(m.name) + (m.surcharge ? t('plus', { n: m.surcharge }) : ''));
     segmented($('#bioWidthSeg'), BIOTHANE.widths, () => state.bioWidth, id => {
       state.bioWidth = id;
       const c = byId(BIOTHANE_COLORS, state.biothane);
       if (isBioColorDisabled(c)) state.biothane = 'svart';
-    }, w => w.name + (w.surcharge ? ` (+${w.surcharge} kr)` : ''));
+    }, w => tName(w.name) + (w.surcharge ? t('plus', { n: w.surcharge }) : ''));
     swatchGrid($('#bioSwatches'), BIOTHANE_COLORS, () => state.biothane,
       id => { state.biothane = id; },
       { isDisabled: isBioColorDisabled });
@@ -644,29 +640,25 @@ function refresh() {
   const shadowAvailable = state.family === 'cotton' && !isDouble();
   $('#shadowRow').style.display = shadowAvailable ? '' : 'none';
   $('#noShadowNote').style.display = shadowAvailable ? 'none' : '';
-  $('#noShadowNote').textContent = state.family === 'biothane'
-    ? 'Skugga finns inte på BioThane.' : 'Skugga går inte att kombinera med dubbeltext.';
+  $('#noShadowNote').textContent = t(state.family === 'biothane' ? 'noShadow.bio' : 'noShadow.double');
   $('#shadowToggle').checked = state.shadow;
   $('#shadowColorRow').style.display = shadowEnabled(state) ? '' : 'none';
   if (shadowEnabled(state)) {
     swatchGrid($('#shadowSwatches'), TEXT_COLORS.filter(shadowColorAllowed),
       () => state.shadowColor, id => { state.shadowColor = id; });
-    segmented($('#shadowScope'), [{ id: 'text', name: 'Bara text' }, { id: 'all', name: 'Text och symboler' }],
+    segmented($('#shadowScope'), [{ id: 'text', name: t('shadow.textOnly') }, { id: 'all', name: t('shadow.all') }],
       () => state.shadowSymbols ? 'all' : 'text', id => { state.shadowSymbols = id === 'all'; });
   }
 
   // beslag
   swatchGrid($('#hwSwatches'), HARDWARE_FINISHES.map(h => ({
     ...h,
-    name: h.name + (h.surcharge ? ` (+${state.family === 'cotton' ? h.surcharge.cotton : h.surcharge.biothane} kr)` : ''),
+    name: tName(h.name) + (h.surcharge ? t('plus', { n: state.family === 'cotton' ? h.surcharge.cotton : h.surcharge.biothane }) : ''),
   })), () => state.hardware, id => { state.hardware = id; });
-  $('#buckleNote').textContent = modelKind() === 'halvstryp'
-    ? 'Halvstryp med två D-ringar och genomgående band. Ringar i valt utförande.'
-    : modelKind() === 'justerbart'
-    ? 'Justerbart halvstryp med martingale-ögla. Beslag i valt utförande.'
-    : state.family === 'cotton' || modelKind() === 'fast'
-    ? 'Klickspänne: svart plast. D-ring i valt utförande.'
-    : 'Metallspänne, D-ringar och nitar i valt utförande.';
+  $('#buckleNote').textContent = t(modelKind() === 'halvstryp' ? 'buckle.halvstryp'
+    : modelKind() === 'justerbart' ? 'buckle.justerbart'
+    : state.family === 'cotton' || modelKind() === 'fast' ? 'buckle.cotton'
+    : 'buckle.bio');
 
   // sammanfattning
   renderSummary();
@@ -675,23 +667,24 @@ function refresh() {
 
 function renderValidation() {
   const errors = validationErrors(state), size = selectedSize(state);
-  if (allTextEls().some(e => unavailableFonts.has(e.font))) errors.push('Ett valt typsnitt kunde inte laddas. Ladda om sidan för att försöka igen, eller välj ett annat typsnitt.');
-  const perRow = rowsOf().length > 1 ? ' per rad' : '';
+  if (allTextEls().some(e => unavailableFonts.has(e.font))) errors.push(t('err.fontLoad'));
+  const perRow = rowsOf().length > 1 ? t('perRow') : '';
   $('#sizeTextNote').textContent = size?.id === 'custom'
-    ? 'Egen storlek har ingen teckengräns. Skriv önskat storleksintervall under Övrig info.'
+    ? t('size.customNoLimit')
     : size && size.limit !== null
-      ? `${size.name}: max ${size.limit} tecken${perRow}, inklusive symboler. Varje symbol räknas som ett tecken. Mellanslag räknas också.`
-      : 'För denna modell finns ingen storleksberoende teckengräns. Text och symboler anpassas till bandet i förhandsvisningen.';
+      ? t('size.limit', { name: tName(size.name), n: size.limit, perRow })
+      : t('size.noLimit');
   $('#designErrors').textContent = errors.join(' ');
   $('#designErrors').hidden = !errors.length;
   const lim = textInputLimit(state);
   $('#textLimitNote').textContent = size?.id === 'custom'
-    ? 'Egen storlek har ingen teckengräns. Ange önskat storleksintervall under Övrig info.'
+    ? t('tl.customNoLimit')
     : size && size.limit !== null
-    ? `Max ${size.limit} tecken inklusive symboler${perRow}. Rader (tecken+symboler): ${rowsOf().map(rowUsed).join(' / ')}. Du kan skriva högst ${lim} tecken till i detta fält.`
-    : 'Texten görs alltid i stor storlek, anpassad till bandet.';
+    ? t('tl.limit', { n: size.limit, perRow, rows: rowsOf().map(rowUsed).join(' / '), left: lim })
+    : t('tl.noLimit');
   const inp = $('#elTextInput');
-  if (inp) inp.setAttribute('aria-invalid', String(errors.some(e => e.includes('tecken'))));
+  const overLimit = rowsOf().some((r, i) => { const l = rowLimit(state, i); return l !== null && rowUsed(r) > l; });
+  if (inp) inp.setAttribute('aria-invalid', String(overLimit));
   for (const id of ['cartBtn', 'copyBtn', 'mailBtn', 'svgBtn', 'dxfBtn']) { const b = $('#' + id); if (b) b.disabled = !!errors.length; }
 }
 
@@ -704,10 +697,10 @@ function renderSummary() {
   for (const [label, price] of rows) {
     const tr = el('tr');
     tr.appendChild(el('td', null, label));
-    tr.appendChild(el('td', 'pr', price >= 0 ? `${price} kr` : `${price} kr`));
+    tr.appendChild(el('td', 'pr', t('kr', { n: price })));
     tbody.appendChild(tr);
   }
-  $('#priceTotal').textContent = `${total} kr`;
+  $('#priceTotal').textContent = t('kr', { n: total });
 
   const url = state.family === 'cotton'
     ? PRODUCT_URLS.cotton[state.cottonWidth]
@@ -722,28 +715,28 @@ function renderSelectionLegend() {
   const width = currentWidthCm();
   const band = byId(cotton ? WEBBING_COLORS : BIOTHANE_COLORS, cotton ? state.webbing : state.biothane);
   const title = $('#selectionLegendTitle');
-  title.textContent = `Dina val · ${cotton ? 'Bomull' : 'BioThane'} · ${width} cm · ${band.name}`;
+  title.textContent = t('lg.title', { family: t(cotton ? 'lg.cotton' : 'lg.bio'), w: width, band: tName(band.name) });
   if (cotton) {
     const material = LINING_GROUPS[liningGroupIndex(state.lining)].group.replace(/ \(.*\)/, '');
-    title.appendChild(el('span', 'legend-lining', `Foder: ${material} · ${byId(linings, state.lining).name}`));
+    title.appendChild(el('span', 'legend-lining', t('lg.lining', { m: tName(material), name: tName(byId(linings, state.lining).name) })));
   }
   const choices = [
-    ['Modell', byId(cotton ? COTTON_MODELS : BIOTHANE.models, cotton ? state.cottonModel : state.bioModel).name],
-    ['Storlek', sizeDescription(state)], ['Band', band.name],
+    [t('lg.model'), tName(byId(cotton ? COTTON_MODELS : BIOTHANE.models, cotton ? state.cottonModel : state.bioModel).name)],
+    [t('lg.size'), tName(sizeDescription(state))], [t('lg.band'), tName(band.name)],
   ];
   if (cotton) {
     const lining = byId(linings, state.lining);
     const material = LINING_GROUPS[liningGroupIndex(state.lining)].group.replace(/ \(.*\)/, '');
-    choices.push(['Fodermaterial', material], ['Foderfärg / mönster', lining.name]);
+    choices.push([t('lg.liningMaterial'), tName(material)], [t('lg.liningColor'), tName(lining.name)]);
   }
-  if (state.fullGlitter) choices.push(['Helglitter', colorName(state.glitterColor)]);
+  if (state.fullGlitter) choices.push([t('lg.fullGlitter'), uiColor(state.glitterColor)]);
   rowsOf().forEach((row, i) => {
-    choices.push([`Rad ${i + 1}`, row.els.map(e => e.t === 'sym' ? symLabel(e.id)
-      : `${e.text || '(tom text)'} · ${fontLabel(e.font)} · ${colorName(e.color)}`).join(' / ')]);
+    choices.push([t('lg.row', { n: i + 1 }), row.els.map(e => e.t === 'sym' ? uiSym(e.id)
+      : `${e.text || t('lg.emptyText')} · ${uiFont(e.font)} · ${uiColor(e.color)}`).join(' / ')]);
   });
-  if (allSymEls().length) choices.push(['Symbolfärg', symbolColorText()]);
-  if (shadowEnabled(state)) choices.push(['Skugga', `${colorName(state.shadowColor)} · ${state.shadowSymbols ? 'text och symboler' : 'bara text'}`]);
-  choices.push(['Beslag', byId(HARDWARE_FINISHES, state.hardware).name]);
+  if (allSymEls().length) choices.push([t('lg.symbolColor'), uiSymbolColorText()]);
+  if (shadowEnabled(state)) choices.push([t('lg.shadow'), `${uiColor(state.shadowColor)} · ${t(state.shadowSymbols ? 'lg.shadowAll' : 'lg.shadowText')}`]);
+  choices.push([t('lg.hardware'), tName(byId(HARDWARE_FINISHES, state.hardware).name)]);
   const list = $('#selectionLegendItems'); list.replaceChildren();
   for (const [name, value] of choices) list.append(el('dt', null, name), el('dd', null, value));
 }
@@ -800,6 +793,17 @@ function perSym(pick) {
   if (!syms.length) return 'Flaggornas egna färger';
   const vals = syms.map(pick);
   return new Set(vals).size === 1 ? vals[0] : syms.map((e, i) => `${symName(e.id)}: ${vals[i]}`).join(', ');
+}
+// Gränssnittets varianter av namnen ovan (översätts). Ordern till butiken
+// använder fortsatt de svenska (symbolColorText, fontLabel, symLabel …).
+const uiColor = id => tName(colorName(id));
+const uiSym = id => isLibSym(id) ? `${symName(id)} (${t('lg.searchedSymbol')})` : tName(symName(id));
+const uiFont = id => isLibFont(id) ? `${fontName(id)} (Google Fonts)` : fontName(id);
+function uiSymbolColorText() {
+  const syms = colorSyms();
+  if (syms.every(e => !e.color)) return t('sym.sameAsText');
+  const vals = syms.map(e => e.color ? uiColor(e.color) : `${t('sym.sameAsText')} (${uiColor(symTextColorId(e))})`);
+  return new Set(vals).size === 1 ? vals[0] : syms.map((e, i) => `${uiSym(e.id)}: ${vals[i]}`).join(', ');
 }
 const symbolColorText = () => colorSyms().every(e => !e.color)
   ? 'Samma som texten'
@@ -949,14 +953,13 @@ async function handleAddToCart() {
   const glitter = state.fullGlitter && glitterAvailable();
   const uid = cart.articleUidFor(state, glitter);
   if (!uid) {
-    alert('Den här produktvarianten är inte kopplad till varukorgen än. ' +
-      'Använd "Kopiera beställningstext" så länge, eller välj en annan modell/bredd.');
+    alert(t('cart.notLinked'));
     return;
   }
   const btn = $('#cartBtn');
   const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Förbereder…';
+  btn.textContent = t('cart.preparing');
   try {
     // Kort designlänk (faller tillbaka på full länk om servern inte svarar),
     // sen resolva designen mot artikelns riktiga val och validera INNAN redirect.
@@ -966,18 +969,15 @@ async function handleAddToCart() {
     if (problems.length) {
       btn.disabled = false;
       btn.textContent = label;
-      alert('Några val går inte att beställa för just den här modellen/bredden:\n\n' +
-        problems.map(p => '• ' + p).join('\n') +
-        '\n\nÄndra dem i designen så lägger vi halsbandet i varukorgen.');
+      alert(t('cart.problems', { list: problems.map(p => '• ' + p).join('\n') }));
       return;
     }
-    btn.textContent = 'Går till butiken…';
+    btn.textContent = t('cart.going');
     location.href = cart.cartUrl(uid, params, design.comment);
   } catch (err) {
     btn.disabled = false;
     btn.textContent = label;
-    alert('Kunde inte nå butiken just nu (' + (err && err.message) + '). ' +
-      'Försök igen, eller använd "Kopiera beställningstext".');
+    alert(t('cart.failed', { msg: err && err.message }));
   }
 }
 
@@ -1211,13 +1211,13 @@ $('#shareBtn').addEventListener('click', async () => {
   const url = designUrl();
   try {
     await navigator.clipboard.writeText(url);
-    $('#shareBtn').textContent = '✓ Länk kopierad!';
+    $('#shareBtn').textContent = t('share.copied');
   } catch {
     const ta = el('textarea'); ta.value = url; document.body.appendChild(ta);
     ta.select(); document.execCommand('copy'); ta.remove();
-    $('#shareBtn').textContent = '✓ Länk kopierad!';
+    $('#shareBtn').textContent = t('share.copied');
   }
-  setTimeout(() => { $('#shareBtn').textContent = '💾 Spara designen'; }, 2000);
+  setTimeout(() => { $('#shareBtn').textContent = t('btn.share'); }, 2000);
 });
 
 const openLibrary = createLibraryPicker(async (kind, item) => {
@@ -1279,6 +1279,12 @@ for (const f of FONTS) {
     } catch { /* ignorera trasigt typsnitt */ }
   }
 }
+
+// Språk: statisk text före första renderingen; väljaren byter direkt och
+// behåller designen (allt dynamiskt ritas om av refresh()).
+applyStatic(document);
+document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+onLangChange(() => refresh());
 
 refresh();
 // rendera om när typsnitten laddats (debouncat – loadingdone kan avfyras

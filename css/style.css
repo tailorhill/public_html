@@ -357,6 +357,12 @@ body.supplier .admin-only { display: block; }
 body.supplier .top-actions .admin-only { display: inline-block; }
 .seg.add { flex: 0 0 auto; font-weight: 700; }
 .top-actions .btn { width: auto; }
+.top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+/* språkväljare: svenska / engelska */
+.lang-switch { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; padding: 2px; background: #faf8f4; }
+.lang-btn { border: 0; background: transparent; font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; cursor: pointer; color: var(--ink); }
+.lang-btn:hover { color: var(--accent); }
+.lang-btn.sel { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 
 /* ---------- dialog ---------- */
 dialog {
