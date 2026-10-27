@@ -47,6 +47,11 @@ export function setLang(l) {
   if (!LANGS.includes(l) || l === lang) return;
   lang = l;
   try { localStorage.setItem(STORE, l); } catch { /* ok */ }
+  // ?lang= vinner vid omladdning – håll den i takt med valet
+  try {
+    const u = new URL(location.href);
+    if (u.searchParams.has('lang')) { u.searchParams.set('lang', l); history.replaceState(history.state, '', u); }
+  } catch { /* ok */ }
   applyStatic();
   listeners.forEach(fn => fn(l));
 }
@@ -166,7 +171,7 @@ export const DICT = {
     'size.limit': '{name}: max {n} tecken{perRow}, inklusive symboler. Varje symbol räknas som ett tecken. Mellanslag räknas också.',
     'size.noLimit': 'För denna modell finns ingen storleksberoende teckengräns. Text och symboler anpassas till bandet i förhandsvisningen.',
     'tl.customNoLimit': 'Egen storlek har ingen teckengräns. Ange önskat storleksintervall under Övrig info.',
-    'tl.limit': 'Max {n} tecken inklusive symboler{perRow}. Rader (tecken+symboler): {rows}. Du kan skriva högst {left} tecken till i detta fält.',
+    'tl.limit': 'Max {n} tecken inklusive symboler{perRow}. Rader (tecken+symboler): {rows}. Detta fält får innehålla högst {max} tecken.',
     'tl.noLimit': 'Texten görs alltid i stor storlek, anpassad till bandet.',
     'lg.title': 'Dina val · {family} · {w} cm · {band}',
     'lg.cotton': 'Bomull',
@@ -226,6 +231,10 @@ export const DICT = {
     'lib.unreachableLib': 'Biblioteket kunde inte nås. Försök igen.',
     'lib.retry': 'Försök igen',
     'lib.fontFetchFailed': 'Kunde inte hämta typsnittet. Försök igen.',
+    'font.catalogFailed': 'Typsnittskatalogen kunde inte laddas.',
+    'font.missing': 'Typsnittet saknas i biblioteket.',
+    'font.unknown': 'Okänt typsnitt.',
+    'font.fetchFailed': 'Typsnittet kunde inte hämtas. Kontrollera anslutningen och försök igen.',
   },
   en: {
     'doc.title': 'Design your collar – 3D tool',
@@ -340,7 +349,7 @@ export const DICT = {
     'size.limit': '{name}: max {n} characters{perRow}, including symbols. Each symbol counts as one character. Spaces count too.',
     'size.noLimit': 'This model has no size-dependent character limit. Text and symbols are fitted to the collar in the preview.',
     'tl.customNoLimit': 'Custom size has no character limit. Enter the size range you want under Other info.',
-    'tl.limit': 'Max {n} characters including symbols{perRow}. Rows (characters+symbols): {rows}. You can type at most {left} more characters in this field.',
+    'tl.limit': 'Max {n} characters including symbols{perRow}. Rows (characters+symbols): {rows}. This field can hold at most {max} characters.',
     'tl.noLimit': 'The text is always made large, fitted to the collar.',
     'lg.title': 'Your choices · {family} · {w} cm · {band}',
     'lg.cotton': 'Cotton',
@@ -400,6 +409,10 @@ export const DICT = {
     'lib.unreachableLib': 'The library could not be reached. Please try again.',
     'lib.retry': 'Try again',
     'lib.fontFetchFailed': 'Could not fetch the font. Please try again.',
+    'font.catalogFailed': 'The font catalogue could not be loaded.',
+    'font.missing': 'The font is not in the library.',
+    'font.unknown': 'Unknown font.',
+    'font.fetchFailed': 'The font could not be fetched. Check your connection and try again.',
   },
 };
 

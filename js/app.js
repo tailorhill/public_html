@@ -9,7 +9,7 @@ import { libraryFont } from './font-library.js';
 import { drawSymbol, registerLibrarySymbol } from './symbols.js';
 import { encodeDesign, decodeDesign } from './share.js';
 import * as cart from './cart.js';
-import { t, tName, setLang, onLangChange, applyStatic } from './i18n.js';
+import { t, tName, getLang, setLang, onLangChange, applyStatic } from './i18n.js';
 import {
   sizeOptions, selectedSize, sizeDescription, previewCircumference, normalizeDesign,
   validationErrors, shadowEnabled, textColorAllowed as allowedTextColor,
@@ -150,8 +150,10 @@ const firstAllowedTextColor = row => (TEXT_COLORS.find(c => allowedTextColor(sta
 const newTextEl = row => ({ t: 'text', text: '', font: 'avenir', color: firstAllowedTextColor(row) });
 
 // ------------------------------------------------ designlänk (#d=...)
+// Kundlänkar bär språket så att mottagaren ser samma språk; leverantörsvyn
+// (Valley Dogs) följer leverantörens eget språkval.
 function designUrl(forSupplier) {
-  const q = forSupplier ? '?supplier=1' : '';
+  const q = forSupplier ? '?supplier=1' : `?lang=${getLang()}`;
   return location.origin + location.pathname + q + '#d=' + encodeDesign(state);
 }
 
@@ -680,7 +682,7 @@ function renderValidation() {
   $('#textLimitNote').textContent = size?.id === 'custom'
     ? t('tl.customNoLimit')
     : size && size.limit !== null
-    ? t('tl.limit', { n: size.limit, perRow, rows: rowsOf().map(rowUsed).join(' / '), left: lim })
+    ? t('tl.limit', { n: size.limit, perRow, rows: rowsOf().map(rowUsed).join(' / '), max: lim })
     : t('tl.noLimit');
   const inp = $('#elTextInput');
   const overLimit = rowsOf().some((r, i) => { const l = rowLimit(state, i); return l !== null && rowUsed(r) > l; });

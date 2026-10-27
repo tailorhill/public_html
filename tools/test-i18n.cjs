@@ -42,7 +42,7 @@ const path = require('node:path');
   const used = new Set();
   for (const m of html.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)) used.add(m[1]);
   for (const m of html.matchAll(/data-i18n-attr="([^"]+)"/g)) m[1].split(';').forEach(p => used.add(p.split(':')[1].trim()));
-  for (const f of ['app.js', 'design-rules.js', 'library-picker.js']) {
+  for (const f of ['app.js', 'design-rules.js', 'library-picker.js', 'font-library.js']) {
     const js = fs.readFileSync(path.join(root, 'js', f), 'utf8');
     for (const m of js.matchAll(/\bt\('([\w.]+)'/g)) used.add(m[1]);
   }
@@ -63,6 +63,20 @@ const path = require('node:path');
   assert.equal(tName('Okänt nytt material'), 'Okänt nytt material');   // okänt → svenska
   assert.equal(t('finns.inte'), 'finns.inte');                          // okänd nyckel → nyckeln
   setLang('sv');
+
+  // ---- språkbyte skriver om ?lang= så att omladdning behåller valet ----
+  const urls = [];
+  globalThis.location = { href: 'http://x/?lang=en#d=abc' };
+  globalThis.history = { state: null, replaceState: (st, _, u) => urls.push(String(u)) };
+  setLang('en');
+  assert.deepEqual(urls, ['http://x/?lang=en#d=abc']);
+  globalThis.location = { href: 'http://x/?lang=en#d=abc' };
+  setLang('sv');
+  assert.equal(urls.at(-1), 'http://x/?lang=sv#d=abc');               // designen (#d=) behålls
+  globalThis.location = { href: 'http://x/#d=abc' };
+  setLang('en'); setLang('sv');
+  assert.equal(urls.length, 2);                                        // utan ?lang= rörs adressen inte
+  delete globalThis.location; delete globalThis.history;
 
   console.log(`PASS: i18n – språkdetektering, ${sv.length} nycklar på båda språken, ${used.size} använda nycklar, katalognamn.`);
 })().catch(e => { console.error(e); process.exitCode = 1; });
